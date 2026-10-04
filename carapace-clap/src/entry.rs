@@ -16,6 +16,9 @@ pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<
 }
 
 /// Run completion for the given shell and word list, returning formatted output.
+///
+/// The shared shell dispatch applies prefix filtering, flag merging,
+/// message integration, nospace propagation and sorting.
 pub fn complete_output(
     factory: impl Fn() -> clap::Command,
     shell: Shell,
@@ -25,16 +28,7 @@ pub fn complete_output(
     let model = crate::to_model(&mut cmd);
     let completion = carapace_core::traverse(&model, words.to_vec());
     let invoked = completion.action.invoke(&completion.context);
-
-    // shell.Value post-processing: filter by current value, then sort
-    let mut values: Vec<carapace_core::RawValue> = invoked
-        .values
-        .into_iter()
-        .filter(|value| value.value.starts_with(&completion.context.value))
-        .collect();
-    values.sort_by(carapace_core::value::by_display);
-
-    shell.value(&completion.context.value, &invoked.meta, &values)
+    shell.value(&completion.context.value, &invoked.meta, &invoked.values)
 }
 
 /// Generate the shell integration snippet for the command.

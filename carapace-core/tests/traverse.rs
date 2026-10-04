@@ -75,10 +75,6 @@ fn complete(args: &[&str]) -> Vec<String> {
     values
 }
 
-fn complete_prefixed(args: &[&str]) -> Vec<String> {
-    complete(args)
-}
-
 #[test]
 fn completes_positionals() {
     assert_eq!(complete(&[]), vec!["build", "t1", "t2", "test"]);

@@ -5,11 +5,13 @@
 //! consumed by the traversal engine.
 
 mod completer;
+mod entry;
 mod convert;
 mod integration;
 
 pub use completer::{ArgCompleter, CommandCompleter};
 pub use convert::to_model;
+pub use entry::{complete, complete_output, snippet};
 pub use integration::Gen;
 
 /// Attach a completion action to the value(s) of the flag or positional

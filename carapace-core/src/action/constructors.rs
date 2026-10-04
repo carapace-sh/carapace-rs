@@ -75,7 +75,7 @@ impl Action {
     /// Complete directories in the current (or context) directory.
     pub fn directories() -> Self {
         Self::callback(|c| {
-            let action = complete_path(&c, |path| path.is_dir());
+            let action = complete_path(c, |path| path.is_dir());
             match action {
                 Some(action) => action.style("carapace.Value=blue"),
                 None => Self::message("no matches"),
@@ -87,11 +87,15 @@ impl Action {
     pub fn files(suffixes: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let suffixes: Vec<String> = suffixes.into_iter().map(Into::into).collect();
         Self::callback(move |c| {
-            let action = complete_path(&c, |path| {
+            let action = complete_path(c, |path| {
                 suffixes.is_empty()
-                    || suffixes
-                        .iter()
-                        .any(|suffix| c.value.to_ascii_lowercase().ends_with(&suffix.to_ascii_lowercase()) || path.extension().map(|ext| format!(".{}", ext.to_string_lossy())) == Some(suffix.clone()))
+                    || suffixes.iter().any(|suffix| {
+                        let name = path
+                            .file_name()
+                            .map(|name| name.to_string_lossy().into_owned())
+                            .unwrap_or_default();
+                        name.to_ascii_lowercase().ends_with(&suffix.to_ascii_lowercase())
+                    })
             });
             match action {
                 Some(action) => action,

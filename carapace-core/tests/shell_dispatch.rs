@@ -384,3 +384,20 @@ fn tcsh_common_prefix_collapse() {
     let output = Shell::Tcsh.value("o", &Meta::default(), &values);
     assert_eq!(output, "on");
 }
+
+#[test]
+fn files_suffix_filters_candidate_names() {
+    let dir = std::env::temp_dir().join("carapace-files-test");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("readme.md"), "").unwrap();
+    std::fs::write(dir.join("script.sh"), "").unwrap();
+    let action = Action::files([".sh"]);
+    let invoked = action.invoke(&Context::default().dir(&dir).value(""));
+    let names: Vec<String> = invoked
+        .values
+        .iter()
+        .map(|value| value.value.rsplit('/').next().unwrap().to_owned())
+        .collect();
+    assert_eq!(names, vec!["script.sh"]);
+    std::fs::remove_dir_all(&dir).ok();
+}

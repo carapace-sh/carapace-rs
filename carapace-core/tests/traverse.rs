@@ -190,3 +190,24 @@ fn context_args_track_positionals() {
     let completion = traverse(&app(), vec!["t1".to_string(), "r1".into(), "".into()]);
     assert_eq!(completion.context.args, vec!["t1", "r1"]);
 }
+
+#[test]
+fn subcommand_recursion_ignores_completed_value() {
+    // "app build xyz<TAB>" completes the empty word inside `build`,
+    // not the value "xyz" itself
+    assert_eq!(complete(&["build", "xyz"]), vec!["bin", "lib"]);
+    // partial word equal to the subcommand name completes commands/positionals
+    assert_eq!(complete(&["build"]), vec!["build", "t1", "t2", "test"]);
+}
+
+#[test]
+fn fixed_nargs_consume_flag_like_values() {
+    // pflag consumes the next argument unconditionally for fixed nargs
+    let app = app();
+    let parsed = carapace_core::traverse::parse::parse(
+        &app,
+        &["--output".to_string(), "--flaglike".to_string()],
+    );
+    assert_eq!(parsed.flags, vec![("output".to_string(), vec!["--flaglike".to_string()])]);
+    assert!(parsed.positionals.is_empty());
+}

@@ -4,7 +4,7 @@
 //! normalized [`Command`](crate::model::Command) model.
 
 mod lookup;
-mod parse;
+pub mod parse;
 
 use crate::action::merge_all;
 use crate::context::Context;
@@ -63,9 +63,11 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
         }
 
         if let Some(subcommand) = cmd.lookup_subcommand(&arg) {
+            // recurse with everything after the subcommand, including the
+            // value being completed as the last word (Go passes args[i+1:])
             let parsed = parse::parse(cmd, &in_args);
             context.args = parsed.positionals;
-            return traverse_command(subcommand, context.args_of_rest(&args, &arg), Vec::new());
+            return traverse_command(subcommand, args[index + 1..].to_vec(), Vec::new());
         }
 
         in_args.push(arg.clone());
@@ -165,16 +167,6 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
     Completion {
         action: positional,
         context,
-    }
-}
-
-impl Context {
-    /// Arguments following `arg` in the original word list.
-    fn args_of_rest(&self, args: &[String], arg: &str) -> Vec<String> {
-        match args.iter().position(|a| a == arg) {
-            Some(index) => args[index + 1..].to_vec(),
-            None => Vec::new(),
-        }
     }
 }
 

@@ -232,12 +232,13 @@ pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) ->
         .map(|(tag, displays, vals)| format!("{tag}\u{3}{}\u{3}{}", displays.join("\n"), vals.join("\n")))
         .collect();
 
+    let tag_groups = format!("{}\u{2}", blocks.join("\u{2}"));
     format!(
         "{}\u{1}{}\u{1}{}\u{1}{}\u{1}",
         zstyles(values),
         message(meta),
         false,
-        format!("{}\u{2}", blocks.join("\u{2}"))
+        tag_groups
     )
 }
 

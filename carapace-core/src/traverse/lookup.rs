@@ -108,7 +108,7 @@ fn lookup_shorthand_series(cmd: &Command, arg: &str, prefix: char) -> Option<Mat
                 return Some(MatchedFlag {
                     flag: flag.clone(),
                     arg_prefix: format!("{consumed}="),
-                    args: vec![rest[1..].to_owned()],
+                    args: vec![rest.strip_prefix('=').unwrap_or(&rest).to_owned()],
                 });
             }
             continue;
@@ -130,7 +130,7 @@ fn lookup_shorthand_series(cmd: &Command, arg: &str, prefix: char) -> Option<Mat
             return Some(MatchedFlag {
                 flag: flag.clone(),
                 arg_prefix: format!("{consumed}="),
-                args: vec![rest[1..].to_owned()],
+                args: vec![rest.strip_prefix('=').unwrap_or(&rest).to_owned()],
             });
         }
         let attached_allowed = flag.argument_style.accepts_attached

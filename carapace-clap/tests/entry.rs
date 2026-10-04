@@ -129,3 +129,25 @@ fn bash_patch_quoted_compline() {
     let (_nospace, data) = output.split_once('\u{1}').unwrap();
     assert!(data.lines().any(|line| line.contains("--profile")), "{data}");
 }
+
+#[test]
+fn carapace_without_shell_prints_detected_snippet() {
+    let _guard = env_lock();
+    unsafe { std::env::set_var("SHELL", "/usr/bin/zsh") };
+    let output = carapace_clap::complete(factory, &["_carapace".to_string()]);
+    unsafe { std::env::remove_var("SHELL") };
+    let output = output.unwrap();
+    assert!(output.contains("compdef _myapp_completion myapp"), "{output}");
+}
+
+#[test]
+fn carapace_with_shell_prints_snippet() {
+    let output = carapace_clap::complete(factory, &["_carapace".to_string(), "fish".to_string()]);
+    let output = output.unwrap();
+    assert!(output.contains("complete -c 'myapp' -f -a '(_myapp_completion)' -r"));
+}
+
+#[test]
+fn carapace_unknown_shell_yields_nothing() {
+    assert!(carapace_clap::complete(factory, &["_carapace".to_string(), "csh".to_string()]).is_none());
+}

@@ -11,8 +11,17 @@ pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<
     if args.first().map(String::as_str) != Some("_carapace") {
         return None;
     }
-    let shell = Shell::parse(args.get(1)?)?;
-    Some(complete_output(factory, shell, &args[2..]))
+    match args.len() {
+        // no shell given: print the snippet for the detected shell
+        1 => Shell::detect().map(|shell| snippet(factory, shell)),
+        // named shell: print its snippet
+        2 => Shell::parse(&args[1]).map(|shell| snippet(factory, shell)),
+        // completion request
+        _ => {
+            let shell = Shell::parse(&args[1])?;
+            Some(complete_output(factory, shell, &args[2..]))
+        }
+    }
 }
 
 /// Run completion for the given shell and word list, returning formatted output.

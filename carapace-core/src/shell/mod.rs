@@ -52,6 +52,18 @@ impl Shell {
         }
     }
 
+    /// Detect the shell from the `$SHELL` environment variable.
+    pub fn detect() -> Option<Self> {
+        let shell = std::env::var("SHELL").ok()?;
+        let name = shell.rsplit('/').next()?;
+        Self::parse(match name {
+            "nu" => "nushell",
+            "osh" | "ysh" => "oil",
+            "pwsh" | "powershell" => "powershell",
+            other => other,
+        })
+    }
+
     /// Shells with native message support (messages are not integrated as values).
     fn native_messages(&self) -> bool {
         matches!(self, Self::Elvish | Self::Zsh | Self::Export)

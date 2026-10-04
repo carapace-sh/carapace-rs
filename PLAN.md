@@ -190,16 +190,17 @@ test feature; keep core no-PTY. Golden tests per shell for snippets and completi
 
 ## Milestones
 
-| # | Scope | Exit criteria |
+| # | Scope | Status |
 |---|---|---|
-| M0 | Workspace, `model`, `Context`, `Action` core + modifiers, `Meta`, unit tests | action API compiles + tested, no clap dep in core |
-| M1 | `carapace-clap`: `Command → model` extraction (flags, nargs, styles, conflicts), `ArgCompleter` extensions, `Gen` builder | example CLI's tree fully round-trips into model |
-| M2 | `traverse`: classifier, lenient tokenizer, `LookupArg`, dash/optarg/attached edge cases | traversal unit tests vs Go behavior table |
-| M3 | `export` JSON + first formatter (bash) + snippet + bash patching; `_carapace` skeleton | tab completion works end-to-end in bash sandbox |
-| M4 | zsh, fish, elvish, nushell formatters + styles/config/cache | sandbox tests green per shell |
-| M5 | powershell, xonsh, tcsh, ion, oil, bash-ble; `Batch` (rayon), `Timeout` | all 12 shells snippet+complete |
-| M6 | UIDs/queries, `ActionImport`/`ActionExecute`, multi-completer, docs | parity checklist done |
-| P2 | spec crate (YAML), bridge crate, derive sugar | — |
+| M0 | Workspace, `model`, `Context`, `Action` core + modifiers, `Meta` | done |
+| M1 | `carapace-clap`: `Command → model` extraction, `ArgCompleter` extensions, `Gen` builder | done |
+| M2 | `traverse`: classifier, lenient parser, `LookupArg`, dash/optarg/attached edge cases | done |
+| M3 | `export` JSON + bash formatter + snippet + bash patching; `_carapace` entry | done |
+| M4 | zsh, fish, elvish, nushell formatters; styles.json/config | done |
+| M5 | powershell, xonsh, tcsh, ion, oil, bash-ble; `Batch`, `Timeout` | done (std threads, not rayon) |
+| M6 | `exec_command`/`_e`, `styles`/`style_config`, snippet modes + `$SHELL` detect | done |
+| M6.5 | UIDs/queries, `ActionImport`/`ActionExecute`, multi-completer, spec/style `_carapace` subcommands | open |
+| P2 | sandbox testkit (PTY), spec crate (YAML), bridge crate, derive sugar | open |
 
 ## Risks / decisions
 

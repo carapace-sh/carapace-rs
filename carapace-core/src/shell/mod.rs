@@ -142,7 +142,7 @@ fn env_flag(name: &str) -> bool {
 }
 
 fn env_color_disabled() -> bool {
-    std::env::var("CARAPACE_COLOR").is_ok_and(|value| value == "disabled")
+    crate::config::color_disabled()
 }
 
 fn env_unfiltered() -> bool {

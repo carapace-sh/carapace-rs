@@ -85,6 +85,21 @@ impl Context {
         result
     }
 
+    /// Execute a command with this context's environment and directory.
+    pub fn execute(&self, program: &str, args: &[&str]) -> Result<Vec<u8>, String> {
+        let mut command = std::process::Command::new(program);
+        command.args(args).env_clear().envs(&self.env);
+        if !self.dir.as_os_str().is_empty() {
+            command.current_dir(&self.dir);
+        }
+        let output = command.output().map_err(|error| error.to_string())?;
+        if output.status.success() {
+            Ok(output.stdout)
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).into_owned())
+        }
+    }
+
     /// Shift `n` arguments off the front of `args`.
     pub fn shifted(&self, n: usize) -> Self {
         let mut shifted = self.clone();

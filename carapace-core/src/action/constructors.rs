@@ -105,6 +105,63 @@ impl Action {
     }
 }
 
+impl Action {
+    /// Execute a command and complete from its stdout.
+    ///
+    /// Errors surface as message actions; the callback receives the raw
+    /// stdout bytes.
+    pub fn exec_command<F>(command: &str, args: &[&str], f: F) -> Self
+    where
+        F: Fn(&[u8]) -> Self + Send + Sync + 'static,
+    {
+        let command = command.to_owned();
+        let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
+        Self::callback(move |c| match c.execute(&command, &args.iter().map(String::as_str).collect::<Vec<_>>()) {
+            Ok(stdout) => f(&stdout),
+            Err(error) => Self::message(error),
+        })
+    }
+
+    /// Like [`exec_command`](Self::exec_command) but the callback receives
+    /// the error explicitly.
+    pub fn exec_command_e<F>(command: &str, args: &[&str], f: F) -> Self
+    where
+        F: Fn(Result<&[u8], String>) -> Self + Send + Sync + 'static,
+    {
+        let command = command.to_owned();
+        let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
+        Self::callback(move |c| {
+            match c.execute(&command, &args.iter().map(String::as_str).collect::<Vec<_>>()) {
+                Ok(stdout) => f(Ok(&stdout)),
+                Err(error) => f(Err(error)),
+            }
+        })
+    }
+
+    /// Complete known style names (for `style` configuration).
+    pub fn styles() -> Self {
+        Self::values([
+            "blue", "cyan", "magenta", "white", "red", "green", "yellow", "black", "default",
+            "bold", "italic", "underlined", "dimmed", "inverse",
+        ])
+    }
+
+    /// Complete style configuration values (e.g. `carapace.Error=underlined`).
+    pub fn style_config() -> Self {
+        let config = crate::config::styles();
+        let mut values = vec![
+            format!("carapace.Value={}", config.carapace.value),
+            format!("carapace.Description={}", config.carapace.description),
+            format!("carapace.Error={}", config.carapace.error),
+            format!("carapace.Usage={}", config.carapace.usage),
+        ];
+        for (name, style) in &config.custom {
+            values.push(format!("{name}={style}"));
+        }
+        Self::raw(values.into_iter().map(RawValue::new).collect())
+    }
+}
+
 fn complete_path(context: &Context, filter: impl Fn(&Path) -> bool) -> Option<Action> {
     let value = &context.value;
     let (dir, prefix) = match value.rfind('/') {

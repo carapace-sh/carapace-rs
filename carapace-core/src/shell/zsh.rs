@@ -157,14 +157,25 @@ fn zstyles(values: &RawValues) -> String {
 
 /// Render messages for `_message -r` with SGR styling.
 fn message(meta: &Meta) -> String {
+    let styles = crate::config::styles().carapace;
     let mut formatted = Vec::new();
     for message in &meta.messages {
         let msg = message.replace(['\n', '\r', '\t', '\u{b}', '\u{c}', '\u{8}'], "");
-        formatted.push(format!("\x1b[{}m{}\x1b[{}m", sgr("underlined"), msg, sgr("default")));
+        formatted.push(format!(
+            "\x1b[{}m{}\x1b[{}m",
+            sgr(&styles.error),
+            msg,
+            sgr("default")
+        ));
     }
     if let Some(usage) = &meta.usage {
         let usage = usage.replace(['\n', '\r', '\t', '\u{b}', '\u{c}', '\u{8}'], "");
-        formatted.push(format!("\x1b[{}m{}\x1b[{}m", sgr("italic"), usage, sgr("default")));
+        formatted.push(format!(
+            "\x1b[{}m{}\x1b[{}m",
+            sgr(&styles.usage),
+            usage,
+            sgr("default")
+        ));
     }
     formatted.join("\n")
 }

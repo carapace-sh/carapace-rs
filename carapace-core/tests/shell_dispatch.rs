@@ -311,3 +311,76 @@ fn powershell_styled_tooltip_by_default() {
     assert!(json[0]["ToolTip"].as_str().unwrap().contains("`e["));
     unsafe { std::env::remove_var("CARAPACE_COLOR") };
 }
+
+#[test]
+fn oil_inline_nospace_indicator() {
+    let _guard = env_lock();
+    clear_compline();
+    let values = vec![RawValue::new("dir/").nospace(true), RawValue::new("file")];
+    let output = Shell::Oil.value("", &Meta::default(), &values);
+    assert_eq!(output, "dir/\u{1}\nfile");
+}
+
+#[test]
+fn oil_single_value_plain() {
+    let _guard = env_lock();
+    clear_compline();
+    let values = vec![RawValue::described("only", "desc")];
+    let output = Shell::Oil.value("", &Meta::default(), &values);
+    assert_eq!(output, "only");
+}
+
+#[test]
+fn clink_tab_separated_with_appendchar() {
+    let _guard = env_lock();
+    clear_compline();
+    let values = vec![RawValue::described("a", "desc"), RawValue::new("dir/").nospace(true)];
+    let output = Shell::CmdClink.value("", &Meta::default(), &values);
+    let lines: Vec<&str> = output.lines().collect();
+    assert_eq!(lines[0], "a\ta\tdesc\t ");
+    assert_eq!(lines[1], "dir/\tdir/\t\t");
+}
+
+#[test]
+fn ion_json_suggestions() {
+    let _guard = env_lock();
+    clear_compline();
+    let output = Shell::Ion.value("", &Meta::default(), &values());
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(json[0]["Value"], "apple ");
+    assert_eq!(json[2]["Value"], "cherry ");
+    assert_eq!(json[0]["Display"], "apple");
+}
+
+#[test]
+fn bash_ble_suffix_field() {
+    let _guard = env_lock();
+    clear_compline();
+    let values = vec![RawValue::new("x"), RawValue::new("dir/").nospace(true)];
+    let output = Shell::BashBle.value("", &Meta::default(), &values);
+    let lines: Vec<&str> = output.lines().collect();
+    assert_eq!(lines[1], "x\tx\u{1c}\u{1c} \u{1c}");
+    assert_eq!(lines[0], "dir/\tdir/\u{1c}\u{1c}\u{1c}");
+}
+
+#[test]
+fn tcsh_escapes_and_descriptions() {
+    let _guard = env_lock();
+    clear_compline();
+    let values = vec![RawValue::new("a b"), RawValue::described("x", "two words")];
+    let output = Shell::Tcsh.value("", &Meta::default(), &values);
+    let lines: Vec<&str> = output.lines().collect();
+    assert_eq!(lines[0], "a\\ b");
+    assert!(lines[1].starts_with("x_("));
+    assert!(lines[1].contains("two"));
+}
+
+#[test]
+fn tcsh_common_prefix_collapse() {
+    let _guard = env_lock();
+    clear_compline();
+    unsafe { std::env::remove_var("COMP_WORDBREAKS") };
+    let values = vec![RawValue::new("one"), RawValue::new("only")];
+    let output = Shell::Tcsh.value("o", &Meta::default(), &values);
+    assert_eq!(output, "on");
+}

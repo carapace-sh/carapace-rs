@@ -1,6 +1,7 @@
 //! Shared per-shell dispatch (port of Go `internal/shell/shell.go`).
 
 pub mod bash;
+pub mod simple;
 pub mod style;
 pub mod elvish;
 pub mod fish;
@@ -16,10 +17,15 @@ use crate::value::{RawValue, RawValues, by_display, unique};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shell {
     Bash,
+    BashBle,
+    CmdClink,
     Elvish,
     Fish,
+    Ion,
     Nushell,
+    Oil,
     PowerShell,
+    Tcsh,
     Xonsh,
     Zsh,
     Export,
@@ -30,6 +36,11 @@ impl Shell {
     pub fn parse(name: &str) -> Option<Self> {
         match name {
             "bash" => Some(Self::Bash),
+            "bash-ble" => Some(Self::BashBle),
+            "cmd-clink" => Some(Self::CmdClink),
+            "ion" => Some(Self::Ion),
+            "oil" => Some(Self::Oil),
+            "tcsh" => Some(Self::Tcsh),
             "elvish" => Some(Self::Elvish),
             "fish" => Some(Self::Fish),
             "nushell" => Some(Self::Nushell),
@@ -91,6 +102,11 @@ impl Shell {
             Self::Bash => {
                 bash::action_raw_values(current_word, &meta, &values, &bash::Context::default())
             }
+            Self::BashBle => simple::bash_ble::action_raw_values(current_word, &meta, &values),
+            Self::CmdClink => simple::cmd_clink::action_raw_values(current_word, &meta, &values),
+            Self::Ion => simple::ion::action_raw_values(current_word, &meta, &values),
+            Self::Oil => simple::oil::action_raw_values(current_word, &meta, &values),
+            Self::Tcsh => simple::tcsh::action_raw_values(current_word, &meta, &values),
             Self::Elvish => elvish::action_raw_values(current_word, &meta, &values),
             Self::Fish => fish::action_raw_values(&values),
             Self::Nushell => nushell::action_raw_values(current_word, &meta, &values),
@@ -105,6 +121,11 @@ impl Shell {
     pub fn snippet(&self, binary: &str) -> String {
         match self {
             Self::Bash => bash::snippet(binary),
+            Self::BashBle => simple::bash_ble::snippet(binary),
+            Self::CmdClink => simple::cmd_clink::snippet(binary),
+            Self::Ion => String::new(),
+            Self::Oil => simple::oil::snippet(binary),
+            Self::Tcsh => simple::tcsh::snippet(binary),
             Self::Elvish => elvish::snippet(binary),
             Self::Fish => fish::snippet(binary),
             Self::Nushell => nushell::snippet(binary),

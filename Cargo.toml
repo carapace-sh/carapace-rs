@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["carapace-core"]
+members = ["carapace-core", "carapace-clap"]
 
 [workspace.package]
 version = "0.1.0"

@@ -1,0 +1,15 @@
+[package]
+name = "carapace-clap"
+description = "carapace completion for clap-based Rust CLIs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+carapace-core = { path = "../carapace-core" }
+clap = { version = "4.6", default-features = false, features = ["std", "help", "usage", "error-context", "unstable-ext"] }
+
+[dev-dependencies]
+clap = { version = "4.6", features = ["derive"] }

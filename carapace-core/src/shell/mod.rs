@@ -1,7 +1,12 @@
 //! Shared per-shell dispatch (port of Go `internal/shell/shell.go`).
 
 pub mod bash;
+pub mod style;
+pub mod elvish;
 pub mod fish;
+pub mod nushell;
+pub mod powershell;
+pub mod xonsh;
 pub mod zsh;
 
 use crate::meta::Meta;
@@ -11,7 +16,11 @@ use crate::value::{RawValue, RawValues, by_display, unique};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shell {
     Bash,
+    Elvish,
     Fish,
+    Nushell,
+    PowerShell,
+    Xonsh,
     Zsh,
     Export,
 }
@@ -21,7 +30,11 @@ impl Shell {
     pub fn parse(name: &str) -> Option<Self> {
         match name {
             "bash" => Some(Self::Bash),
+            "elvish" => Some(Self::Elvish),
             "fish" => Some(Self::Fish),
+            "nushell" => Some(Self::Nushell),
+            "powershell" => Some(Self::PowerShell),
+            "xonsh" => Some(Self::Xonsh),
             "zsh" => Some(Self::Zsh),
             "export" => Some(Self::Export),
             _ => None,
@@ -30,7 +43,7 @@ impl Shell {
 
     /// Shells with native message support (messages are not integrated as values).
     fn native_messages(&self) -> bool {
-        matches!(self, Self::Zsh | Self::Export)
+        matches!(self, Self::Elvish | Self::Zsh | Self::Export)
     }
 
     /// Format invoked values for the shell, applying the shared dispatch steps.
@@ -75,8 +88,14 @@ impl Shell {
         unique(&mut values);
 
         match self {
-            Self::Bash => bash::action_raw_values(current_word, &meta, &values, &bash::Context::default()),
+            Self::Bash => {
+                bash::action_raw_values(current_word, &meta, &values, &bash::Context::default())
+            }
+            Self::Elvish => elvish::action_raw_values(current_word, &meta, &values),
             Self::Fish => fish::action_raw_values(&values),
+            Self::Nushell => nushell::action_raw_values(current_word, &meta, &values),
+            Self::PowerShell => powershell::action_raw_values(current_word, &meta, &values),
+            Self::Xonsh => xonsh::action_raw_values(current_word, &meta, &values),
             Self::Zsh => zsh::action_raw_values(current_word, &meta, &values),
             Self::Export => crate::export::Export::from_parts(&meta, &values).to_json(),
         }
@@ -86,7 +105,11 @@ impl Shell {
     pub fn snippet(&self, binary: &str) -> String {
         match self {
             Self::Bash => bash::snippet(binary),
+            Self::Elvish => elvish::snippet(binary),
             Self::Fish => fish::snippet(binary),
+            Self::Nushell => nushell::snippet(binary),
+            Self::PowerShell => powershell::snippet(binary),
+            Self::Xonsh => xonsh::snippet(binary),
             Self::Zsh => zsh::snippet(binary),
             Self::Export => String::new(),
         }

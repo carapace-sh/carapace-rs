@@ -217,3 +217,97 @@ fn zsh_snippet_compiles_structure() {
     assert!(snippet.contains("compdef _app_completion app"));
     assert!(snippet.contains("_describe -t"));
 }
+
+#[test]
+fn elvish_json_candidates() {
+    let _guard = env_lock();
+    clear_compline();
+    let mut value = RawValue::described("dir", "desc");
+    value.tag = "paths".into();
+    let nospace_value = RawValue::new("file/").nospace(true);
+    let output = Shell::Elvish.value("", &Meta::default(), &vec![value, nospace_value]);
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let candidates = json["Candidates"].as_array().unwrap();
+    assert_eq!(candidates[0]["Value"], "dir");
+    assert_eq!(candidates[0]["CodeSuffix"], " ");
+    assert_eq!(candidates[1]["CodeSuffix"], "");
+    assert!(json["Messages"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn elvish_native_messages() {
+    let meta = Meta::default().message("kept");
+    let output = Shell::Elvish.value("", &meta, &values());
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(json["Messages"][0], "kept");
+}
+
+#[test]
+fn nushell_quoting_and_style() {
+    let _guard = env_lock();
+    clear_compline();
+    let values = vec![
+        RawValue::new("plain"),
+        RawValue::new("with space"),
+        RawValue::new("~/tilde path"),
+        RawValue::styled("styled", "blue"),
+    ];
+    let output = Shell::Nushell.value("", &Meta::default(), &values);
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(json[0]["value"], "plain ");
+    assert_eq!(json[1]["style"]["fg"], "blue");
+    assert_eq!(json[2]["value"], "\"with space\" ");
+    assert_eq!(json[3]["value"], "~\"/tilde path\" ");
+    assert!(json[0]["style"].is_null());
+}
+
+#[test]
+fn xonsh_quoting_and_style() {
+    let _guard = env_lock();
+    clear_compline();
+    let values = vec![
+        RawValue::new("plain"),
+        RawValue::new("with space"),
+        RawValue::new("back\\slash"),
+        RawValue::styled("styled", "red"),
+    ];
+    let output = Shell::Xonsh.value("", &Meta::default(), &values);
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(json[0]["Value"], "back\\slash ");
+    assert_eq!(json[1]["Value"], "plain ");
+    assert_eq!(json[2]["Style"].as_str().unwrap().contains("fg:red"), true);
+    assert_eq!(json[3]["Value"], "'with space' ");
+}
+
+#[test]
+fn powershell_json_results() {
+    let _guard = env_lock();
+    clear_compline();
+    unsafe { std::env::set_var("CARAPACE_COLOR", "disabled") };
+    let values = vec![
+        RawValue::described("plain", "the tip"),
+        RawValue::new("sp ace"),
+        RawValue::new(""),
+    ];
+    let output = Shell::PowerShell.value("", &Meta::default(), &values);
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(json.as_array().unwrap().len(), 2);
+    assert_eq!(json[0]["CompletionText"], "plain ");
+    assert_eq!(json[1]["CompletionText"], "'sp ace' ");
+    assert_eq!(json[0]["ToolTip"], "the tip");
+    // with tooltip enabled the description moves to the tooltip
+    assert_eq!(json[0]["ListItemText"], "plain");
+    unsafe { std::env::remove_var("CARAPACE_COLOR") };
+}
+
+#[test]
+fn powershell_styled_tooltip_by_default() {
+    let _guard = env_lock();
+    clear_compline();
+    unsafe { std::env::remove_var("CARAPACE_COLOR") };
+    let values = vec![RawValue::described("plain", "the tip")];
+    let output = Shell::PowerShell.value("", &Meta::default(), &values);
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert!(json[0]["ToolTip"].as_str().unwrap().contains("`e["));
+    unsafe { std::env::remove_var("CARAPACE_COLOR") };
+}

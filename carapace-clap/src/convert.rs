@@ -3,7 +3,7 @@
 use carapace_core::model::{ArgumentStyle, Command, Flag, Nargs, Positional};
 use carapace_core::Action;
 
-use crate::completer::{ArgCompleter, CommandCompleter};
+use crate::completer::{ArgCompleter, CommandCompleter, DashAnyCompleter};
 
 /// Convert a built clap command tree into the normalized model.
 ///
@@ -45,7 +45,27 @@ fn convert_command(cmd: &clap::Command) -> Command {
     if let Some(completer) = cmd.get::<CommandCompleter>() {
         model.positional_any = Some(completer.0.clone());
     }
+    if let Some(completer) = cmd.get::<DashAnyCompleter>() {
+        model.dash_any = Some(completer.0.clone());
+    }
+    model.hidden = cmd.is_hide_set();
+    init_help_completion(&mut model);
     model
+}
+
+/// Complete the arguments of the auto-generated `help` subcommand with the
+/// visible subcommands of the root (port of Go `initHelpCompletion`).
+fn init_help_completion(model: &mut Command) {
+    let has_help = model.subcommands.iter().any(|c| c.name == "help");
+    if !has_help {
+        return;
+    }
+    let mut root = model.clone();
+    root.subcommands.retain(|c| c.name != "help");
+    let commands = carapace_core::traverse::action_commands(&root);
+    if let Some(help) = model.subcommands.iter_mut().find(|c| c.name == "help") {
+        help.positional_any = Some(commands);
+    }
 }
 
 fn convert_flag(arg: &clap::Arg) -> Flag {

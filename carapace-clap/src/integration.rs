@@ -39,6 +39,12 @@ impl Gen {
         self
     }
 
+    /// Complete any positional after `--`.
+    pub fn positional_dash_any_completion(mut self, action: Action) -> Self {
+        self.cmd = self.cmd.add(crate::DashAnyCompleter::new(action));
+        self
+    }
+
     /// Complete the value(s) of the arg with the given clap id.
     pub fn arg_completion(mut self, id: &str, action: Action) -> Self {
         super::arg_completion(&mut self.cmd, id, action);

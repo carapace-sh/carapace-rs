@@ -175,3 +175,98 @@ fn gen_attaches_to_subcommands() {
     let jobs = build.lookup_long("jobs").unwrap();
     assert!(jobs.completion.is_some());
 }
+
+#[test]
+fn hidden_subcommands_are_excluded() {
+    let mut cmd = Command::new("app")
+        .subcommand(Command::new("visible").about("shown"))
+        .subcommand(Command::new("secret").hide(true).about("hidden"));
+
+    let model = to_model(&mut cmd);
+    let secret = model.lookup_subcommand("secret").unwrap();
+    assert!(secret.hidden);
+
+    let values: Vec<String> = carapace_core::traverse::action_commands(&model)
+        .invoke(&Context::default())
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    assert_eq!(values, vec!["visible", "help"]);
+
+    unsafe { std::env::set_var("CARAPACE_HIDDEN", "2") };
+    let values: Vec<String> = carapace_core::traverse::action_commands(&model)
+        .invoke(&Context::default())
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
+    assert!(values.contains(&"secret".to_string()));
+}
+
+#[test]
+fn hidden_flags_respect_hidden_env() {
+    let mut cmd = Command::new("app")
+        .arg(Arg::new("secret").long("secret").hide(true).action(ArgAction::SetTrue));
+    let model = to_model(&mut cmd);
+
+    unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
+    let values: Vec<String> = carapace_core::traverse::action_flags(&model)
+        .invoke(&Context::default().value("--"))
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    assert_eq!(values, vec!["--help", "-h"], "hidden flag must be skipped: {values:?}");
+
+    unsafe { std::env::set_var("CARAPACE_HIDDEN", "2") };
+    let values: Vec<String> = carapace_core::traverse::action_flags(&model)
+        .invoke(&Context::default().value("--"))
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
+    assert!(values.contains(&"--secret".to_string()));
+}
+
+#[test]
+fn help_subcommand_completes_commands() {
+    let mut cmd = Command::new("app")
+        .subcommand(Command::new("build").about("build things"))
+        .subcommand(Command::new("test").about("run tests"));
+    let model = to_model(&mut cmd);
+    let help = model.lookup_subcommand("help").unwrap();
+    let action = help.positional_any.as_ref().expect("help completes commands");
+    let values: Vec<String> = action
+        .invoke(&Context::default())
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    assert_eq!(values, vec!["build", "test"]);
+}
+
+#[test]
+fn dash_any_completion() {
+    let mut cmd = Gen::new(
+        Command::new("app")
+            .arg(Arg::new("target").index(1))
+            .arg(Arg::new("rest").num_args(0..).index(2)),
+    )
+    .positional_dash_any_completion(Action::values(["after-dash"]))
+    .into_command();
+
+    let model = to_model(&mut cmd);
+    assert!(model.dash_any.is_some());
+    let completion = carapace_core::traverse(&model, vec!["t".to_string(), "--".into(), "".into()]);
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    assert_eq!(values, vec!["after-dash"]);
+}

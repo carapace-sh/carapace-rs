@@ -50,6 +50,8 @@ impl Meta {
     pub fn merge(&mut self, other: &Meta) {
         self.messages.extend(other.messages.iter().cloned());
         self.nospace.extend(other.nospace.iter().copied());
+        self.nospace.sort_unstable();
+        self.nospace.dedup();
         if self.usage.is_none() {
             self.usage = other.usage.clone();
         }

@@ -90,7 +90,10 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
     if dash {
         context.args = parsed.dash_positionals().to_vec();
         return Completion {
-            action: get_positional(cmd, context.args.len()),
+            action: cmd
+                .dash_any
+                .clone()
+                .unwrap_or_else(|| get_positional(cmd, context.args.len())),
             context,
         };
     }
@@ -196,8 +199,9 @@ pub fn action_flags(cmd: &Command) -> Action {
             value.starts_with(prefix) && !value.starts_with(&double_prefix) && value.len() > 2;
 
         let mut values: RawValues = Vec::new();
+        let include_hidden = crate::config::hidden() == crate::config::Hidden::IncludeCarapace;
         for flag in &cmd.flags {
-            if flag.hidden {
+            if flag.hidden && !include_hidden {
                 continue;
             }
             let description = flag.description.clone();
@@ -252,9 +256,11 @@ pub fn action_flags(cmd: &Command) -> Action {
 
 /// Completion of the visible subcommands of the command.
 pub fn action_commands(cmd: &Command) -> Action {
+    let include_hidden = crate::config::hidden() == crate::config::Hidden::IncludeCarapace;
     let values: Vec<(String, String)> = cmd
         .subcommands
         .iter()
+        .filter(|subcommand| include_hidden || !subcommand.hidden)
         .map(|subcommand| (subcommand.name.clone(), subcommand.description.clone()))
         .collect();
     Action::values_described(values).tag("commands")

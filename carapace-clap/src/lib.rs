@@ -9,7 +9,7 @@ mod entry;
 mod convert;
 mod integration;
 
-pub use completer::{ArgCompleter, CommandCompleter};
+pub use completer::{ArgCompleter, CommandCompleter, DashAnyCompleter};
 pub use convert::to_model;
 pub use entry::{complete, complete_output, snippet};
 pub use integration::Gen;

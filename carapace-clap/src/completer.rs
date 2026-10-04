@@ -21,6 +21,24 @@ impl std::fmt::Debug for ArgCompleter {
 
 impl ArgExt for ArgCompleter {}
 
+/// Completion for any positional after `--`, stored as a command extension.
+#[derive(Clone)]
+pub struct DashAnyCompleter(pub Action);
+
+impl DashAnyCompleter {
+    pub fn new(action: Action) -> Self {
+        Self(action)
+    }
+}
+
+impl std::fmt::Debug for DashAnyCompleter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("DashAnyCompleter").finish_non_exhaustive()
+    }
+}
+
+impl CommandExt for DashAnyCompleter {}
+
 /// Command-level completion (e.g. any-positional), stored as a command extension.
 #[derive(Clone)]
 pub struct CommandCompleter(pub Action);

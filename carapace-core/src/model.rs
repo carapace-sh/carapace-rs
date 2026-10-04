@@ -159,6 +159,10 @@ pub struct Command {
     pub subcommands: Vec<Command>,
     /// Completion for any positional beyond defined ones.
     pub positional_any: Option<Action>,
+    /// Completion for any positional after `--`.
+    pub dash_any: Option<Action>,
+    /// Whether the command is hidden from completion.
+    pub hidden: bool,
     /// Whether flags may be interspersed with positionals.
     pub interspersed: bool,
     /// Flag-prefix character.

@@ -49,6 +49,8 @@ impl Meta {
     /// Merge `other` into `self`, concatenating lists and preferring defined scalars.
     pub fn merge(&mut self, other: &Meta) {
         self.messages.extend(other.messages.iter().cloned());
+        self.messages.sort();
+        self.messages.dedup();
         self.nospace.extend(other.nospace.iter().copied());
         self.nospace.sort_unstable();
         self.nospace.dedup();

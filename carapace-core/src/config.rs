@@ -162,6 +162,32 @@ pub fn color_disabled() -> bool {
     }
 }
 
+/// Whether prefix matching is case-insensitive (`CARAPACE_MATCH`).
+pub fn case_insensitive() -> bool {
+    matches!(
+        std::env::var("CARAPACE_MATCH").as_deref(),
+        Ok("CASE_INSENSITIVE") | Ok("1")
+    )
+}
+
+/// Case-aware prefix test (port of `pkg/match.HasPrefix`).
+pub fn has_prefix(value: &str, prefix: &str) -> bool {
+    if case_insensitive() {
+        value.to_lowercase().starts_with(&prefix.to_lowercase())
+    } else {
+        value.starts_with(prefix)
+    }
+}
+
+/// Case-aware prefix strip (port of `pkg/match.TrimPrefix`).
+pub fn trim_prefix<'a>(value: &'a str, prefix: &str) -> &'a str {
+    if has_prefix(value, prefix) {
+        &value[prefix.len()..]
+    } else {
+        value
+    }
+}
+
 /// Look up a custom style by name from the style configuration.
 pub fn custom_style(name: &str) -> Option<String> {
     styles().custom.get(name).cloned()

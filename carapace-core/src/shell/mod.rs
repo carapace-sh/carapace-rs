@@ -81,7 +81,7 @@ impl Shell {
         }
 
         if !env_unfiltered() {
-            values.retain(|value| value.value.starts_with(current_word));
+            values.retain(|value| crate::config::has_prefix(&value.value, current_word));
         }
 
         if env_merge_flags() || *self == Self::Zsh {

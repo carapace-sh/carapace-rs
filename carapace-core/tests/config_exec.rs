@@ -105,3 +105,28 @@ fn styles_action_lists_known_names() {
     assert!(invoked.values.iter().any(|v| v.value == "blue"));
     assert!(invoked.values.iter().any(|v| v.value == "underlined"));
 }
+
+#[test]
+fn case_insensitive_matching() {
+    let values = vec![carapace_core::RawValue::new("CamelCase")];
+    unsafe { std::env::remove_var("CARAPACE_MATCH") };
+    // case-sensitive by default
+    assert!(
+        !carapace_core::shell::Shell::Fish
+            .value("camel", &carapace_core::Meta::default(), &values)
+            .contains("CamelCase")
+    );
+    unsafe { std::env::set_var("CARAPACE_MATCH", "CASE_INSENSITIVE") };
+    let matched = carapace_core::shell::Shell::Fish
+        .value("camel", &carapace_core::Meta::default(), &values)
+        .contains("CamelCase");
+    unsafe { std::env::remove_var("CARAPACE_MATCH") };
+    assert!(matched);
+}
+
+#[test]
+fn messages_dedup_on_merge() {
+    let mut meta = carapace_core::Meta::default().message("same");
+    meta.merge(&carapace_core::Meta::default().message("same"));
+    assert_eq!(meta.messages, vec!["same"]);
+}

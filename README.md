@@ -83,6 +83,18 @@ cargo clippy        # clean
 Layout:
 
 ```
-carapace-core/   engine: model, action, traverse, shell formatters, cache, export
-carapace-clap/   clap adapter: Gen builder, extension slots, _carapace entry
+carapace-core/    engine: model, action, traverse, shell formatters, cache, uid, export
+carapace-clap/    clap adapter: Gen builder, extension slots, _carapace entry
+carapace-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions
+```
+
+Testing completions:
+
+```rust
+use carapace_testkit::Sandbox;
+
+let mut sandbox = Sandbox::new("my_test");
+sandbox.files([("readme.md", "content")]);
+sandbox.reply("git", &["branch", "--list"]).with("main\nfeature");
+sandbox.run(|| cli(), &[""]).expect(Action::values(["expected"]));
 ```

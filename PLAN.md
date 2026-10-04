@@ -199,7 +199,7 @@ test feature; keep core no-PTY. Golden tests per shell for snippets and completi
 | M4 | zsh, fish, elvish, nushell formatters; styles.json/config | done |
 | M5 | powershell, xonsh, tcsh, ion, oil, bash-ble; `Batch`, `Timeout` | done (std threads, not rayon) |
 | M6 | `exec_command`/`_e`, `styles`/`style_config`, snippet modes + `$SHELL` detect | done |
-| M6.5 | UIDs/queries, `ActionImport`/`ActionExecute`, multi-completer, spec/style `_carapace` subcommands | open |
+| M6.5 | UIDs/queries, `ActionImport`/`ActionExecute` + `execute_embedded` multi-completer, `_carapace style set` | done (spec subcommand open) |
 | P2 | sandbox testkit (PTY), spec crate (YAML), bridge crate, derive sugar | open |
 
 ## Risks / decisions

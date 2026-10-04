@@ -6,6 +6,7 @@
 
 pub mod action;
 pub mod config;
+pub mod cache;
 pub mod context;
 pub mod export;
 pub mod meta;

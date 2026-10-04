@@ -1,5 +1,7 @@
 //! Chained [`Action`] modifiers, ported from the Go carapace modifier set.
 
+use std::sync::Arc;
+
 use crate::action::Action;
 use crate::context::Context;
 use crate::meta::Meta;
@@ -248,6 +250,63 @@ impl Action {
                 .prefix(&prefix)
                 .to_action()
                 .nospace([nospace])
+        })
+    }
+
+    /// Cache callback results to disk.
+    ///
+    /// `site` identifies the call site (Rust has no `runtime.Caller`),
+    /// `timeout_secs` follows the Go semantics: negative never expires,
+    /// zero always revalidates, positive expires after the given seconds.
+    /// Error states (messages) are not cached.
+    pub fn cache(self, site: &str, timeout_secs: i64, keys: Vec<String>) -> Self {
+        if !self.is_callback() {
+            return self;
+        }
+        let site = site.to_owned();
+        Self::callback(move |c| {
+            let Some(cache_file) = crate::cache::file(&site, &keys) else {
+                return self.invoke(c).to_action();
+            };
+            if let Some(cached) = crate::cache::load(&cache_file, timeout_secs) {
+                let meta = Meta {
+                    messages: cached.meta.messages.clone(),
+                    nospace: cached.meta.nospace.clone(),
+                    usage: cached.meta.usage.clone(),
+                    queries: Vec::new(),
+                };
+                return Action {
+                    meta,
+                    kind: crate::action::ActionKind::Raw(cached.to_raw_values()),
+                };
+            }
+            let invoked = self.invoke(c);
+            if invoked.meta.messages.is_empty() {
+                let _ = crate::cache::write(
+                    &cache_file,
+                    &crate::export::Export::from_parts(&invoked.meta, &invoked.values),
+                );
+            }
+            invoked.to_action()
+        })
+    }
+
+    /// Use the alternative action when invocation exceeds `secs` seconds.
+    pub fn timeout(self, secs: u64, alternative: Self) -> Self {
+        let inner = Arc::new(self);
+        let alternative = Arc::new(alternative);
+        Self::callback(move |c| {
+            let context = c.clone();
+            let inner = inner.clone();
+            let alternative = alternative.clone();
+            let (sender, receiver) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let _ = sender.send(inner.invoke(&context));
+            });
+            match receiver.recv_timeout(std::time::Duration::from_secs(secs)) {
+                Ok(invoked) => invoked.to_action(),
+                Err(_) => alternative.invoke(c).to_action(),
+            }
         })
     }
 

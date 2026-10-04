@@ -8,10 +8,12 @@ pub mod action;
 pub mod context;
 pub mod meta;
 pub mod model;
+pub mod traverse;
 pub mod value;
 
 pub use action::{Action, InvokedAction};
 pub use context::Context;
 pub use meta::Meta;
 pub use model::{ArgumentStyle, Command, Flag, Nargs, Positional};
+pub use traverse::{Completion, traverse};
 pub use value::{RawValue, RawValues};

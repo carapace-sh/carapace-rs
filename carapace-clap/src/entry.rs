@@ -1,5 +1,7 @@
 //! `_carapace` entry point dispatching completion requests.
 
+use std::path::PathBuf;
+
 use carapace_core::shell::{Shell, bash};
 
 /// Handle a `_carapace` invocation.
@@ -10,6 +12,16 @@ use carapace_core::shell::{Shell, bash};
 pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<String> {
     if args.first().map(String::as_str) != Some("_carapace") {
         return None;
+    }
+    // _carapace style set <name> <style>: persist to styles.json
+    if args.get(1).map(String::as_str) == Some("style")
+        && args.get(2).map(String::as_str) == Some("set")
+    {
+        if let (Some(name), Some(style)) = (args.get(3), args.get(4)) {
+            style_set(name, style);
+            return Some(String::new());
+        }
+        return Some("usage: _carapace style set <name> <style>".to_owned());
     }
     match args.len() {
         // no shell given: print the snippet for the detected shell
@@ -79,6 +91,29 @@ fn complete_model(
             bash::Patch::None => carapace_core::traverse(model, words.to_vec()),
         },
         _ => carapace_core::traverse(model, words.to_vec()),
+    }
+}
+
+/// Merge a style entry into the user's `styles.json`.
+fn style_set(name: &str, style: &str) {
+    let Some(config_dir) = std::env::var("XDG_CONFIG_HOME")
+        .ok()
+        .filter(|dir| !dir.is_empty())
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var("HOME").ok().map(|home| PathBuf::from(home).join(".config")))
+        .map(|dir| dir.join("carapace"))
+    else {
+        return;
+    };
+    let path = config_dir.join("styles.json");
+    let mut styles: std::collections::HashMap<String, String> = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|content| serde_json::from_str(&content).ok())
+        .unwrap_or_default();
+    styles.insert(name.to_owned(), style.to_owned());
+    if let Ok(json) = serde_json::to_string_pretty(&styles) {
+        let _ = std::fs::create_dir_all(&config_dir);
+        let _ = std::fs::write(&path, json);
     }
 }
 

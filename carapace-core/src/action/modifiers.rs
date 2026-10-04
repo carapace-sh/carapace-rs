@@ -253,6 +253,69 @@ impl Action {
         })
     }
 
+    /// Parse export JSON back into an action (port of `ActionImport`).
+    pub fn import(output: &str) -> Self {
+        match crate::export::Export::from_json(output) {
+            Some(export) => Self {
+                meta: Meta {
+                    messages: export.meta.messages.clone(),
+                    nospace: export.meta.nospace.clone(),
+                    usage: export.meta.usage.clone(),
+                    queries: Vec::new(),
+                },
+                kind: crate::action::ActionKind::Raw(export.to_raw_values()),
+            },
+            None => Self::message(format!(
+                "failed to parse export: {}",
+                output.chars().take(80).collect::<String>()
+            )),
+        }
+    }
+
+    /// Set per-value UIDs with alternating key-value opts (experimental).
+    pub fn uid(self, scheme: &str, host: &str, opts: Vec<(&'static str, String)>) -> Self {
+        let scheme = scheme.to_owned();
+        let host = host.to_owned();
+        self.map_invoked(move |_, mut invoked| {
+            for value in &mut invoked.values {
+                let opts: Vec<(&str, &str)> = opts
+                    .iter()
+                    .map(|(key, value)| (*key, value.as_str()))
+                    .collect();
+                value.uid = Some(crate::uid::with_opts(&scheme, &host, &value.value, &opts));
+            }
+            invoked
+        })
+    }
+
+    /// Set per-value UIDs via a function (experimental).
+    pub fn uid_f<F>(self, f: F) -> Self
+    where
+        F: Fn(&str) -> String + Send + Sync + 'static,
+    {
+        self.map_invoked(move |_, mut invoked| {
+            for value in &mut invoked.values {
+                value.uid = Some(f(&value.value));
+            }
+            invoked
+        })
+    }
+
+    /// Add query metadata via alternating key-value opts (experimental).
+    pub fn query(self, scheme: &str, host: &str, path: &str, opts: Vec<(&'static str, String)>) -> Self {
+        self.with_meta(
+            Meta::default().query(crate::meta::Query {
+                scheme: scheme.to_owned(),
+                host: host.to_owned(),
+                path: path.to_owned(),
+                opts: opts
+                    .iter()
+                    .flat_map(|(key, value)| [key.to_string(), value.clone()])
+                    .collect(),
+            }),
+        )
+    }
+
     /// Cache callback results to disk.
     ///
     /// `site` identifies the call site (Rust has no `runtime.Caller`),

@@ -13,6 +13,7 @@ pub mod meta;
 pub mod model;
 pub mod shell;
 pub mod traverse;
+pub mod uid;
 pub mod value;
 
 pub use action::{Action, InvokedAction, batch};

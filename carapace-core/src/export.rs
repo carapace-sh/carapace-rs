@@ -48,7 +48,12 @@ impl Export {
     pub const VERSION: &'static str = "0.1.0";
 
     /// Serialize an invoked action into the export JSON format.
+    ///
+    /// Values are sorted by `Value` for deterministic output (Go MarshalJSON).
     pub fn from_parts(meta: &Meta, values: &[RawValue]) -> Self {
+        let mut sorted: Vec<RawValue> = values.to_vec();
+        sorted.sort_by(|a, b| a.value.cmp(&b.value));
+        let values = &sorted;
         Self {
             version: Self::VERSION.to_owned(),
             meta: ExportMeta {

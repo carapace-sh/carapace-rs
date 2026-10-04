@@ -1,5 +1,6 @@
 //! The Action API: lazy completion descriptions and their materialized form.
 
+mod batch;
 mod constructors;
 mod invoked;
 mod modifiers;
@@ -11,6 +12,7 @@ use crate::meta::Meta;
 use crate::value::RawValues;
 
 pub use invoked::{InvokedAction, merge_all};
+pub use batch::batch;
 
 /// Callback producing an [`Action`] at invocation time.
 pub type ActionCallback = Arc<dyn Fn(&Context) -> Action + Send + Sync>;

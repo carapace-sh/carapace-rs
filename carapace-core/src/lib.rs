@@ -5,6 +5,7 @@
 //! their own crates and produce the [`model::Command`] tree consumed here.
 
 pub mod action;
+pub mod config;
 pub mod context;
 pub mod export;
 pub mod meta;
@@ -13,7 +14,7 @@ pub mod shell;
 pub mod traverse;
 pub mod value;
 
-pub use action::{Action, InvokedAction};
+pub use action::{Action, InvokedAction, batch};
 pub use context::Context;
 pub use meta::Meta;
 pub use model::{ArgumentStyle, Command, Flag, Nargs, Positional};

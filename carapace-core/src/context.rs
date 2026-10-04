@@ -1,0 +1,99 @@
+//! Runtime state passed to action callbacks during invocation.
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+/// Runtime state during completion.
+#[derive(Clone, Debug, Default)]
+pub struct Context {
+    /// Current value being completed (or the current part during multipart completion).
+    pub value: String,
+    /// Positional arguments of the current command, excluding the one being completed.
+    pub args: Vec<String>,
+    /// Previous parts of the value during multipart completion.
+    pub parts: Vec<String>,
+    /// Environment available to the action.
+    pub env: HashMap<String, String>,
+    /// Working directory for the action.
+    pub dir: PathBuf,
+}
+
+impl Context {
+    /// Create a context from a word list: the last word is the value being completed.
+    pub fn new(args: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let args: Vec<String> = args.into_iter().map(Into::into).collect();
+        let (value, args) = match args.split_last() {
+            Some((value, args)) => (value.clone(), args.to_vec()),
+            None => (String::new(), Vec::new()),
+        };
+        Self {
+            value,
+            args,
+            env: current_env(),
+            dir: std::env::current_dir().unwrap_or_default(),
+            ..Default::default()
+        }
+    }
+
+    pub fn value(mut self, value: impl Into<String>) -> Self {
+        self.value = value.into();
+        self
+    }
+
+    pub fn args(mut self, args: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.args = args.into_iter().map(Into::into).collect();
+        self
+    }
+
+    pub fn dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.dir = dir.into();
+        self
+    }
+
+    pub fn env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.env.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn lookup_env(&self, key: &str) -> Option<&str> {
+        self.env.get(key).map(|v| v.as_str())
+    }
+
+    pub fn get_env(&self, key: &str) -> String {
+        self.lookup_env(key).unwrap_or_default().to_owned()
+    }
+
+    /// Replace `${VAR}` placeholders using the context environment.
+    pub fn envsubst(&self, s: &str) -> String {
+        let mut result = String::with_capacity(s.len());
+        let mut rest = s;
+        while let Some(start) = rest.find("${") {
+            result.push_str(&rest[..start]);
+            rest = &rest[start + 2..];
+            match rest.find('}') {
+                Some(end) => {
+                    let var = &rest[..end];
+                    result.push_str(&self.get_env(var));
+                    rest = &rest[end + 1..];
+                }
+                None => {
+                    result.push_str("${");
+                }
+            }
+        }
+        result.push_str(rest);
+        result
+    }
+
+    /// Shift `n` arguments off the front of `args`.
+    pub fn shifted(&self, n: usize) -> Self {
+        let mut shifted = self.clone();
+        let n = n.min(shifted.args.len());
+        shifted.args.drain(..n);
+        shifted
+    }
+}
+
+fn current_env() -> HashMap<String, String> {
+    std::env::vars().collect()
+}

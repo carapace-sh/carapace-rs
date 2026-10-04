@@ -86,7 +86,13 @@ impl Context {
     }
 
     /// Execute a command with this context's environment and directory.
+    ///
+    /// When a sandbox mock is active (`CARAPACE_SANDBOX`) and a reply is
+    /// registered for the command, the mocked output is returned instead.
     pub fn execute(&self, program: &str, args: &[&str]) -> Result<Vec<u8>, String> {
+        if let Some(reply) = crate::mock::Mock::current().and_then(|mock| mock.reply(program, args)) {
+            return Ok(reply.into_bytes());
+        }
         let mut command = std::process::Command::new(program);
         command.args(args).env_clear().envs(&self.env);
         if !self.dir.as_os_str().is_empty() {

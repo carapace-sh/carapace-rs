@@ -10,6 +10,7 @@ pub mod cache;
 pub mod context;
 pub mod export;
 pub mod meta;
+pub mod mock;
 pub mod model;
 pub mod shell;
 pub mod traverse;

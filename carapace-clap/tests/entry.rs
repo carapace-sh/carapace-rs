@@ -24,6 +24,8 @@ fn factory() -> clap::Command {
 
 #[test]
 fn completes_through_bash_format() {
+    let _guard = env_lock();
+    clear_comp_env();
     let output = carapace_clap::complete_output(
         factory,
         Shell::Bash,
@@ -37,6 +39,8 @@ fn completes_through_bash_format() {
 
 #[test]
 fn bash_flag_name_completion_output() {
+    let _guard = env_lock();
+    clear_comp_env();
     let output = carapace_clap::complete_output(factory, Shell::Bash, &["--".to_string()]);
     let (_nospace, data) = output.split_once('\u{1}').unwrap();
     let values: Vec<&str> = data.lines().collect();
@@ -45,6 +49,8 @@ fn bash_flag_name_completion_output() {
 
 #[test]
 fn export_output_is_json() {
+    let _guard = env_lock();
+    clear_comp_env();
     let output = carapace_clap::complete_output(factory, Shell::Export, &["--".to_string()]);
     let parsed = carapace_core::export::Export::from_json(&output).unwrap();
     assert_eq!(parsed.values[1].value, "--profile");

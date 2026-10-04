@@ -1,4 +1,17 @@
 use carapace_core::shell::Shell;
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+/// Serializes tests that touch COMP_* environment variables.
+fn env_lock() -> MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn clear_comp_env() {
+    for name in ["COMP_LINE", "COMP_POINT", "COMP_TYPE", "COMP_WORDBREAKS"] {
+        unsafe { std::env::remove_var(name) };
+    }
+}
 
 fn factory() -> clap::Command {
     use clap::builder::ArgAction;
@@ -52,4 +65,67 @@ fn snippet_contains_registration() {
     let snippet = carapace_clap::snippet(factory, Shell::Bash);
     assert!(snippet.contains("complete -o noquote -F _myapp_completion myapp"));
     assert!(snippet.contains("xargs myapp _carapace bash"));
+}
+
+#[test]
+fn bash_patch_relexes_compline() {
+    let _guard = env_lock();
+    clear_comp_env();
+    unsafe { std::env::set_var("COMP_WORDBREAKS", " \"'@><=;|&(:") };
+    unsafe { std::env::set_var("COMP_LINE", "myapp --profile dev --") };
+    unsafe { std::env::set_var("COMP_POINT", "24") };
+    unsafe { std::env::set_var("COMP_TYPE", "9") };
+
+    let output = carapace_clap::complete_output(
+        factory,
+        Shell::Bash,
+        &["--profile".to_string(), "dev".to_string(), "--".to_string()],
+    );
+    unsafe { std::env::remove_var("COMP_LINE") };
+    unsafe { std::env::remove_var("COMP_POINT") };
+    unsafe { std::env::remove_var("COMP_TYPE") };
+
+    let (_nospace, data) = output.split_once('\u{1}').unwrap();
+    let values: Vec<&str> = data.lines().collect();
+    assert!(values.contains(&"--profile"), "re-lexed args drive flag completion: {values:?}");
+}
+
+#[test]
+fn bash_patch_redirect_completes_files() {
+    let _guard = env_lock();
+    clear_comp_env();
+    unsafe { std::env::set_var("COMP_WORDBREAKS", " \"'@><=;|&(:") };
+    unsafe { std::env::set_var("COMP_LINE", "myapp > ") };
+    unsafe { std::env::set_var("COMP_POINT", "9") };
+
+    let output = carapace_clap::complete_output(
+        factory,
+        Shell::Bash,
+        &[">".to_string(), "".to_string()],
+    );
+    unsafe { std::env::remove_var("COMP_LINE") };
+    unsafe { std::env::remove_var("COMP_POINT") };
+
+    // redirect target: file completion kicks in (no flag names)
+    assert!(!output.contains("--profile"), "redirect target must complete files: {output}");
+}
+
+#[test]
+fn bash_patch_quoted_compline() {
+    let _guard = env_lock();
+    clear_comp_env();
+    unsafe { std::env::set_var("COMP_WORDBREAKS", " \"'@><=;|&(:") };
+    unsafe { std::env::set_var("COMP_LINE", "myapp 'a b' --") };
+    unsafe { std::env::set_var("COMP_POINT", "15") };
+
+    let output = carapace_clap::complete_output(
+        factory,
+        Shell::Bash,
+        &["'a".to_string(), "b'".to_string(), "--".to_string()],
+    );
+    unsafe { std::env::remove_var("COMP_LINE") };
+    unsafe { std::env::remove_var("COMP_POINT") };
+
+    let (_nospace, data) = output.split_once('\u{1}').unwrap();
+    assert!(data.lines().any(|line| line.contains("--profile")), "{data}");
 }

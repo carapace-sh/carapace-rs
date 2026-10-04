@@ -15,6 +15,21 @@ pub struct Context {
     pub wordbreaks: String,
 }
 
+thread_local! {
+    static PATCHED: std::cell::RefCell<Context> = std::cell::RefCell::new(Context::default());
+}
+
+/// Store the patch result for the current thread's formatting pass
+/// (thread-local equivalent of Go's acknowledged package-level globals).
+pub fn set_patch_context(context: Context) {
+    PATCHED.with(|state| *state.borrow_mut() = context);
+}
+
+/// Take the stored patch context (defaults when absent).
+pub fn take_patch_context() -> Context {
+    PATCHED.with(|state| state.borrow().clone())
+}
+
 /// COMP_TYPE value for successive-tab listing.
 const COMP_TYPE_LIST_SUCCESSIVE_TABS: &str = "63";
 
@@ -199,4 +214,117 @@ _{binary}_completion() {{
 complete -o noquote -F _{binary}_completion {binary}
 "#
     )
+}
+
+/// Result of patching bash completion arguments.
+#[derive(Clone, Debug, Default)]
+pub enum Patch {
+    #[default]
+    None,
+    /// Re-lexed arguments with metadata extracted from the COMP_* variables.
+    Patched {
+        /// Words from re-lexing COMP_LINE up to the cursor.
+        args: Vec<String>,
+        /// Portion of the current word before the last wordbreak character.
+        wordbreak_prefix: String,
+        /// COMP_TYPE value.
+        comp_type: String,
+    },
+    /// The cursor completes a redirect target; complete files instead.
+    Redirect,
+}
+
+/// Re-lex `COMP_LINE` and filter redirects (port of Go `bash.Patch`).
+///
+/// Only meaningful when the shell exported `COMP_LINE`; otherwise the
+/// original arguments are passed through untouched.
+pub fn patch(args: Vec<String>) -> Patch {
+    let Ok(compline) = std::env::var("COMP_LINE") else {
+        return Patch::Patched {
+            args,
+            wordbreak_prefix: String::new(),
+            comp_type: String::new(),
+        };
+    };
+    let comp_point: usize = std::env::var("COMP_POINT")
+        .ok()
+        .and_then(|point| point.parse().ok())
+        .unwrap_or(compline.len());
+    let comp_type = std::env::var("COMP_TYPE").unwrap_or_default();
+    let wordbreaks = std::env::var("COMP_WORDBREAKS").unwrap_or_default();
+    let wordbreak_chars: Vec<char> = wordbreaks.chars().filter(|c| !c.is_whitespace()).collect();
+
+    let truncated = truncate_at_byte(&compline, comp_point);
+
+    let mut tokens: Vec<String> = Vec::new();
+    for token in shlex::Shlex::new(&truncated) {
+        tokens.push(token);
+    }
+    // determine the raw (unprocessed) tail of the line to locate the current
+    // word and its wordbreak prefix
+    let raw_tail = raw_last_token(&truncated);
+
+    let result = if tokens.is_empty() {
+        Patch::Patched {
+            args: Vec::new(),
+            wordbreak_prefix: String::new(),
+            comp_type: comp_type.clone(),
+        }
+    } else {
+        // drop redirects: operator plus its target
+        let mut cleaned: Vec<String> = Vec::with_capacity(tokens.len());
+        let mut iter = tokens.iter().peekable();
+        let mut redirect_target = false;
+        while let Some(token) = iter.next() {
+            if is_redirect(token) {
+                if iter.peek().is_none() {
+                    redirect_target = true; // completing the redirect target
+                } else {
+                    iter.next(); // skip the target
+                }
+                continue;
+            }
+            cleaned.push(token.clone());
+        }
+        if redirect_target {
+            return Patch::Redirect;
+        }
+        let wordbreak_prefix = raw_tail
+            .rfind(|c: char| wordbreak_chars.contains(&c))
+            .map(|index| raw_tail[..=index].to_owned())
+            .unwrap_or_default();
+        Patch::Patched {
+            args: cleaned,
+            wordbreak_prefix,
+            comp_type: comp_type.clone(),
+        }
+    };
+
+    unset_bash_env();
+    result
+}
+
+fn truncate_at_byte(line: &str, point: usize) -> String {
+    let mut end = point.min(line.len());
+    while end > 0 && !line.is_char_boundary(end) {
+        end -= 1;
+    }
+    line[..end].to_owned()
+}
+
+/// The raw (still quoted) last token of the command line.
+fn raw_last_token(line: &str) -> String {
+    line.split_whitespace().last().unwrap_or_default().to_owned()
+}
+
+/// Whether the token is a shell redirect operator (e.g. `>`, `2>`, `>>`, `&>`).
+fn is_redirect(token: &str) -> bool {
+    let trimmed = token.trim_start_matches(['0', '1', '2', '&']);
+    matches!(trimmed, ">" | ">>" | "<" | "<<") || token == ">&" || token == "<&"
+}
+
+fn unset_bash_env() {
+    for variable in ["COMP_LINE", "COMP_POINT", "COMP_TYPE", "COMP_WORDBREAKS"] {
+        unsafe { std::env::remove_var(variable) };
+    }
 }

@@ -1,6 +1,6 @@
 //! `_carapace` entry point dispatching completion requests.
 
-use carapace_core::shell::Shell;
+use carapace_core::shell::{Shell, bash};
 
 /// Handle a `_carapace` invocation.
 ///
@@ -18,7 +18,8 @@ pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<
 /// Run completion for the given shell and word list, returning formatted output.
 ///
 /// The shared shell dispatch applies prefix filtering, flag merging,
-/// message integration, nospace propagation and sorting.
+/// message integration, nospace propagation and sorting. Bash performs
+/// COMP_LINE re-lexing and redirect filtering first.
 pub fn complete_output(
     factory: impl Fn() -> clap::Command,
     shell: Shell,
@@ -26,9 +27,50 @@ pub fn complete_output(
 ) -> String {
     let mut cmd = factory();
     let model = crate::to_model(&mut cmd);
-    let completion = carapace_core::traverse(&model, words.to_vec());
+    let completion = complete_model(&model, shell, words);
     let invoked = completion.action.invoke(&completion.context);
     shell.value(&completion.context.value, &invoked.meta, &invoked.values)
+}
+
+fn complete_model(
+    model: &carapace_core::Command,
+    shell: Shell,
+    words: &[String],
+) -> carapace_core::Completion {
+    match shell {
+        Shell::Bash => match bash::patch(words.to_vec()) {
+            bash::Patch::Redirect => {
+                let context = carapace_core::Context::default().args(words.to_vec());
+                carapace_core::Completion {
+                    action: carapace_core::Action::files(Vec::<String>::new()),
+                    context,
+                }
+            }
+            bash::Patch::Patched {
+                args,
+                wordbreak_prefix,
+                comp_type,
+            } => {
+                bash::set_patch_context(bash::Context {
+                    wordbreak_prefix: wordbreak_prefix.clone(),
+                    comp_type: comp_type.clone(),
+                    wordbreaks: std::env::var("COMP_WORDBREAKS").unwrap_or_default(),
+                });
+                let completion = carapace_core::traverse(model, args);
+                let mut invoked_context = completion.context.clone();
+                // wordbreak prefix: values are trimmed during formatting
+                if !wordbreak_prefix.is_empty() {
+                    invoked_context.value = format!("{wordbreak_prefix}{}", invoked_context.value);
+                }
+                carapace_core::Completion {
+                    action: completion.action,
+                    context: invoked_context,
+                }
+            }
+            bash::Patch::None => carapace_core::traverse(model, words.to_vec()),
+        },
+        _ => carapace_core::traverse(model, words.to_vec()),
+    }
 }
 
 /// Generate the shell integration snippet for the command.

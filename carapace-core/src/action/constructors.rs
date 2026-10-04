@@ -106,6 +106,24 @@ impl Action {
 }
 
 impl Action {
+    /// Execute completion against an embedded command tree (port of
+    /// `ActionExecute`).
+    ///
+    /// Go round-trips through a subprocess (`_carapace export`); in-process
+    /// we traverse the embedded tree directly, forwarding the context args
+    /// and current value.
+    pub fn execute(cmd: std::sync::Arc<crate::model::Command>) -> Self {
+        Self::callback(move |c| {
+            let mut args = c.args.clone();
+            args.push(c.value.clone());
+            let completion = crate::traverse(&cmd, args);
+            completion
+                .action
+                .invoke(&completion.context)
+                .to_action()
+        })
+    }
+
     /// Execute a command and complete from its stdout.
     ///
     /// Errors surface as message actions; the callback receives the raw

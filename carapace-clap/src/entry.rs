@@ -94,6 +94,15 @@ fn complete_model(
     }
 }
 
+/// Execute completion against an embedded clap command (multi-completer
+/// pattern): completes the embedded tree in-process with the current
+/// context args and value.
+pub fn execute_embedded(cmd: clap::Command) -> carapace_core::Action {
+    let mut cmd = cmd;
+    let model = crate::to_model(&mut cmd);
+    carapace_core::Action::execute(std::sync::Arc::new(model))
+}
+
 /// Merge a style entry into the user's `styles.json`.
 fn style_set(name: &str, style: &str) {
     let Some(config_dir) = std::env::var("XDG_CONFIG_HOME")

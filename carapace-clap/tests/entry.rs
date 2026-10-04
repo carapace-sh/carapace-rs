@@ -1,4 +1,7 @@
 use carapace_core::shell::Shell;
+use clap::builder::ArgAction;
+use clap::{Arg, Command};
+use carapace_clap::Gen;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 /// Serializes tests that touch COMP_* environment variables.
@@ -14,8 +17,6 @@ fn clear_comp_env() {
 }
 
 fn factory() -> clap::Command {
-    use clap::builder::ArgAction;
-    use clap::{Arg, Command};
     Command::new("myapp")
         .arg(Arg::new("profile").long("profile").action(ArgAction::Set))
         .arg(Arg::new("target").index(1))
@@ -173,4 +174,53 @@ fn style_set_persists_to_styles_json() {
     let content = std::fs::read_to_string(dir.join("carapace/styles.json")).unwrap();
     assert!(content.contains("magenta"));
     std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn execute_embedded_completes_nested_tree() {
+    use carapace_core::Action;
+
+    let embedded = Command::new("inner")
+        .arg(Arg::new("mode").index(1))
+        .arg(Arg::new("rest").num_args(0..).index(2));
+
+    // outer command delegates its positionals to the embedded tree
+    let outer = Command::new("myapp").arg(Arg::new("rest").num_args(0..).index(1));
+    let outer = Gen::new(outer)
+        .positional_any_completion(carapace_clap::execute_embedded(embedded))
+        .into_command();
+
+    let model = carapace_clap::to_model(&mut outer.clone());
+    let completion = carapace_core::traverse(&model, vec!["".to_string()]);
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    assert!(values.is_empty(), "embedded tree has no completers: {values:?}");
+
+    // with completers attached on the embedded command
+    let embedded = Gen::new(
+        Command::new("inner").arg(Arg::new("mode").index(1)),
+    )
+    .positional_completion(1, Action::values(["fast", "slow"]))
+    .into_command();
+
+    let outer = Command::new("myapp").arg(Arg::new("rest").num_args(0..).index(1));
+    let outer = Gen::new(outer)
+        .positional_any_completion(carapace_clap::execute_embedded(embedded))
+        .into_command();
+
+    let model = carapace_clap::to_model(&mut outer.clone());
+    let completion = carapace_core::traverse(&model, vec!["".to_string()]);
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    assert_eq!(values, vec!["fast", "slow"]);
 }

@@ -11,7 +11,7 @@ mod integration;
 
 pub use completer::{ArgCompleter, CommandCompleter, DashAnyCompleter};
 pub use convert::to_model;
-pub use entry::{complete, complete_output, snippet};
+pub use entry::{complete, complete_output, execute_embedded, snippet};
 pub use integration::Gen;
 
 /// Attach a completion action to the value(s) of the flag or positional

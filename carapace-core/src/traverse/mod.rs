@@ -56,7 +56,10 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
         }
 
         let starts_with_prefix = arg.starts_with(cmd.flag_prefix);
-        if starts_with_prefix && (cmd.interspersed || in_positionals.is_empty()) {
+        if !cmd.disable_flag_parsing
+            && starts_with_prefix
+            && (cmd.interspersed || in_positionals.is_empty())
+        {
             in_args.push(arg.clone());
             in_flag = lookup::lookup_arg(cmd, &arg);
             continue;
@@ -65,8 +68,10 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
         if let Some(subcommand) = cmd.lookup_subcommand(&arg) {
             // recurse with everything after the subcommand, including the
             // value being completed as the last word (Go passes args[i+1:])
-            let parsed = parse::parse(cmd, &in_args);
-            context.args = parsed.positionals;
+            if !cmd.disable_flag_parsing {
+                let parsed = parse::parse(cmd, &in_args);
+                context.args = parsed.positionals;
+            }
             return traverse_command(subcommand, args[index + 1..].to_vec(), Vec::new());
         }
 
@@ -74,28 +79,37 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
         in_positionals.push(arg);
     }
 
-    let mut to_parse = in_args.clone();
-    if !dash {
-        if let Some(flag) = in_flag.as_ref() {
-            if flag.args.is_empty() && flag.consumes("") {
-                to_parse.pop();
+    let parsed = if cmd.disable_flag_parsing {
+        if dash {
+            // everything after the dash belongs to the parent's args
+        } else {
+            in_args.clear();
+        }
+        parse::Parsed::default()
+    } else {
+        let mut to_parse = in_args.clone();
+        if !dash {
+            if let Some(flag) = in_flag.as_ref() {
+                if flag.args.is_empty() && flag.consumes("") {
+                    to_parse.pop();
+                }
             }
         }
-    }
-
-    let parsed = parse::parse(cmd, &to_parse);
-    context.args = parsed.positionals.clone();
+        let parsed = parse::parse(cmd, &to_parse);
+        context.args = parsed.positionals.clone();
+        parsed
+    };
 
     // dash argument
     if dash {
         context.args = parsed.dash_positionals().to_vec();
-        return Completion {
-            action: cmd
-                .dash_any
-                .clone()
-                .unwrap_or_else(|| get_positional(cmd, context.args.len())),
-            context,
-        };
+        let action = cmd
+            .dash_positionals
+            .get(context.args.len())
+            .and_then(|positional| positional.completion.clone())
+            .or_else(|| cmd.dash_any.clone())
+            .unwrap_or_else(|| get_positional(cmd, context.args.len()));
+        return Completion { action, context };
     }
 
     // flag argument
@@ -111,7 +125,10 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
 
     // flag
     let starts_with_prefix = context.value.starts_with(cmd.flag_prefix);
-    if starts_with_prefix && (cmd.interspersed || in_positionals.is_empty()) {
+    if !cmd.disable_flag_parsing
+        && starts_with_prefix
+        && (cmd.interspersed || in_positionals.is_empty())
+    {
         if let Some(flag) = lookup::lookup_arg(cmd, &context.value) {
             if !flag.args.is_empty() {
                 if !flag.flag.takes_value {

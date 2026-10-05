@@ -316,6 +316,28 @@ impl Action {
         )
     }
 
+    /// Change the working directory for the invocation.
+    pub fn chdir(self, dir: impl Into<String>) -> Self {
+        let dir = std::sync::Arc::new(dir.into());
+        Self::callback(move |c| {
+            let mut context = c.clone();
+            context.dir = (*dir).clone().into();
+            self.invoke(&context).to_action()
+        })
+    }
+
+    /// Change the working directory for the invocation via a function.
+    pub fn chdir_f<F>(self, f: F) -> Self
+    where
+        F: Fn(&Context) -> String + Send + Sync + 'static,
+    {
+        Self::callback(move |c| {
+            let mut context = c.clone();
+            context.dir = f(c).into();
+            self.invoke(&context).to_action()
+        })
+    }
+
     /// Cache callback results to disk.
     ///
     /// `site` identifies the call site (Rust has no `runtime.Caller`),

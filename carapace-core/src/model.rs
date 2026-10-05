@@ -159,8 +159,12 @@ pub struct Command {
     pub subcommands: Vec<Command>,
     /// Completion for any positional beyond defined ones.
     pub positional_any: Option<Action>,
+    /// Positional completions after `--` (per index).
+    pub dash_positionals: Vec<Positional>,
     /// Completion for any positional after `--`.
     pub dash_any: Option<Action>,
+    /// Whether flag parsing is disabled entirely (spec `parsing: disabled`).
+    pub disable_flag_parsing: bool,
     /// Whether the command is hidden from completion.
     pub hidden: bool,
     /// Whether flags may be interspersed with positionals.

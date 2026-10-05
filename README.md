@@ -86,6 +86,7 @@ Layout:
 carapace-core/    engine: model, action, traverse, shell formatters, cache, uid, export
 carapace-clap/    clap adapter: Gen builder, extension slots, _carapace entry
 carapace-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions
+carapace-spec/    YAML user specs: flag suffixes, macros ($files, $directories), parsing modes
 ```
 
 Testing completions:

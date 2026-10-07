@@ -1,0 +1,17 @@
+[package]
+name = "carapace-bridge"
+description = "Bridge external completion frameworks into carapace"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+carapace-core = { path = "../carapace-core" }
+carapace-clap = { path = "../carapace-clap" }
+serde_json = "1"
+
+[dev-dependencies]
+carapace-testkit = { path = "../carapace-testkit" }
+clap = { version = "4.6" }

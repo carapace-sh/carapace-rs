@@ -76,7 +76,7 @@ See `PLAN.md` for the full porting plan and status.
 ## Development
 
 ```bash
-cargo test          # 96 tests across 13 suites
+cargo test          # 148 tests across 14 suites
 cargo clippy        # clean
 ```
 
@@ -87,6 +87,7 @@ carapace-core/    engine: model, action, traverse, shell formatters, cache, uid,
 carapace-clap/    clap adapter: Gen builder, extension slots, _carapace entry
 carapace-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions
 carapace-spec/    YAML user specs: flag suffixes, macros ($files, $directories), parsing modes
+carapace-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin, clap
 ```
 
 Testing completions:
@@ -98,4 +99,14 @@ let mut sandbox = Sandbox::new("my_test");
 sandbox.files([("readme.md", "content")]);
 sandbox.reply("git", &["branch", "--list"]).with("main\nfeature");
 sandbox.run(|| cli(), &[""]).expect(Action::values(["expected"]));
+```
+
+Bridging external completion frameworks:
+
+```rust
+use carapace_bridge as bridge;
+
+Gen::new(cmd).positional_any_completion(
+    bridge::action("fish", &["myapp"]),   // or bash/zsh/carapace/carapace-bin/clap
+).into_command();
 ```

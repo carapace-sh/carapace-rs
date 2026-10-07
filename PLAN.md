@@ -37,6 +37,8 @@ carapace-lib-rs/
 ├── carapace-clap/        # clap adapter: Command → model, extension API, integration entry points
 ├── carapace-macros/      # (phase 3) optional derive/attribute sugar
 ├── carapace-testkit/     # sandbox harness (port of carapace/sandbox) + golden tests
+├── carapace-spec/        # YAML specs as command trees
+├── carapace-bridge/      # external completer bridges (fish, bash, zsh, carapace, clap)
 └── examples/             # demo CLI used by sandbox tests
 ```
 
@@ -188,6 +190,29 @@ Port of `sandbox`: spawn the example binary in a sandboxed shell session per tar
 send compline, capture output, assert. Use `completest`-style PTY harness only behind a
 test feature; keep core no-PTY. Golden tests per shell for snippets and completions.
 
+## carapace-bridge
+
+Port of `carapace-bridge/pkg/actions/bridge`: wrap completions provided by
+external frameworks as regular carapace [`Action`]s.
+
+- `bridge::action(name, command)` dispatches by name; each bridge goes through
+  `action_command`, which — when no command is given — completes the first
+  positional with `executables + files` and delegates shifted afterwards.
+- `fish`: `fish --no-config --command` snippet sourcing
+  `~/.config/carapace/bridge/fish/config.fish`, output of `complete
+  --do-complete` parsed as `value\tdescription`.
+- `bash` (`shell::bash`): interactive `bash --rcfile` with
+  `~/.config/carapace/bridge/bash/.bashrc`, runs the vendored `bash.sh`
+  snippet via `COMP_LINE`, parses `value(description)` lines.
+- `zsh`: zpty-based completion capture (vendored
+  `Valodim/zsh-capture-completion`) with
+  `~/.config/carapace/bridge/zsh/.zshrc`, output unquoted/ANSI-stripped and
+  split on ` -- ` for descriptions.
+- `carapace` / `carapace-bin`: invoke the target's `_carapace export` (or the
+  `carapace` binary) and `ActionImport` the export JSON.
+- `clap`: invoke the target's clap dynamic `complete` CLI
+  (`--index/--type/--no-space/--ifs`) and mirror its nospace heuristic.
+
 ## Milestones
 
 | # | Scope | Status |
@@ -200,7 +225,7 @@ test feature; keep core no-PTY. Golden tests per shell for snippets and completi
 | M5 | powershell, xonsh, tcsh, ion, oil, bash-ble; `Batch`, `Timeout` | done (std threads, not rayon) |
 | M6 | `exec_command`/`_e`, `styles`/`style_config`, snippet modes + `$SHELL` detect | done |
 | M6.5 | UIDs/queries, `ActionImport`/`ActionExecute` + `execute_embedded` multi-completer, `_carapace style set` | done (spec subcommand open) |
-| P2 | sandbox testkit (in-process harness), spec crate (YAML) | done; bridge crate, derive sugar open |
+| P2 | sandbox testkit (in-process harness), spec crate (YAML), bridge crate | done; derive sugar open |
 
 ## Risks / decisions
 

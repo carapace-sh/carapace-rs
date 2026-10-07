@@ -180,6 +180,48 @@ impl Action {
     }
 }
 
+impl Action {
+    /// Complete executables available on `PATH`.
+    pub fn executables() -> Self {
+        Self::callback(|c| {
+            let path = c.get_env("PATH");
+            let mut values = Vec::new();
+            let mut seen = std::collections::HashSet::new();
+            for dir in path.split(':').filter(|dir| !dir.is_empty()) {
+                let Ok(entries) = std::fs::read_dir(dir) else {
+                    continue;
+                };
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    if seen.insert(name.clone()) && is_executable(&entry.path()) {
+                        values.push(RawValue::new(name));
+                    }
+                }
+            }
+            sort_executables(&mut values, &c.value);
+            Action::raw(values)
+        })
+    }
+}
+
+fn is_executable(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(path)
+            .map(|metadata| metadata.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
+    #[cfg(not(unix))]
+    {
+        path.extension().is_some_and(|ext| ext == "exe")
+    }
+}
+
+fn sort_executables(values: &mut [RawValue], _prefix: &str) {
+    values.sort_by(|a, b| a.value.cmp(&b.value));
+}
+
 fn complete_path(context: &Context, filter: impl Fn(&Path) -> bool) -> Option<Action> {
     let value = &context.value;
     let (dir, prefix) = match value.rfind('/') {

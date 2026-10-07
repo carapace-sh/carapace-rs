@@ -5,6 +5,9 @@
 
 mod flagkey;
 mod macro_resolve;
+mod marshal;
+
+pub use marshal::to_yaml;
 
 use carapace_core::model::{Command, Positional};
 use carapace_core::{Action, RawValue};

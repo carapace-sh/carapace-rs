@@ -148,3 +148,30 @@ completion:
         .invoke(&Context::default());
     assert!(!invoked.meta.messages.is_empty());
 }
+
+#[test]
+fn yaml_round_trip() {
+    let model = carapace_spec::from_yaml(EXAMPLE).unwrap();
+    let yaml = carapace_spec::to_yaml(&model);
+    assert!(yaml.starts_with("# yaml-language-server:"));
+
+    let reparsed = carapace_spec::from_yaml(&yaml).unwrap();
+    assert_eq!(reparsed.name, "mycmd");
+    assert_eq!(reparsed.aliases, vec!["myc".to_string()]);
+    assert_eq!(reparsed.subcommands.len(), 1);
+    assert_eq!(reparsed.subcommands[0].name, "sub");
+
+    let verbose = reparsed.flags.iter().find(|flag| flag.name == "verbose").unwrap();
+    assert_eq!(verbose.shorthand, Some('v'));
+    assert!(!verbose.takes_value);
+
+    let file = reparsed.flags.iter().find(|flag| flag.name == "file").unwrap();
+    assert!(file.takes_value);
+    assert!(!file.optional);
+
+    let output = reparsed.flags.iter().find(|flag| flag.name == "output").unwrap();
+    assert!(output.optional);
+
+    let two = reparsed.flags.iter().find(|flag| flag.name == "two").unwrap();
+    assert!(matches!(two.nargs, carapace_core::model::Nargs::Exact(2)));
+}

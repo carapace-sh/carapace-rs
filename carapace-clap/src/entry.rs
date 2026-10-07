@@ -13,6 +13,12 @@ pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<
     if args.first().map(String::as_str) != Some("_carapace") {
         return None;
     }
+    // _carapace spec: dump the command tree as YAML spec
+    if args.get(1).map(String::as_str) == Some("spec") {
+        let mut cmd = factory();
+        let model = crate::to_model(&mut cmd);
+        return Some(carapace_spec::to_yaml(&model));
+    }
     // _carapace style set <name> <style>: persist to styles.json
     if args.get(1).map(String::as_str) == Some("style")
         && args.get(2).map(String::as_str) == Some("set")

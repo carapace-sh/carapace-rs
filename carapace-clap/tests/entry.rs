@@ -230,3 +230,16 @@ fn execute_embedded_completes_nested_tree() {
         .collect();
     assert_eq!(values, vec!["fast", "slow"]);
 }
+
+#[test]
+fn spec_dumps_yaml() {
+    let output = carapace_clap::complete(factory, &["_carapace".to_string(), "spec".to_string()])
+        .expect("spec is handled");
+    assert!(output.starts_with("# yaml-language-server:"), "{output}");
+    assert!(output.contains("name: myapp"), "{output}");
+    assert!(output.contains("--profile="), "{output}");
+
+    let model = carapace_spec::from_yaml(&output).unwrap();
+    assert_eq!(model.name, "myapp");
+    assert!(model.flags.iter().any(|flag| flag.name == "profile"));
+}

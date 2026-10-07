@@ -224,7 +224,7 @@ external frameworks as regular carapace [`Action`]s.
 | M4 | zsh, fish, elvish, nushell formatters; styles.json/config | done |
 | M5 | powershell, xonsh, tcsh, ion, oil, bash-ble; `Batch`, `Timeout` | done (std threads, not rayon) |
 | M6 | `exec_command`/`_e`, `styles`/`style_config`, snippet modes + `$SHELL` detect | done |
-| M6.5 | UIDs/queries, `ActionImport`/`ActionExecute` + `execute_embedded` multi-completer, `_carapace style set` | done (spec subcommand open) |
+| M6.5 | UIDs/queries, `ActionImport`/`ActionExecute` + `execute_embedded` multi-completer, `_carapace style set`, `_carapace spec` dump | done |
 | P2 | sandbox testkit (in-process harness), spec crate (YAML), bridge crate | done; derive sugar open |
 
 ## Risks / decisions

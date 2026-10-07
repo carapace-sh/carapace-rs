@@ -76,7 +76,7 @@ See `PLAN.md` for the full porting plan and status.
 ## Development
 
 ```bash
-cargo test          # 148 tests across 14 suites
+cargo test          # 150 tests across 14 suites
 cargo clippy        # clean
 ```
 
@@ -86,7 +86,7 @@ Layout:
 carapace-core/    engine: model, action, traverse, shell formatters, cache, uid, export
 carapace-clap/    clap adapter: Gen builder, extension slots, _carapace entry
 carapace-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions
-carapace-spec/    YAML user specs: flag suffixes, macros ($files, $directories), parsing modes
+carapace-spec/    YAML user specs: flag suffixes, macros ($files, $directories), parsing modes, spec dump
 carapace-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin, clap
 ```
 

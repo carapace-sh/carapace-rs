@@ -5,8 +5,8 @@
 //! consumed by the traversal engine.
 
 mod completer;
-mod entry;
 mod convert;
+mod entry;
 mod integration;
 
 pub use completer::{ArgCompleter, CommandCompleter, DashAnyCompleter};
@@ -35,11 +35,7 @@ pub fn flag_completion(cmd: &mut clap::Command, name: &str, action: carapace_cor
 }
 
 /// Attach a completion action to the positional at the given index (1-based).
-pub fn positional_completion(
-    cmd: &mut clap::Command,
-    index: usize,
-    action: carapace_core::Action,
-) {
+pub fn positional_completion(cmd: &mut clap::Command, index: usize, action: carapace_core::Action) {
     let id = cmd
         .get_positionals()
         .find(|arg| arg.get_index() == Some(index))

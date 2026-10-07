@@ -1,9 +1,9 @@
 //! Zsh value formatting (port of Go `internal/shell/zsh/action.go`).
 
 use crate::meta::Meta;
+use crate::shell::sgr;
 use crate::value::RawValue;
 use crate::value::RawValues;
-use crate::shell::sgr;
 
 /// Remove newline, carriage return and tab.
 fn sanitize(value: &str) -> String {
@@ -33,8 +33,26 @@ fn default_replacer(value: &str) -> String {
     for c in value.chars() {
         if matches!(
             c,
-            '\\' | '&' | '<' | '>' | '`' | '\'' | '"' | '{' | '}' | '$' | '#' | '|' | '?' | '('
-                | ')' | ';' | ' ' | '[' | ']' | '*' | '~'
+            '\\' | '&'
+                | '<'
+                | '>'
+                | '`'
+                | '\''
+                | '"'
+                | '{'
+                | '}'
+                | '$'
+                | '#'
+                | '|'
+                | '?'
+                | '('
+                | ')'
+                | ';'
+                | ' '
+                | '['
+                | ']'
+                | '*'
+                | '~'
         ) {
             result.push('\\');
         }
@@ -203,21 +221,18 @@ pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) ->
                 )
             }
             State::Quoting => {
-                zsh_value =
-                    format!("{}'", describe_replacer(&quoting_replacer(&zsh_value)))
+                zsh_value = format!("{}'", describe_replacer(&quoting_replacer(&zsh_value)))
             }
             State::FullQuotingEscaping => {
                 zsh_value = describe_replacer(&quoting_escaping_replacer(&zsh_value))
             }
-            State::FullQuoting => {
-                zsh_value = describe_replacer(&quoting_replacer(&zsh_value))
-            }
-            State::Default => {
-                zsh_value = describe_replacer(&quote_value(&zsh_value))
-            }
+            State::FullQuoting => zsh_value = describe_replacer(&quoting_replacer(&zsh_value)),
+            State::Default => zsh_value = describe_replacer(&quote_value(&zsh_value)),
         }
 
-        if !matches_nospace(meta, value) && !matches!(state, State::FullQuotingEscaping | State::FullQuoting) {
+        if !matches_nospace(meta, value)
+            && !matches!(state, State::FullQuotingEscaping | State::FullQuoting)
+        {
             zsh_value.push(' ');
         }
 
@@ -240,7 +255,9 @@ pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) ->
 
     let blocks: Vec<String> = tag_groups
         .into_iter()
-        .map(|(tag, displays, vals)| format!("{tag}\u{3}{}\u{3}{}", displays.join("\n"), vals.join("\n")))
+        .map(|(tag, displays, vals)| {
+            format!("{tag}\u{3}{}\u{3}{}", displays.join("\n"), vals.join("\n"))
+        })
         .collect();
 
     let tag_groups = format!("{}\u{2}", blocks.join("\u{2}"));

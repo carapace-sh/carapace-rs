@@ -5,7 +5,9 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 /// Serializes tests that touch CARAPACE_* environment variables.
 fn env_lock() -> MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    LOCK.get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn clear_compline() {
@@ -199,7 +201,11 @@ fn nospace_env_propagation() {
 #[test]
 fn multiparts_nospace_through_dispatch() {
     let action = Action::multiparts("/", |c| {
-        let values: &[&str] = if c.value.is_empty() { &["home", "etc"] } else { &["x"] };
+        let values: &[&str] = if c.value.is_empty() {
+            &["home", "etc"]
+        } else {
+            &["x"]
+        };
         Action::values(values.iter().copied())
     });
     let invoked = action.invoke(&Context::default().value(""));
@@ -334,7 +340,10 @@ fn oil_single_value_plain() {
 fn clink_tab_separated_with_appendchar() {
     let _guard = env_lock();
     clear_compline();
-    let values = vec![RawValue::described("a", "desc"), RawValue::new("dir/").nospace(true)];
+    let values = vec![
+        RawValue::described("a", "desc"),
+        RawValue::new("dir/").nospace(true),
+    ];
     let output = Shell::CmdClink.value("", &Meta::default(), &values);
     let lines: Vec<&str> = output.lines().collect();
     assert_eq!(lines[0], "a\ta\tdesc\t ");

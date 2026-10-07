@@ -1,6 +1,4 @@
-use carapace_core::{
-    ArgumentStyle, Command, Flag, Nargs, Positional,
-};
+use carapace_core::{ArgumentStyle, Command, Flag, Nargs, Positional};
 
 fn flag(id: &str, name: &str) -> Flag {
     Flag {

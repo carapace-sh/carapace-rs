@@ -115,7 +115,11 @@ fn style_set(name: &str, style: &str) {
         .ok()
         .filter(|dir| !dir.is_empty())
         .map(std::path::PathBuf::from)
-        .or_else(|| std::env::var("HOME").ok().map(|home| PathBuf::from(home).join(".config")))
+        .or_else(|| {
+            std::env::var("HOME")
+                .ok()
+                .map(|home| PathBuf::from(home).join(".config"))
+        })
         .map(|dir| dir.join("carapace"))
     else {
         return;

@@ -12,9 +12,9 @@ fn cli() -> Command {
 #[test]
 fn sandbox_completes_positionals() {
     let sandbox = Sandbox::new("positional");
-    sandbox.run(|| cli(), &[""]).expect(
-        Action::values_described([("build", "build things")]).tag("commands"),
-    );
+    sandbox
+        .run(|| cli(), &[""])
+        .expect(Action::values_described([("build", "build things")]).tag("commands"));
 }
 
 #[test]
@@ -41,7 +41,10 @@ fn sandbox_files_visible_to_actions() {
         &[""],
     );
     let values = run.values();
-    assert!(values.iter().any(|v| v.ends_with("notes.txt")), "{values:?}");
+    assert!(
+        values.iter().any(|v| v.ends_with("notes.txt")),
+        "{values:?}"
+    );
     assert!(values.iter().any(|v| v.ends_with("data")), "{values:?}");
 }
 
@@ -52,27 +55,28 @@ fn sandbox_replies_mock_commands() {
         .reply("git", &["branch", "--list"])
         .with("main\nfeature");
 
-    sandbox.run(
-        || {
-            let cmd = Command::new("myapp").arg(Arg::new("branch").index(1));
-            carapace_clap::Gen::new(cmd)
-                .positional_completion(
-                    1,
-                    Action::exec_command("git", &["branch", "--list"], |stdout| {
-                        let output = String::from_utf8_lossy(stdout).into_owned();
-                        let branches: Vec<String> = output
-                            .lines()
-                            .filter(|line| !line.is_empty())
-                            .map(String::from)
-                            .collect();
-                        Action::values(branches)
-                    }),
-                )
-                .into_command()
-        },
-        &[""],
-    )
-    .expect(Action::values(["main", "feature"]));
+    sandbox
+        .run(
+            || {
+                let cmd = Command::new("myapp").arg(Arg::new("branch").index(1));
+                carapace_clap::Gen::new(cmd)
+                    .positional_completion(
+                        1,
+                        Action::exec_command("git", &["branch", "--list"], |stdout| {
+                            let output = String::from_utf8_lossy(stdout).into_owned();
+                            let branches: Vec<String> = output
+                                .lines()
+                                .filter(|line| !line.is_empty())
+                                .map(String::from)
+                                .collect();
+                            Action::values(branches)
+                        }),
+                    )
+                    .into_command()
+            },
+            &[""],
+        )
+        .expect(Action::values(["main", "feature"]));
 }
 
 #[test]
@@ -80,19 +84,20 @@ fn sandbox_env_reaches_actions() {
     let mut sandbox = Sandbox::new("env");
     sandbox.env("SANDBOX_ENV_TEST", "mocked");
 
-    sandbox.run(
-        || {
-            let cmd = Command::new("myapp").arg(Arg::new("value").index(1));
-            carapace_clap::Gen::new(cmd)
-                .positional_completion(
-                    1,
-                    Action::callback(|context| {
-                        Action::values([context.get_env("SANDBOX_ENV_TEST")])
-                    }),
-                )
-                .into_command()
-        },
-        &[""],
-    )
-    .expect(Action::values(["mocked"]));
+    sandbox
+        .run(
+            || {
+                let cmd = Command::new("myapp").arg(Arg::new("value").index(1));
+                carapace_clap::Gen::new(cmd)
+                    .positional_completion(
+                        1,
+                        Action::callback(|context| {
+                            Action::values([context.get_env("SANDBOX_ENV_TEST")])
+                        }),
+                    )
+                    .into_command()
+            },
+            &[""],
+        )
+        .expect(Action::values(["mocked"]));
 }

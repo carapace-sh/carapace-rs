@@ -97,9 +97,7 @@ pub type RawValues = Vec<RawValue>;
 
 /// Sort values by display, then value.
 pub fn sort(values: &mut RawValues) {
-    values.sort_by(|a, b| {
-        by_display(a, b).then_with(|| a.value.cmp(&b.value))
-    });
+    values.sort_by(|a, b| by_display(a, b).then_with(|| a.value.cmp(&b.value)));
 }
 
 /// Compare by display falling back to value (matches Go `ByDisplay`).

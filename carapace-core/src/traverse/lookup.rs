@@ -133,8 +133,8 @@ fn lookup_shorthand_series(cmd: &Command, arg: &str, prefix: char) -> Option<Mat
                 args: vec![rest.strip_prefix('=').unwrap_or(&rest).to_owned()],
             });
         }
-        let attached_allowed = flag.argument_style.accepts_attached
-            || (flag.is_optarg() && !flag.delimiter_enabled());
+        let attached_allowed =
+            flag.argument_style.accepts_attached || (flag.is_optarg() && !flag.delimiter_enabled());
         if attached_allowed {
             return Some(MatchedFlag {
                 flag: flag.clone(),

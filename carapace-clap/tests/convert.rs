@@ -1,5 +1,5 @@
-use carapace_core::{Action, Context, Nargs};
 use carapace_clap::{Gen, to_model};
+use carapace_core::{Action, Context, Nargs};
 use clap::builder::{ArgAction, ValueHint};
 use clap::{Arg, Command};
 
@@ -27,12 +27,13 @@ fn converts_flags() {
                 .num_args(0..=1)
                 .require_equals(true),
         )
+        .arg(Arg::new("count").long("count").action(ArgAction::Count))
         .arg(
-            Arg::new("count")
-                .long("count")
-                .action(ArgAction::Count),
-        )
-        .arg(Arg::new("hidden").long("hidden").hide(true).action(ArgAction::SetTrue));
+            Arg::new("hidden")
+                .long("hidden")
+                .hide(true)
+                .action(ArgAction::SetTrue),
+        );
 
     let model = to_model(&mut cmd);
     assert_eq!(model.name, "app");
@@ -80,7 +81,12 @@ fn converts_variadic_flags() {
 fn converts_positionals() {
     let mut cmd = Command::new("app")
         .arg(Arg::new("first").help("the first").index(1))
-        .arg(Arg::new("rest").num_args(1..).index(2).trailing_var_arg(true));
+        .arg(
+            Arg::new("rest")
+                .num_args(1..)
+                .index(2)
+                .trailing_var_arg(true),
+        );
 
     let model = to_model(&mut cmd);
     assert_eq!(model.positionals.len(), 2);
@@ -109,10 +115,7 @@ fn possible_values_become_fallback_completion() {
         Arg::new("color")
             .long("color")
             .action(ArgAction::Set)
-            .value_parser(clap::builder::PossibleValuesParser::new([
-                "red",
-                "green",
-            ])),
+            .value_parser(clap::builder::PossibleValuesParser::new(["red", "green"])),
     );
     let model = to_model(&mut cmd);
     let color = model.lookup_long("color").unwrap();
@@ -125,8 +128,18 @@ fn possible_values_become_fallback_completion() {
 #[test]
 fn value_hint_maps_to_file_completion() {
     let mut cmd = Command::new("app")
-        .arg(Arg::new("file").long("file").value_hint(ValueHint::FilePath).action(ArgAction::Set))
-        .arg(Arg::new("dir").long("dir").value_hint(ValueHint::DirPath).action(ArgAction::Set));
+        .arg(
+            Arg::new("file")
+                .long("file")
+                .value_hint(ValueHint::FilePath)
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("dir")
+                .long("dir")
+                .value_hint(ValueHint::DirPath)
+                .action(ArgAction::Set),
+        );
 
     let model = to_model(&mut cmd);
     assert!(model.lookup_long("file").unwrap().completion.is_some());
@@ -148,7 +161,11 @@ fn gen_attaches_completions() {
 
     let model = to_model(&mut cmd.clone());
     let profile = model.lookup_long("profile").unwrap();
-    let invoked = profile.completion.as_ref().unwrap().invoke(&Context::default());
+    let invoked = profile
+        .completion
+        .as_ref()
+        .unwrap()
+        .invoke(&Context::default());
     assert_eq!(invoked.values[0].value, "dev");
 
     let target = model.positionals[0].completion.as_ref().unwrap();
@@ -160,8 +177,7 @@ fn gen_attaches_completions() {
 #[test]
 fn gen_attaches_to_subcommands() {
     let cmd = Command::new("app").subcommand(
-        Command::new("build")
-            .arg(Arg::new("jobs").long("jobs").action(ArgAction::Set)),
+        Command::new("build").arg(Arg::new("jobs").long("jobs").action(ArgAction::Set)),
     );
 
     let configured = cmd.mut_subcommand("build", |build| {
@@ -207,8 +223,12 @@ fn hidden_subcommands_are_excluded() {
 
 #[test]
 fn hidden_flags_respect_hidden_env() {
-    let mut cmd = Command::new("app")
-        .arg(Arg::new("secret").long("secret").hide(true).action(ArgAction::SetTrue));
+    let mut cmd = Command::new("app").arg(
+        Arg::new("secret")
+            .long("secret")
+            .hide(true)
+            .action(ArgAction::SetTrue),
+    );
     let model = to_model(&mut cmd);
 
     unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
@@ -218,7 +238,11 @@ fn hidden_flags_respect_hidden_env() {
         .into_iter()
         .map(|v| v.value)
         .collect();
-    assert_eq!(values, vec!["--help", "-h"], "hidden flag must be skipped: {values:?}");
+    assert_eq!(
+        values,
+        vec!["--help", "-h"],
+        "hidden flag must be skipped: {values:?}"
+    );
 
     unsafe { std::env::set_var("CARAPACE_HIDDEN", "2") };
     let values: Vec<String> = carapace_core::traverse::action_flags(&model)
@@ -238,7 +262,10 @@ fn help_subcommand_completes_commands() {
         .subcommand(Command::new("test").about("run tests"));
     let model = to_model(&mut cmd);
     let help = model.lookup_subcommand("help").unwrap();
-    let action = help.positional_any.as_ref().expect("help completes commands");
+    let action = help
+        .positional_any
+        .as_ref()
+        .expect("help completes commands");
     let values: Vec<String> = action
         .invoke(&Context::default())
         .values

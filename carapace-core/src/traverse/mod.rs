@@ -223,7 +223,9 @@ pub fn action_flags(cmd: &Command) -> Action {
             }
             let description = flag.description.clone();
             if is_shorthand_series {
-                let Some(shorthand) = flag.shorthand else { continue };
+                let Some(shorthand) = flag.shorthand else {
+                    continue;
+                };
                 // abort if a previous shorthand in the series takes a value
                 let series: Vec<char> = value.chars().skip(1).collect();
                 let valid = series.iter().all(|shorthand| {
@@ -233,11 +235,7 @@ pub fn action_flags(cmd: &Command) -> Action {
                 if !valid {
                     continue;
                 }
-                let mut value = RawValue::styled_described(
-                    shorthand.to_string(),
-                    description,
-                    "",
-                );
+                let mut value = RawValue::styled_described(shorthand.to_string(), description, "");
                 value.tag = "shorthand flags".to_owned();
                 if flag.is_optarg() {
                     value = value.nospace(true);
@@ -252,11 +250,8 @@ pub fn action_flags(cmd: &Command) -> Action {
                 longhand.tag = "longhand flags".to_owned();
                 values.push(longhand);
                 if let Some(shorthand) = flag.shorthand {
-                    let mut short = RawValue::styled_described(
-                        format!("{prefix}{shorthand}"),
-                        description,
-                        "",
-                    );
+                    let mut short =
+                        RawValue::styled_described(format!("{prefix}{shorthand}"), description, "");
                     short.tag = "shorthand flags".to_owned();
                     values.push(short);
                 }

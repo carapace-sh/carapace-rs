@@ -154,12 +154,10 @@ fn convert(spec: Spec) -> Command {
     }
 
     for (flag_name, values) in &spec.completion.flag {
-        if let Some(flag) = model
-            .flags
-            .iter_mut()
-            .find(|flag| &flag.name == flag_name
-                || flag.shorthand.map(|c| c.to_string()).as_deref() == Some(flag_name.as_str()))
-        {
+        if let Some(flag) = model.flags.iter_mut().find(|flag| {
+            &flag.name == flag_name
+                || flag.shorthand.map(|c| c.to_string()).as_deref() == Some(flag_name.as_str())
+        }) {
             flag.completion = Some(values_action(values));
         }
     }

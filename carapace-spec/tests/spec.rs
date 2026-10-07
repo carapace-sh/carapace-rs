@@ -47,7 +47,15 @@ fn parses_spec_structure() {
 
     let file = model.lookup_long("file").unwrap();
     assert!(file.takes_value);
-    assert_eq!(file.completion.as_ref().unwrap().invoke(&Context::default()).values.len(), 0);
+    assert_eq!(
+        file.completion
+            .as_ref()
+            .unwrap()
+            .invoke(&Context::default())
+            .values
+            .len(),
+        0
+    );
 
     let two = model.lookup_long("two").unwrap();
     assert_eq!(two.nargs, carapace_core::Nargs::Exact(2));
@@ -142,10 +150,7 @@ completion:
 "#,
     )
     .unwrap();
-    let invoked = model
-        .positional_any
-        .unwrap()
-        .invoke(&Context::default());
+    let invoked = model.positional_any.unwrap().invoke(&Context::default());
     assert!(!invoked.meta.messages.is_empty());
 }
 
@@ -161,17 +166,33 @@ fn yaml_round_trip() {
     assert_eq!(reparsed.subcommands.len(), 1);
     assert_eq!(reparsed.subcommands[0].name, "sub");
 
-    let verbose = reparsed.flags.iter().find(|flag| flag.name == "verbose").unwrap();
+    let verbose = reparsed
+        .flags
+        .iter()
+        .find(|flag| flag.name == "verbose")
+        .unwrap();
     assert_eq!(verbose.shorthand, Some('v'));
     assert!(!verbose.takes_value);
 
-    let file = reparsed.flags.iter().find(|flag| flag.name == "file").unwrap();
+    let file = reparsed
+        .flags
+        .iter()
+        .find(|flag| flag.name == "file")
+        .unwrap();
     assert!(file.takes_value);
     assert!(!file.optional);
 
-    let output = reparsed.flags.iter().find(|flag| flag.name == "output").unwrap();
+    let output = reparsed
+        .flags
+        .iter()
+        .find(|flag| flag.name == "output")
+        .unwrap();
     assert!(output.optional);
 
-    let two = reparsed.flags.iter().find(|flag| flag.name == "two").unwrap();
+    let two = reparsed
+        .flags
+        .iter()
+        .find(|flag| flag.name == "two")
+        .unwrap();
     assert!(matches!(two.nargs, carapace_core::model::Nargs::Exact(2)));
 }

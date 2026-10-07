@@ -52,13 +52,10 @@ pub fn parse(cmd: &Command, args: &[String]) -> Parsed {
                 if missing > 0 {
                     // fixed nargs consume unconditionally (pflag behavior);
                     // variadic nargs stop at anything that looks like a flag
-                    let unconditional =
-                        matches!(matched.flag.nargs, crate::model::Nargs::Exact(_));
+                    let unconditional = matches!(matched.flag.nargs, crate::model::Nargs::Exact(_));
                     for _ in 0..missing {
                         match iter.peek().map(|(_, next)| next.to_string()) {
-                            Some(next)
-                                if unconditional || !next.starts_with(cmd.flag_prefix) =>
-                            {
+                            Some(next) if unconditional || !next.starts_with(cmd.flag_prefix) => {
                                 values.push(next);
                                 iter.next();
                             }

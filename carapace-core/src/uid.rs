@@ -21,7 +21,11 @@ pub fn path_escape(value: &str) -> String {
 
 /// UID of a command: `cmd://<root>/<subcommand-path>`.
 pub fn command(root: &str, path: &[&str]) -> String {
-    let mut url = format!("cmd://{}/{}", path_escape(root), path_escape(path.first().unwrap_or(&"")));
+    let mut url = format!(
+        "cmd://{}/{}",
+        path_escape(root),
+        path_escape(path.first().unwrap_or(&""))
+    );
     for segment in path.iter().skip(1) {
         url.push('/');
         url.push_str(&path_escape(segment));
@@ -31,11 +35,7 @@ pub fn command(root: &str, path: &[&str]) -> String {
 
 /// UID of a flag: `cmd://<root>/<subcommand-path>?flag=<name>`.
 pub fn flag(root: &str, path: &[&str], flag_name: &str) -> String {
-    format!(
-        "{}?flag={}",
-        command(root, path),
-        path_escape(flag_name)
-    )
+    format!("{}?flag={}", command(root, path), path_escape(flag_name))
 }
 
 /// Build a UID with alternating key-value opts (empty values skipped),

@@ -11,8 +11,8 @@ use crate::context::Context;
 use crate::meta::Meta;
 use crate::value::RawValues;
 
-pub use invoked::{InvokedAction, merge_all};
 pub use batch::batch;
+pub use invoked::{InvokedAction, merge_all};
 
 /// Callback producing an [`Action`] at invocation time.
 pub type ActionCallback = Arc<dyn Fn(&Context) -> Action + Send + Sync>;
@@ -41,11 +41,14 @@ impl std::fmt::Debug for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Action")
             .field("meta", &self.meta)
-            .field("kind", &match &self.kind {
-                ActionKind::Empty => "empty",
-                ActionKind::Raw(values) => return write!(f, "Raw({} values)", values.len()),
-                ActionKind::Callback(_) => "callback",
-            })
+            .field(
+                "kind",
+                &match &self.kind {
+                    ActionKind::Empty => "empty",
+                    ActionKind::Raw(values) => return write!(f, "Raw({} values)", values.len()),
+                    ActionKind::Callback(_) => "callback",
+                },
+            )
             .finish()
     }
 }

@@ -37,7 +37,9 @@ static STYLES: std::sync::RwLock<Option<Styles>> = std::sync::RwLock::new(None);
 /// `carapace.Error` and `carapace.Usage` configure the built-in styles;
 /// other names register custom styles.
 pub fn styles() -> Styles {
-    let mut guard = STYLES.write().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut guard = STYLES
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if guard.is_none() {
         *guard = Some(load_styles());
     }
@@ -46,13 +48,17 @@ pub fn styles() -> Styles {
 
 /// Override the style configuration (mainly for tests).
 pub fn set_styles(styles: Styles) {
-    let mut guard = STYLES.write().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut guard = STYLES
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     *guard = Some(styles);
 }
 
 /// Clear the cached style configuration so the next [`styles`] call reloads.
 pub fn reset_styles() {
-    let mut guard = STYLES.write().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut guard = STYLES
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     *guard = None;
 }
 
@@ -113,7 +119,10 @@ pub enum Hidden {
 }
 
 pub fn hidden() -> Hidden {
-    match std::env::var("CARAPACE_HIDDEN").ok().and_then(|v| v.parse::<u8>().ok()) {
+    match std::env::var("CARAPACE_HIDDEN")
+        .ok()
+        .and_then(|v| v.parse::<u8>().ok())
+    {
         Some(1) => Hidden::ExcludeCarapace,
         Some(2) => Hidden::IncludeCarapace,
         _ => Hidden::None,

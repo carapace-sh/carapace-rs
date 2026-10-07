@@ -3,8 +3,8 @@
 use serde::Serialize;
 
 use crate::meta::Meta;
-use crate::value::RawValues;
 use crate::shell::sgr;
+use crate::value::RawValues;
 
 fn sanitize(value: &str) -> String {
     value.replace(['\n', '\t'], "")

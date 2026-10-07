@@ -1,13 +1,15 @@
+use carapace_clap::Gen;
 use carapace_core::shell::Shell;
 use clap::builder::ArgAction;
 use clap::{Arg, Command};
-use carapace_clap::Gen;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 /// Serializes tests that touch COMP_* environment variables.
 fn env_lock() -> MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    LOCK.get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn clear_comp_env() {
@@ -94,7 +96,10 @@ fn bash_patch_relexes_compline() {
 
     let (_nospace, data) = output.split_once('\u{1}').unwrap();
     let values: Vec<&str> = data.lines().collect();
-    assert!(values.contains(&"--profile"), "re-lexed args drive flag completion: {values:?}");
+    assert!(
+        values.contains(&"--profile"),
+        "re-lexed args drive flag completion: {values:?}"
+    );
 }
 
 #[test]
@@ -105,16 +110,16 @@ fn bash_patch_redirect_completes_files() {
     unsafe { std::env::set_var("COMP_LINE", "myapp > ") };
     unsafe { std::env::set_var("COMP_POINT", "9") };
 
-    let output = carapace_clap::complete_output(
-        factory,
-        Shell::Bash,
-        &[">".to_string(), "".to_string()],
-    );
+    let output =
+        carapace_clap::complete_output(factory, Shell::Bash, &[">".to_string(), "".to_string()]);
     unsafe { std::env::remove_var("COMP_LINE") };
     unsafe { std::env::remove_var("COMP_POINT") };
 
     // redirect target: file completion kicks in (no flag names)
-    assert!(!output.contains("--profile"), "redirect target must complete files: {output}");
+    assert!(
+        !output.contains("--profile"),
+        "redirect target must complete files: {output}"
+    );
 }
 
 #[test]
@@ -134,7 +139,10 @@ fn bash_patch_quoted_compline() {
     unsafe { std::env::remove_var("COMP_POINT") };
 
     let (_nospace, data) = output.split_once('\u{1}').unwrap();
-    assert!(data.lines().any(|line| line.contains("--profile")), "{data}");
+    assert!(
+        data.lines().any(|line| line.contains("--profile")),
+        "{data}"
+    );
 }
 
 #[test]
@@ -144,7 +152,10 @@ fn carapace_without_shell_prints_detected_snippet() {
     let output = carapace_clap::complete(factory, &["_carapace".to_string()]);
     unsafe { std::env::remove_var("SHELL") };
     let output = output.unwrap();
-    assert!(output.contains("compdef _myapp_completion myapp"), "{output}");
+    assert!(
+        output.contains("compdef _myapp_completion myapp"),
+        "{output}"
+    );
 }
 
 #[test]
@@ -156,7 +167,9 @@ fn carapace_with_shell_prints_snippet() {
 
 #[test]
 fn carapace_unknown_shell_yields_nothing() {
-    assert!(carapace_clap::complete(factory, &["_carapace".to_string(), "csh".to_string()]).is_none());
+    assert!(
+        carapace_clap::complete(factory, &["_carapace".to_string(), "csh".to_string()]).is_none()
+    );
 }
 
 #[test]
@@ -205,14 +218,15 @@ fn execute_embedded_completes_nested_tree() {
         .into_iter()
         .map(|v| v.value)
         .collect();
-    assert!(values.is_empty(), "embedded tree has no completers: {values:?}");
+    assert!(
+        values.is_empty(),
+        "embedded tree has no completers: {values:?}"
+    );
 
     // with completers attached on the embedded command
-    let embedded = Gen::new(
-        Command::new("inner").arg(Arg::new("mode").index(1)),
-    )
-    .positional_completion(1, Action::values(["fast", "slow"]))
-    .into_command();
+    let embedded = Gen::new(Command::new("inner").arg(Arg::new("mode").index(1)))
+        .positional_completion(1, Action::values(["fast", "slow"]))
+        .into_command();
 
     let outer = Command::new("myapp").arg(Arg::new("rest").num_args(0..).index(1));
     let outer = Gen::new(outer)

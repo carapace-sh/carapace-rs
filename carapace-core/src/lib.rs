@@ -5,8 +5,8 @@
 //! their own crates and produce the [`model::Command`] tree consumed here.
 
 pub mod action;
-pub mod config;
 pub mod cache;
+pub mod config;
 pub mod context;
 pub mod export;
 pub mod meta;

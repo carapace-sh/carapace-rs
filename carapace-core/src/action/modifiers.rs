@@ -141,7 +141,13 @@ impl Action {
     where
         F: Fn(&Context) -> bool + Send + Sync + 'static,
     {
-        Self::callback(move |c| if f(c) { Self::raw(Vec::new()) } else { self.clone() })
+        Self::callback(move |c| {
+            if f(c) {
+                Self::raw(Vec::new())
+            } else {
+                self.clone()
+            }
+        })
     }
 
     /// Shift positional arguments left `n` times.
@@ -158,10 +164,7 @@ impl Action {
     pub fn list(self, divider: &str) -> Self {
         let inner = self;
         Self::multiparts_n(divider, -1, move |c| {
-            inner
-                .invoke(c)
-                .to_action()
-                .nospace([])
+            inner.invoke(c).to_action().nospace([])
         })
     }
 
@@ -302,7 +305,13 @@ impl Action {
     }
 
     /// Add query metadata via alternating key-value opts (experimental).
-    pub fn query(self, scheme: &str, host: &str, path: &str, opts: Vec<(&'static str, String)>) -> Self {
+    pub fn query(
+        self,
+        scheme: &str,
+        host: &str,
+        path: &str,
+        opts: Vec<(&'static str, String)>,
+    ) -> Self {
         self.with_meta(
             Meta::default().query(crate::meta::Query {
                 scheme: scheme.to_owned(),
@@ -399,9 +408,11 @@ impl Action {
     pub(crate) fn with_meta(self, meta: Meta) -> Self {
         let mut merged = self.meta.clone();
         merged.merge(&meta);
-        Self { meta: merged, ..self }
+        Self {
+            meta: merged,
+            ..self
+        }
     }
-
 }
 
 fn split_n(value: &str, sep: &str, n: isize) -> Vec<String> {

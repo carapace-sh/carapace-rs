@@ -1,7 +1,7 @@
 //! Conversion of a `clap::Command` tree into the normalized carapace model.
 
-use carapace_core::model::{ArgumentStyle, Command, Flag, Nargs, Positional};
 use carapace_core::Action;
+use carapace_core::model::{ArgumentStyle, Command, Flag, Nargs, Positional};
 
 use crate::completer::{ArgCompleter, CommandCompleter, DashAnyCompleter};
 
@@ -81,7 +81,11 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
             let max = range.max_values();
             let optional = takes_value && min == 0;
             let nargs = if max == usize::MAX {
-                if min >= 1 { Nargs::AtLeastOne } else { Nargs::Any }
+                if min >= 1 {
+                    Nargs::AtLeastOne
+                } else {
+                    Nargs::Any
+                }
             } else {
                 Nargs::Exact(max)
             };
@@ -170,7 +174,10 @@ fn possible_values_action(arg: &clap::Arg) -> Option<Action> {
         .map(|value| {
             (
                 value.get_name().to_owned(),
-                value.get_help().map(|help| help.to_string()).unwrap_or_default(),
+                value
+                    .get_help()
+                    .map(|help| help.to_string())
+                    .unwrap_or_default(),
             )
         })
         .collect();
@@ -181,9 +188,7 @@ fn value_hint_action(arg: &clap::Arg) -> Option<Action> {
     use clap::builder::ValueHint;
     match arg.get_value_hint() {
         ValueHint::DirPath => Some(Action::directories()),
-        ValueHint::AnyPath | ValueHint::FilePath => {
-            Some(Action::files(Vec::<String>::new()))
-        }
+        ValueHint::AnyPath | ValueHint::FilePath => Some(Action::files(Vec::<String>::new())),
         _ => None,
     }
 }

@@ -106,9 +106,7 @@ impl Flag {
         }
         match self.nargs {
             Nargs::Exact(n) => args_so_far < n,
-            Nargs::AtLeastOne | Nargs::Any => {
-                args_so_far == 0 || !self.looks_like_flag(arg)
-            }
+            Nargs::AtLeastOne | Nargs::Any => args_so_far == 0 || !self.looks_like_flag(arg),
         }
     }
 

@@ -68,7 +68,11 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
     let candidates: Vec<ComplexCandidate> = values
         .iter()
         .map(|value| {
-            let suffix = if matches_nospace(meta, value) { "" } else { " " };
+            let suffix = if matches_nospace(meta, value) {
+                ""
+            } else {
+                " "
+            };
             let style = if value.style.is_empty() {
                 "default".to_owned()
             } else {
@@ -114,4 +118,3 @@ pub fn snippet(binary: &str) -> String {
     snippet.push_str("}\n");
     snippet
 }
-

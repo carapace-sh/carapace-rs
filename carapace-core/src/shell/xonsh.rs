@@ -3,8 +3,8 @@
 use serde::Serialize;
 
 use crate::meta::Meta;
-use crate::value::RawValues;
 use crate::shell::style::Style;
+use crate::value::RawValues;
 
 fn sanitize(value: &str) -> String {
     value.replace(['\n', '\t'], "").replace('\'', "\\'")
@@ -44,9 +44,15 @@ fn convert_style(style: &str) -> String {
     if let Some(fg) = &parsed.foreground {
         parts.push(format!("fg:{fg}"));
     }
-    if parsed.bold { parts.push("bold".to_owned()); }
-    if parsed.italic { parts.push("italic".to_owned()); }
-    if parsed.underlined { parts.push("underline".to_owned()); }
+    if parsed.bold {
+        parts.push("bold".to_owned());
+    }
+    if parsed.italic {
+        parts.push("italic".to_owned());
+    }
+    if parsed.underlined {
+        parts.push("underline".to_owned());
+    }
     parts.join(" ")
 }
 

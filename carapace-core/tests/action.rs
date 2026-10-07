@@ -9,8 +9,8 @@ fn values_invoke() {
 
 #[test]
 fn values_described() {
-    let invoked = Action::values_described([("a", "first"), ("b", "second")])
-        .invoke(&Context::default());
+    let invoked =
+        Action::values_described([("a", "first"), ("b", "second")]).invoke(&Context::default());
     assert_eq!(invoked.values[0].value, "a");
     assert_eq!(invoked.values[0].display, "a");
     assert_eq!(invoked.values[0].description, "first");
@@ -33,7 +33,10 @@ fn filter_and_retain() {
 fn filter_args() {
     let action = Action::values(["A", "B", "C"]);
     let context = Context::default().args(["A"]);
-    assert_eq!(values(action.filter_args().invoke(&context)), vec!["B", "C"]);
+    assert_eq!(
+        values(action.filter_args().invoke(&context)),
+        vec!["B", "C"]
+    );
 }
 
 #[test]
@@ -43,13 +46,12 @@ fn prefix_and_suffix() {
         .clone()
         .prefix("water")
         .invoke(&Context::default().value(""));
-    assert_eq!(
-        values(invoked),
-        vec!["watermelon", "waterdrop"]
-    );
+    assert_eq!(values(invoked), vec!["watermelon", "waterdrop"]);
 
     // prefix mismatch suppresses all values
-    let invoked = action.prefix("water").invoke(&Context::default().value("salt"));
+    let invoked = action
+        .prefix("water")
+        .invoke(&Context::default().value("salt"));
     assert!(invoked.values.is_empty());
 }
 
@@ -63,7 +65,9 @@ fn prefix_filters_by_current_value() {
 
 #[test]
 fn suffix() {
-    let invoked = Action::values(["apple"]).suffix("juice").invoke(&Context::default());
+    let invoked = Action::values(["apple"])
+        .suffix("juice")
+        .invoke(&Context::default());
     assert_eq!(values(invoked), vec!["applejuice"]);
 }
 
@@ -101,17 +105,29 @@ fn message() {
 #[test]
 fn unless() {
     let action = Action::values(["a", "b"]);
-    assert!(action.clone().unless(true).invoke(&Context::default()).values.is_empty());
-    assert_eq!(values(action.unless(false).invoke(&Context::default())), vec!["a", "b"]);
+    assert!(
+        action
+            .clone()
+            .unless(true)
+            .invoke(&Context::default())
+            .values
+            .is_empty()
+    );
+    assert_eq!(
+        values(action.unless(false).invoke(&Context::default())),
+        vec!["a", "b"]
+    );
 }
 
 #[test]
 fn unless_f() {
     let action = Action::values(["a", "b"]).unless_f(|c| !c.args.is_empty());
-    assert!(action
-        .invoke(&Context::default().args(["arg"]))
-        .values
-        .is_empty());
+    assert!(
+        action
+            .invoke(&Context::default().args(["arg"]))
+            .values
+            .is_empty()
+    );
     assert_eq!(values(action.invoke(&Context::default())), vec!["a", "b"]);
 }
 
@@ -125,9 +141,13 @@ fn shift() {
 
 #[test]
 fn nospace() {
-    let invoked = Action::values(["a/"]).nospace(['/']).invoke(&Context::default());
+    let invoked = Action::values(["a/"])
+        .nospace(['/'])
+        .invoke(&Context::default());
     assert_eq!(invoked.meta.nospace, vec!['/']);
-    let invoked = Action::values(["a"]).nospace([]).invoke(&Context::default());
+    let invoked = Action::values(["a"])
+        .nospace([])
+        .invoke(&Context::default());
     assert_eq!(invoked.meta.nospace, vec!['*']);
 }
 

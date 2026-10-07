@@ -104,7 +104,10 @@ fn completes_flag_value_after_separate_arg() {
 
 #[test]
 fn completes_attached_flag_value() {
-    assert_eq!(complete(&["--output="]), vec!["--output=file1", "--output=file2"]);
+    assert_eq!(
+        complete(&["--output="]),
+        vec!["--output=file1", "--output=file2"]
+    );
     assert_eq!(complete(&["-o="]), vec!["-o=file1", "-o=file2"]);
     assert_eq!(complete(&["-ofile"]), vec!["-ofile1", "-ofile2"]);
 }
@@ -112,20 +115,32 @@ fn completes_attached_flag_value() {
 #[test]
 fn completes_optional_flag_value() {
     // optarg with explicit delimiter
-    assert_eq!(complete(&["--define="]), vec!["--define=key1", "--define=key2"]);
+    assert_eq!(
+        complete(&["--define="]),
+        vec!["--define=key1", "--define=key2"]
+    );
     // optarg never consumes the next positional
-    assert_eq!(complete(&["--define", ""]), vec!["build", "t1", "t2", "test"]);
+    assert_eq!(
+        complete(&["--define", ""]),
+        vec!["build", "t1", "t2", "test"]
+    );
 }
 
 #[test]
 fn completes_bool_flag_value_with_delimiter() {
-    assert_eq!(complete(&["--verbose="]), vec!["--verbose=false", "--verbose=true"]);
+    assert_eq!(
+        complete(&["--verbose="]),
+        vec!["--verbose=false", "--verbose=true"]
+    );
 }
 
 #[test]
 fn flag_consumes_next_arg() {
     // after --output file1, no positionals were consumed yet: positional 0 + commands
-    assert_eq!(complete(&["--output", "file1", ""]), vec!["build", "t1", "t2", "test"]);
+    assert_eq!(
+        complete(&["--output", "file1", ""]),
+        vec!["build", "t1", "t2", "test"]
+    );
     // variadic flag keeps consuming
     assert_eq!(complete(&["--include", "inc1", ""]), vec!["inc1", "inc2"]);
 }
@@ -162,7 +177,10 @@ fn shorthand_series_prefix() {
 
 #[test]
 fn unknown_flags_are_ignored() {
-    assert_eq!(complete(&["--unknown", ""]), vec!["build", "t1", "t2", "test"]);
+    assert_eq!(
+        complete(&["--unknown", ""]),
+        vec!["build", "t1", "t2", "test"]
+    );
 }
 
 #[test]
@@ -174,7 +192,10 @@ fn positional_any_fallback() {
             ..Default::default()
         })
         .positional_any(Action::values(["any1"]));
-    let completion = traverse(&cmd, vec!["a".to_string(), "b".into(), "c".into(), "".into()]);
+    let completion = traverse(
+        &cmd,
+        vec!["a".to_string(), "b".into(), "c".into(), "".into()],
+    );
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
@@ -208,6 +229,9 @@ fn fixed_nargs_consume_flag_like_values() {
         &app,
         &["--output".to_string(), "--flaglike".to_string()],
     );
-    assert_eq!(parsed.flags, vec![("output".to_string(), vec!["--flaglike".to_string()])]);
+    assert_eq!(
+        parsed.flags,
+        vec![("output".to_string(), vec!["--flaglike".to_string()])]
+    );
     assert!(parsed.positionals.is_empty());
 }

@@ -55,7 +55,12 @@ fn common_prefix_of(values: &[&str]) -> String {
 
 /// Longest common display/value prefix across values.
 fn common_display_prefix(values: &[RawValue]) -> String {
-    common_prefix_of(&values.iter().map(|v| v.display.as_str()).collect::<Vec<_>>())
+    common_prefix_of(
+        &values
+            .iter()
+            .map(|v| v.display.as_str())
+            .collect::<Vec<_>>(),
+    )
 }
 
 fn common_value_prefix(values: &[RawValue]) -> String {
@@ -82,7 +87,11 @@ pub mod oil {
                 if values.len() == 1 {
                     sanitize(&value.value)
                 } else if !value.description.is_empty() {
-                    format!("{} ({})", value.value, sanitize(&trimmed_description(&value.description)))
+                    format!(
+                        "{} ({})",
+                        value.value,
+                        sanitize(&trimmed_description(&value.description))
+                    )
                 } else {
                     value.value
                 }
@@ -111,8 +120,23 @@ pub mod tcsh {
         for c in value.chars() {
             if matches!(
                 c,
-                '\\' | '&' | '<' | '>' | '`' | '\'' | '"' | '$' | '#' | '|' | '?' | '(' | ')'
-                    | ';' | ' ' | '[' | ']' | '*'
+                '\\' | '&'
+                    | '<'
+                    | '>'
+                    | '`'
+                    | '\''
+                    | '"'
+                    | '$'
+                    | '#'
+                    | '|'
+                    | '?'
+                    | '('
+                    | ')'
+                    | ';'
+                    | ' '
+                    | '['
+                    | ']'
+                    | '*'
             ) {
                 result.push('\\');
             }
@@ -150,8 +174,9 @@ pub mod tcsh {
                 if values.len() == 1 || value.description.is_empty() {
                     quoter(&sanitize(&value.value))
                 } else {
-                    let description =
-                        quoter(&sanitize(&trimmed_description(&value.description)).replace(' ', "_"));
+                    let description = quoter(
+                        &sanitize(&trimmed_description(&value.description)).replace(' ', "_"),
+                    );
                     format!("{}_({})", quoter(&sanitize(&value.value)), description)
                 }
             })
@@ -160,9 +185,7 @@ pub mod tcsh {
     }
 
     pub fn snippet(binary: &str) -> String {
-        format!(
-            "complete {binary} 'C@*,p@{binary} `echo $COMMAND_LINE[:]` _carapace tcsh@'\n"
-        )
+        format!("complete {binary} 'C@*,p@{binary} `echo $COMMAND_LINE[:]` _carapace tcsh@'\n")
     }
 }
 
@@ -179,7 +202,11 @@ pub mod cmd_clink {
         values
             .iter()
             .map(|value| {
-                let append_char = if matches_nospace(meta, value) { "" } else { " " };
+                let append_char = if matches_nospace(meta, value) {
+                    ""
+                } else {
+                    " "
+                };
                 format!(
                     "{}\t{}\t{}\t{}",
                     sanitize(&value.value),
@@ -227,9 +254,7 @@ pub mod ion {
         let suggestions: Vec<Suggestion> = values
             .iter()
             .map(|value| {
-                let mut suggestion = RawValue {
-                    ..value.clone()
-                };
+                let mut suggestion = RawValue { ..value.clone() };
                 if !matches_nospace(meta, &suggestion) {
                     suggestion.value.push(' ');
                 }
@@ -251,7 +276,11 @@ pub mod bash_ble {
         values
             .iter()
             .map(|value| {
-                let suffix = if matches_nospace(meta, value) { "" } else { " " };
+                let suffix = if matches_nospace(meta, value) {
+                    ""
+                } else {
+                    " "
+                };
                 format!(
                     "{}\t{}\x1c{}\x1c{}\x1c{}",
                     value.value,

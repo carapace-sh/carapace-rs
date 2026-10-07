@@ -94,7 +94,8 @@ impl Action {
                             .file_name()
                             .map(|name| name.to_string_lossy().into_owned())
                             .unwrap_or_default();
-                        name.to_ascii_lowercase().ends_with(&suffix.to_ascii_lowercase())
+                        name.to_ascii_lowercase()
+                            .ends_with(&suffix.to_ascii_lowercase())
                     })
             });
             match action {
@@ -117,10 +118,7 @@ impl Action {
             let mut args = c.args.clone();
             args.push(c.value.clone());
             let completion = crate::traverse(&cmd, args);
-            completion
-                .action
-                .invoke(&completion.context)
-                .to_action()
+            completion.action.invoke(&completion.context).to_action()
         })
     }
 
@@ -134,9 +132,14 @@ impl Action {
     {
         let command = command.to_owned();
         let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-        Self::callback(move |c| match c.execute(&command, &args.iter().map(String::as_str).collect::<Vec<_>>()) {
-            Ok(stdout) => f(&stdout),
-            Err(error) => Self::message(error),
+        Self::callback(move |c| {
+            match c.execute(
+                &command,
+                &args.iter().map(String::as_str).collect::<Vec<_>>(),
+            ) {
+                Ok(stdout) => f(&stdout),
+                Err(error) => Self::message(error),
+            }
         })
     }
 
@@ -149,7 +152,10 @@ impl Action {
         let command = command.to_owned();
         let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
         Self::callback(move |c| {
-            match c.execute(&command, &args.iter().map(String::as_str).collect::<Vec<_>>()) {
+            match c.execute(
+                &command,
+                &args.iter().map(String::as_str).collect::<Vec<_>>(),
+            ) {
                 Ok(stdout) => f(Ok(&stdout)),
                 Err(error) => f(Err(error)),
             }
@@ -159,8 +165,20 @@ impl Action {
     /// Complete known style names (for `style` configuration).
     pub fn styles() -> Self {
         Self::values([
-            "blue", "cyan", "magenta", "white", "red", "green", "yellow", "black", "default",
-            "bold", "italic", "underlined", "dimmed", "inverse",
+            "blue",
+            "cyan",
+            "magenta",
+            "white",
+            "red",
+            "green",
+            "yellow",
+            "black",
+            "default",
+            "bold",
+            "italic",
+            "underlined",
+            "dimmed",
+            "inverse",
         ])
     }
 

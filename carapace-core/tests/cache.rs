@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use carapace_core::{Action, Context};
 
@@ -33,7 +33,9 @@ impl Drop for Sandbox {
 
 #[test]
 fn cache_stores_and_reuses_results() {
-    let _env = ENV_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _sandbox = Sandbox::new();
 
     let calls = Arc::new(AtomicUsize::new(0));
@@ -49,7 +51,11 @@ fn cache_stores_and_reuses_results() {
     let first = action.invoke(&context);
     let second = action.invoke(&context);
 
-    assert_eq!(calls.load(Ordering::SeqCst), 1, "second invocation must hit the cache");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "second invocation must hit the cache"
+    );
     assert_eq!(first.values[0].value, "cached-value");
     assert_eq!(second.values[0].value, "cached-value");
 
@@ -59,19 +65,21 @@ fn cache_stores_and_reuses_results() {
 
 #[test]
 fn cache_keys_distinguish_entries() {
-    let _env = ENV_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _sandbox = Sandbox::new();
     let action = Action::values(["static"]); // raw actions skip caching
-    let first = action
-        .clone()
-        .invoke(&Context::default().env("X", "1"));
+    let first = action.clone().invoke(&Context::default().env("X", "1"));
     let second = action.invoke(&Context::default().env("X", "2"));
     assert_eq!(first.values, second.values);
 }
 
 #[test]
 fn cache_skips_error_states() {
-    let _env = ENV_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _sandbox = Sandbox::new();
     let action = Action::message("error state").cache("error-site", 60, vec![]);
     let invoked = action.invoke(&Context::default());
@@ -82,7 +90,9 @@ fn cache_skips_error_states() {
 
 #[test]
 fn cache_expires_after_ttl() {
-    let _env = ENV_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _sandbox = Sandbox::new();
     let path = carapace_core::cache::file("ttl-site", &[]).unwrap();
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -92,9 +102,18 @@ fn cache_expires_after_ttl() {
     );
     carapace_core::cache::write(&path, &export).unwrap();
 
-    assert!(carapace_core::cache::load(&path, 60).is_some(), "within ttl");
-    assert!(carapace_core::cache::load(&path, 0).is_none(), "zero revalidates");
-    assert!(carapace_core::cache::load(&path, -1).is_some(), "negative never expires");
+    assert!(
+        carapace_core::cache::load(&path, 60).is_some(),
+        "within ttl"
+    );
+    assert!(
+        carapace_core::cache::load(&path, 0).is_none(),
+        "zero revalidates"
+    );
+    assert!(
+        carapace_core::cache::load(&path, -1).is_some(),
+        "negative never expires"
+    );
 }
 
 #[test]

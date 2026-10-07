@@ -22,7 +22,10 @@ fn styles_load_from_json() {
     std::fs::remove_dir_all(&dir).ok();
 
     assert_eq!(styles.carapace.error, "magenta");
-    assert_eq!(styles.custom.get("keyword").map(String::as_str), Some("blue bold"));
+    assert_eq!(
+        styles.custom.get("keyword").map(String::as_str),
+        Some("blue bold")
+    );
 }
 
 #[test]

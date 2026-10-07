@@ -1,12 +1,12 @@
 //! Shared per-shell dispatch (port of Go `internal/shell/shell.go`).
 
 pub mod bash;
-pub mod simple;
-pub mod style;
 pub mod elvish;
 pub mod fish;
 pub mod nushell;
 pub mod powershell;
+pub mod simple;
+pub mod style;
 pub mod xonsh;
 pub mod zsh;
 

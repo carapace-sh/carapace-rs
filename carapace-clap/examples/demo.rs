@@ -2,8 +2,8 @@
 //!
 //! Register completions with (bash): `source <(cargo run ... -- _carapace bash)`.
 
-use carapace_core::Action;
 use carapace_clap::Gen;
+use carapace_core::Action;
 use clap::builder::{ArgAction, ValueHint};
 use clap::{Arg, Command};
 
@@ -26,11 +26,19 @@ fn cli() -> Command {
                 .help("output path"),
         )
         .arg(Arg::new("target").index(1).help("build target"))
-        .arg(Arg::new("rest").num_args(0..).index(2).trailing_var_arg(true))
+        .arg(
+            Arg::new("rest")
+                .num_args(0..)
+                .index(2)
+                .trailing_var_arg(true),
+        )
         .subcommand(
-            Command::new("build")
-                .about("build things")
-                .arg(Arg::new("jobs").short('j').long("jobs").action(ArgAction::Set)),
+            Command::new("build").about("build things").arg(
+                Arg::new("jobs")
+                    .short('j')
+                    .long("jobs")
+                    .action(ArgAction::Set),
+            ),
         )
         .subcommand(Command::new("test").about("run tests"));
 

@@ -3,8 +3,8 @@
 use serde::Serialize;
 
 use crate::meta::Meta;
-use crate::value::RawValues;
 use crate::shell::style::Style;
+use crate::value::RawValues;
 
 fn sanitize(value: &str) -> String {
     value.replace(['\n', '\r'], "")
@@ -56,12 +56,24 @@ fn convert_style(style: &str) -> Option<NushellStyle> {
     let parsed = Style::parse(style);
     let mut result = NushellStyle::default();
     let mut attributes = String::new();
-    if parsed.blink { attributes.push('l'); }
-    if parsed.bold { attributes.push('b'); }
-    if parsed.dim { attributes.push('d'); }
-    if parsed.italic { attributes.push('i'); }
-    if parsed.inverse { attributes.push('r'); }
-    if parsed.underlined { attributes.push('u'); }
+    if parsed.blink {
+        attributes.push('l');
+    }
+    if parsed.bold {
+        attributes.push('b');
+    }
+    if parsed.dim {
+        attributes.push('d');
+    }
+    if parsed.italic {
+        attributes.push('i');
+    }
+    if parsed.inverse {
+        attributes.push('r');
+    }
+    if parsed.underlined {
+        attributes.push('u');
+    }
     result.fg = parsed.foreground;
     result.bg = parsed.background;
     if !attributes.is_empty() {

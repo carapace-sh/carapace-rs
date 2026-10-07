@@ -28,7 +28,10 @@ fn uid_with_opts_skips_empty_values() {
 fn uid_modifier_sets_value_uids() {
     let action = Action::values(["a", "b/c"]).uid("cmd", "app", vec![("flag", "force".into())]);
     let invoked = action.invoke(&Context::default());
-    assert_eq!(invoked.values[0].uid.as_deref(), Some("cmd://app/a?flag=force"));
+    assert_eq!(
+        invoked.values[0].uid.as_deref(),
+        Some("cmd://app/a?flag=force")
+    );
     assert_eq!(
         invoked.values[1].uid.as_deref(),
         Some("cmd://app/b-c?flag=force")
@@ -37,8 +40,7 @@ fn uid_modifier_sets_value_uids() {
 
 #[test]
 fn import_roundtrips_export() {
-    let source = Action::values_described([("a", "first")])
-        .invoke(&Context::default());
+    let source = Action::values_described([("a", "first")]).invoke(&Context::default());
     let json = carapace_core::export::Export::from_parts(&source.meta, &source.values).to_json();
     let action = Action::import(&json);
     let invoked = action.invoke(&Context::default());

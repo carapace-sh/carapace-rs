@@ -44,8 +44,25 @@ fn escaping_replacer(value: &str) -> String {
     for c in value.chars() {
         if matches!(
             c,
-            '\\' | '&' | '<' | '>' | '`' | '\'' | '"' | '{' | '}' | '$' | '#' | '|' | '?' | '('
-                | ')' | ';' | ' ' | '[' | ']' | '*'
+            '\\' | '&'
+                | '<'
+                | '>'
+                | '`'
+                | '\''
+                | '"'
+                | '{'
+                | '}'
+                | '$'
+                | '#'
+                | '|'
+                | '?'
+                | '('
+                | ')'
+                | ';'
+                | ' '
+                | '['
+                | ']'
+                | '*'
         ) {
             result.push('\\');
         }
@@ -103,7 +120,12 @@ fn common_prefix_of(values: &[&str]) -> String {
 }
 
 fn common_display_prefix(values: &[RawValue]) -> String {
-    common_prefix_of(&values.iter().map(|v| v.display.as_str()).collect::<Vec<_>>())
+    common_prefix_of(
+        &values
+            .iter()
+            .map(|v| v.display.as_str())
+            .collect::<Vec<_>>(),
+    )
 }
 
 fn common_value_prefix(values: &[RawValue]) -> String {
@@ -314,7 +336,10 @@ fn truncate_at_byte(line: &str, point: usize) -> String {
 
 /// The raw (still quoted) last token of the command line.
 fn raw_last_token(line: &str) -> String {
-    line.split_whitespace().last().unwrap_or_default().to_owned()
+    line.split_whitespace()
+        .last()
+        .unwrap_or_default()
+        .to_owned()
 }
 
 /// Whether the token is a shell redirect operator (e.g. `>`, `2>`, `>>`, `&>`).

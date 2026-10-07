@@ -9,11 +9,11 @@ pub fn bash(command: &[&str]) -> Action {
     super::action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         Action::callback(move |c| {
-            let Some(config_dir) = config_dir() else {
+            let Some(config_dir) = super::config_dir() else {
                 return Action::message("failed to resolve config dir");
             };
             let rc_path = config_dir.join("carapace/bridge/bash/.bashrc");
-            if let Err(error) = ensure_exists(&rc_path) {
+            if let Err(error) = super::ensure_exists(&rc_path) {
                 return Action::message(error.to_string());
             }
 
@@ -92,21 +92,4 @@ fn bash_join(args: &[String]) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-fn config_dir() -> Option<std::path::PathBuf> {
-    match std::env::var("XDG_CONFIG_HOME") {
-        Ok(dir) if !dir.is_empty() => Some(std::path::PathBuf::from(dir)),
-        _ => std::env::var("HOME")
-            .ok()
-            .map(|home| std::path::PathBuf::from(home).join(".config")),
-    }
-}
-
-fn ensure_exists(path: &std::path::Path) -> Result<(), String> {
-    if path.exists() {
-        return Ok(());
-    }
-    std::fs::create_dir_all(path.parent().unwrap()).map_err(|error| error.to_string())?;
-    std::fs::write(path, "").map_err(|error| error.to_string())
 }

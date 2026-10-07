@@ -46,9 +46,9 @@ fn fish_bridge_uses_custom_config() {
         "complete -c bridgefish -f -a 'one\\ttwo-description'\n",
     )
     .unwrap();
-    unsafe { std::env::set_var("XDG_CONFIG_HOME", &dir) };
 
     let sandbox = Sandbox::new("bridge-fish");
+    unsafe { std::env::set_var("XDG_CONFIG_HOME", &dir) };
     let run = sandbox.run(
         || {
             let cmd = cli();
@@ -138,6 +138,35 @@ fn clap_bridge_parses_lines_and_nospace() {
         "{}",
         run.output()
     );
+}
+
+#[test]
+fn zsh_bridge_uses_custom_config() {
+    let dir = std::env::temp_dir().join(format!("carapace-zsh-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("carapace/bridge/zsh")).unwrap();
+    std::fs::write(
+        dir.join("carapace/bridge/zsh/.zshrc"),
+        "compdef _bridgezsh bridgezsh\n_bridgezsh() { local -a d; d=('first value'); compadd -d d one }\n",
+    )
+    .unwrap();
+
+    let sandbox = Sandbox::new("bridge-zsh");
+    unsafe { std::env::set_var("XDG_CONFIG_HOME", &dir) };
+    let run = sandbox.run(
+        || {
+            let cmd = cli();
+            carapace_clap::Gen::new(cmd)
+                .positional_any_completion(bridge::zsh::action(&["bridgezsh"]))
+                .into_command()
+        },
+        &[""],
+    );
+    unsafe { std::env::remove_var("XDG_CONFIG_HOME") };
+    std::fs::remove_dir_all(&dir).ok();
+
+    let values = run.values();
+    assert_eq!(values, vec!["one"]);
+    assert_eq!(run.output().contains("first value"), true);
 }
 
 #[test]

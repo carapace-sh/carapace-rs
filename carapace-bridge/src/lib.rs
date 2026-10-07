@@ -6,6 +6,7 @@
 
 pub mod fish;
 pub mod shell;
+pub mod zsh;
 
 use carapace_core::Action;
 use carapace_core::model::Command;
@@ -16,11 +17,31 @@ pub fn action(name: &str, command: &[&str]) -> Action {
     match name {
         "fish" => fish::action(command),
         "bash" => shell::bash(command),
+        "zsh" => zsh::action(command),
         "carapace" => carapace(command),
         "carapace-bin" => carapace_bin(command),
         "clap" => clap(command),
         other => Action::message(format!("unknown bridge: {other}")),
     }
+}
+
+/// User config directory (`XDG_CONFIG_HOME` or `$HOME/.config`).
+pub(crate) fn config_dir() -> Option<std::path::PathBuf> {
+    match std::env::var("XDG_CONFIG_HOME") {
+        Ok(dir) if !dir.is_empty() => Some(std::path::PathBuf::from(dir)),
+        _ => std::env::var("HOME")
+            .ok()
+            .map(|home| std::path::PathBuf::from(home).join(".config")),
+    }
+}
+
+/// Create an empty file (and its parent directories) if it does not exist.
+pub(crate) fn ensure_exists(path: &std::path::Path) -> Result<(), String> {
+    if path.exists() {
+        return Ok(());
+    }
+    std::fs::create_dir_all(path.parent().unwrap()).map_err(|error| error.to_string())?;
+    std::fs::write(path, "").map_err(|error| error.to_string())
 }
 
 /// Wrap a bridge function with the "no command provided" behavior: the

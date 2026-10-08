@@ -72,9 +72,10 @@ impl Action {
     }
 
     /// Prevent common prefix insertion for the given prefixes (all when none given).
+    ///
+    /// Currently a no-op: accepted for API parity with Go carapace but not yet
+    /// wired into the shell formatters.
     pub fn no_prefix(self, prefixes: impl IntoIterator<Item = char>) -> Self {
-        let prefixes: Vec<char> = prefixes.into_iter().collect();
-        // NoPrefix support lands with shell formatters (M4); accepted for API parity.
         let _ = prefixes;
         self
     }

@@ -32,8 +32,12 @@ pub fn action(command: &[&str]) -> Action {
             match context.execute("zsh", &args) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
+                    let mut lines: Vec<&str> = text.split("\r\n").collect();
+                    if lines.last() == Some(&"") {
+                        lines.pop();
+                    }
                     let mut values = Vec::new();
-                    for line in text.split("\r\n").take(text.split("\r\n").count() - 1) {
+                    for line in lines {
                         let line = strip_ansi(&unquote(line));
                         match line.split_once(" -- ") {
                             Some((value, description)) => {

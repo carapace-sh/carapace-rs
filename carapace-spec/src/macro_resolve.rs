@@ -10,6 +10,7 @@ pub fn resolve(entry: &str) -> Action {
         return match name {
             "files" => Action::files(parse_args(args)),
             "directories" => Action::directories(),
+            "executables" => Action::executables(),
             other => Action::message(format!("unsupported macro: {other}")),
         };
     }

@@ -196,3 +196,43 @@ fn yaml_round_trip() {
         .unwrap();
     assert!(matches!(two.nargs, carapace_core::model::Nargs::Exact(2)));
 }
+
+#[test]
+fn executables_macro() {
+    let dir = std::env::temp_dir().join(format!("carapace-spec-exe-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("runnable"), "content").unwrap();
+    std::fs::write(dir.join("plain"), "content").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(dir.join("runnable"), std::fs::Permissions::from_mode(0o755))
+            .unwrap();
+        std::fs::set_permissions(dir.join("plain"), std::fs::Permissions::from_mode(0o644))
+            .unwrap();
+    }
+
+    let model = carapace_spec::from_yaml(
+        r#"
+name: cmd
+completion:
+  positional:
+    - ["$executables"]
+"#,
+    )
+    .unwrap();
+    let completion = carapace_core::traverse(&model, vec!["".into()]);
+    let context = completion
+        .context
+        .env("PATH", dir.to_string_lossy().into_owned());
+    let values: Vec<String> = completion
+        .action
+        .invoke(&context)
+        .values
+        .into_iter()
+        .map(|value| value.value)
+        .collect();
+
+    assert_eq!(values, vec!["runnable"]);
+    std::fs::remove_dir_all(&dir).ok();
+}

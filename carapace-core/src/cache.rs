@@ -17,12 +17,10 @@ fn fnv1a(data: &str) -> String {
     format!("{hash:016x}")
 }
 
-/// Base cache directory, honoring `CARAPACE_SANDBOX`.
+/// Base cache directory, honoring `CARAPACE_SANDBOX` (a JSON-encoded mock).
 pub fn cache_dir() -> Option<PathBuf> {
-    if let Ok(sandbox) = std::env::var("CARAPACE_SANDBOX") {
-        if !sandbox.is_empty() {
-            return Some(PathBuf::from(sandbox).join("cache").join("carapace"));
-        }
+    if let Some(mock) = crate::mock::Mock::current() {
+        return Some(mock.dir.join("cache").join("carapace"));
     }
     let cache_root = match std::env::var("XDG_CACHE_HOME") {
         Ok(dir) if !dir.is_empty() => PathBuf::from(dir),

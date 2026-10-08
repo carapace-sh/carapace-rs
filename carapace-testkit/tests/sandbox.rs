@@ -101,3 +101,36 @@ fn sandbox_env_reaches_actions() {
         )
         .expect(Action::values(["mocked"]));
 }
+
+#[test]
+fn sandbox_cache_persists_across_runs() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    fn cached_cmd(calls: &Arc<AtomicUsize>) -> Command {
+        let calls = calls.clone();
+        let cmd = Command::new("myapp").arg(Arg::new("value").index(1));
+        carapace_clap::Gen::new(cmd)
+            .positional_completion(
+                1,
+                Action::callback(move |_| {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    Action::values(["cached"])
+                })
+                .cache("sandbox-cache-site", 60, vec!["k".into()]),
+            )
+            .into_command()
+    }
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let sandbox = Sandbox::new("sandbox-cache");
+    let run1 = sandbox.run(|| cached_cmd(&calls), &[""]);
+    let run2 = sandbox.run(|| cached_cmd(&calls), &[""]);
+    assert_eq!(run1.values(), vec!["cached".to_string()]);
+    assert_eq!(run2.values(), vec!["cached".to_string()]);
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "second run must hit the cache"
+    );
+}

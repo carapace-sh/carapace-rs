@@ -19,7 +19,11 @@ impl Sandbox {
                 .as_nanos()
         ));
         std::fs::create_dir_all(&dir).unwrap();
-        unsafe { std::env::set_var("CARAPACE_SANDBOX", &dir) };
+        let mock = carapace_core::mock::Mock {
+            dir: dir.clone(),
+            replies: Default::default(),
+        };
+        unsafe { std::env::set_var("CARAPACE_SANDBOX", serde_json::to_string(&mock).unwrap()) };
         Self(dir)
     }
 }

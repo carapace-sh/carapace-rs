@@ -211,12 +211,12 @@ impl Action {
                 };
                 for entry in entries.flatten() {
                     let name = entry.file_name().to_string_lossy().into_owned();
-                    if seen.insert(name.clone()) && is_executable(&entry.path()) {
+                    if is_executable(&entry.path()) && seen.insert(name.clone()) {
                         values.push(RawValue::new(name));
                     }
                 }
             }
-            sort_executables(&mut values, &c.value);
+            sort_executables(&mut values);
             Action::raw(values)
         })
     }
@@ -236,7 +236,7 @@ fn is_executable(path: &Path) -> bool {
     }
 }
 
-fn sort_executables(values: &mut [RawValue], _prefix: &str) {
+fn sort_executables(values: &mut [RawValue]) {
     values.sort_by(|a, b| a.value.cmp(&b.value));
 }
 

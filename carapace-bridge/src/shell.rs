@@ -83,8 +83,8 @@ pub fn bash(command: &[&str]) -> Action {
     })
 }
 
-/// Bash-quote and join arguments for COMP_LINE.
-fn bash_join(args: &[String]) -> String {
+/// Bash-quote and join arguments for `COMP_LINE` and bridge inputs.
+pub(crate) fn bash_join(args: &[String]) -> String {
     args.iter()
         .map(|arg| {
             let escaped = arg.replace('\'', "'\\''");

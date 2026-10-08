@@ -212,6 +212,12 @@ external frameworks as regular carapace [`Action`]s.
   `carapace` binary) and `ActionImport` the export JSON.
 - `clap`: invoke the target's clap dynamic `complete` CLI
   (`--index/--type/--no-space/--ifs`) and mirror its nospace heuristic.
+- `cobra`: invoke the target's hidden `__complete` command and interpret
+  `ShellCompDirective` bits (files/dirs filtering, nospace, attached flag
+  prefix re-attachment).
+- `inshellisense`: run `inshellisense complete` with a bash-quoted input
+  line and map the JSON suggestions (flag skipping, icon-based
+  files/flags/values split).
 
 ## Milestones
 

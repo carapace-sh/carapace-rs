@@ -4,7 +4,9 @@
 //! Bridges spawn the external completer, parse its output conventions
 //! and convert them into [`Action`]s.
 
+pub mod cobra;
 pub mod fish;
+pub mod inshellisense;
 pub mod shell;
 pub mod zsh;
 
@@ -21,6 +23,8 @@ pub fn action(name: &str, command: &[&str]) -> Action {
         "carapace" => carapace(command),
         "carapace-bin" => carapace_bin(command),
         "clap" => clap(command),
+        "cobra" => cobra::action(command),
+        "inshellisense" => inshellisense::action(command),
         other => Action::message(format!("unknown bridge: {other}")),
     }
 }

@@ -1,4 +1,5 @@
 use carapace_bridge as bridge;
+use carapace_core::Action;
 use carapace_testkit::Sandbox;
 use clap::builder::ArgAction;
 use clap::{Arg, Command};
@@ -174,4 +175,117 @@ fn bridge_dispatch_rejects_unknown() {
     let action = bridge::action("nope", &["x"]);
     let invoked = action.invoke(&carapace_core::Context::default());
     assert!(!invoked.meta.messages.is_empty());
+}
+
+#[test]
+fn cobra_bridge_parses_values_and_descriptions() {
+    let mut sandbox = Sandbox::new("bridge-cobra-values");
+    sandbox
+        .reply("git", &["__complete", ""])
+        .with("commit\trecord changes\nbranch\tlist branches\n:0\n");
+
+    let run = sandbox.run(
+        || {
+            let cmd = cli();
+            carapace_clap::Gen::new(cmd)
+                .positional_any_completion(bridge::cobra::action(&["git"]))
+                .into_command()
+        },
+        &[""],
+    );
+    run.expect(Action::values_described([
+        ("branch", "list branches"),
+        ("commit", "record changes"),
+    ]));
+}
+
+#[test]
+fn cobra_bridge_reattaches_flag_prefix() {
+    let mut sandbox = Sandbox::new("bridge-cobra-prefix");
+    sandbox
+        .reply("git", &["__complete", "--branch="])
+        .with("main\n:0\n");
+
+    let run = sandbox.run(
+        || {
+            let cmd = cli();
+            carapace_clap::Gen::new(cmd)
+                .positional_any_completion(bridge::cobra::action(&["git"]))
+                .into_command()
+        },
+        &["--branch="],
+    );
+    assert_eq!(run.values(), vec!["--branch=main".to_string()]);
+}
+
+#[test]
+fn cobra_bridge_honors_nospace_directive() {
+    let mut sandbox = Sandbox::new("bridge-cobra-nospace");
+    sandbox.reply("git", &["__complete", ""]).with("dir/\n:2\n");
+
+    let run = sandbox.run(
+        || {
+            let cmd = cli();
+            carapace_clap::Gen::new(cmd)
+                .positional_any_completion(bridge::cobra::action(&["git"]))
+                .into_command()
+        },
+        &[""],
+    );
+    assert!(
+        run.output().contains("\"Nospace\":[\"*\"]"),
+        "{}",
+        run.output()
+    );
+}
+
+#[test]
+fn inshellisense_bridge_skips_flags_for_plain_words() {
+    let mut sandbox = Sandbox::new("bridge-inshell-values");
+    sandbox
+        .reply("inshellisense", &["complete", "'bridgeish'  "])
+        .with(
+            r#"{"suggestions":[
+                {"name":"one","allNames":["one"],"description":"first","icon":""},
+                {"name":"--flag","allNames":["--flag","-f"],"description":"a flag","icon":"\ud83d\udd17"}
+            ]}"#,
+        );
+
+    let run = sandbox.run(
+        || {
+            let cmd = cli();
+            carapace_clap::Gen::new(cmd)
+                .positional_any_completion(bridge::inshellisense::action(&["bridgeish"]))
+                .into_command()
+        },
+        &[""],
+    );
+    assert_eq!(run.values(), vec!["one".to_string()]);
+}
+
+#[test]
+fn inshellisense_bridge_includes_flags_for_flag_words() {
+    let mut sandbox = Sandbox::new("bridge-inshell-flags");
+    sandbox
+        .reply("inshellisense", &["complete", "'bridgeish' '-'"])
+        .with(
+            r#"{"suggestions":[
+                {"name":"one","allNames":["one"],"description":"first","icon":""},
+                {"name":"--flag","allNames":["--flag","-f"],"description":"a flag","icon":"\ud83d\udd17"}
+            ]}"#,
+        );
+
+    let run = sandbox.run(
+        || {
+            let cmd = cli();
+            carapace_clap::Gen::new(cmd)
+                .positional_any_completion(bridge::inshellisense::action(&["bridgeish"]))
+                .into_command()
+        },
+        &["-"],
+    );
+    let values = run.values();
+    assert!(values.contains(&"--flag".to_string()), "{values:?}");
+    assert!(values.contains(&"-f".to_string()), "{values:?}");
+    assert!(!values.contains(&"one".to_string()), "{values:?}");
 }

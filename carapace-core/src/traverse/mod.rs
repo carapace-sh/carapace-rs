@@ -68,10 +68,6 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
         if let Some(subcommand) = cmd.lookup_subcommand(&arg) {
             // recurse with everything after the subcommand, including the
             // value being completed as the last word (Go passes args[i+1:])
-            if !cmd.disable_flag_parsing {
-                let parsed = parse::parse(cmd, &in_args);
-                context.args = parsed.positionals;
-            }
             return traverse_command(subcommand, args[index + 1..].to_vec(), Vec::new());
         }
 

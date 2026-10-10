@@ -29,12 +29,13 @@ pub fn action(name: &str, command: &[&str]) -> Action {
     }
 }
 
-/// User config directory (`XDG_CONFIG_HOME` or `$HOME/.config`).
-pub(crate) fn config_dir() -> Option<std::path::PathBuf> {
-    match std::env::var("XDG_CONFIG_HOME") {
-        Ok(dir) if !dir.is_empty() => Some(std::path::PathBuf::from(dir)),
-        _ => std::env::var("HOME")
-            .ok()
+/// User config directory (`XDG_CONFIG_HOME` or `$HOME/.config`),
+/// resolved from the context environment.
+pub(crate) fn config_dir(context: &carapace_core::Context) -> Option<std::path::PathBuf> {
+    match context.lookup_env("XDG_CONFIG_HOME") {
+        Some(dir) if !dir.is_empty() => Some(std::path::PathBuf::from(dir)),
+        _ => context
+            .lookup_env("HOME")
             .map(|home| std::path::PathBuf::from(home).join(".config")),
     }
 }

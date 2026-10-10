@@ -140,10 +140,12 @@ nospace propagation, sort, uid clearance). Export JSON (serde structs, versioned
 
 - `style`: XTerm256+TrueColor parse/format on top of `anstyle`; `LS_COLORS` path styling.
 - `config`: `styles.json` load, `CARAPACE_*` env vars (`LOG`, `COLOR`, `NOSPACE`,
-  `MERGEFLAGS`, `UNFILTERED`, `LENIENT`, `EXPERIMENTAL`, `SANDBOX`), global state via
-  `OnceLock` only.
+  `MERGEFLAGS`, `UNFILTERED`, `LENIENT`, `EXPERIMENTAL`), global state via
+  `OnceLock` only. `CARAPACE_SANDBOX` is not ported: the in-process sandbox
+  carries its mock on the `Context` instead of the environment.
 - `cache`: disk cache (`dirs::cache_dir()/carapace`), TTL, key types (`file`, `line`, custom),
-  `Action::Cache` wrapper; export-JSON as cached payload.
+  `Action::Cache` wrapper; export-JSON as cached payload; sandbox-aware via the
+  context mock.
 - `uid`: `cmd://` scheme URL building, `UidF`/`QueryF` hooks.
 
 ## carapace-clap (adapter)

@@ -9,7 +9,7 @@ pub fn bash(command: &[&str]) -> Action {
     super::action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         Action::callback(move |c| {
-            let Some(config_dir) = super::config_dir() else {
+            let Some(config_dir) = super::config_dir(c) else {
                 return Action::message("failed to resolve config dir");
             };
             let rc_path = config_dir.join("carapace/bridge/bash/.bashrc");

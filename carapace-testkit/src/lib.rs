@@ -7,25 +7,20 @@
 use carapace_core::Action;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::MutexGuard;
 
 /// Isolated sandbox with a temp work directory and mocked command replies.
 ///
-/// Holds a global lock for its lifetime: `CARAPACE_SANDBOX` is process
-/// state, so sandbox tests must not run concurrently (Go's sandbox makes
-/// the same tradeoff by not supporting `t.Parallel()`).
+/// The mock travels on the completion [`Context`](carapace_core::Context),
+/// so sandboxes carry no process-global state and tests may run in parallel.
 pub struct Sandbox {
     dir: PathBuf,
     env: HashMap<String, String>,
     replies: HashMap<String, String>,
-    _guard: MutexGuard<'static, ()>,
 }
 
 impl Sandbox {
     /// Create a sandbox named after the test.
     pub fn new(test: &str) -> Self {
-        static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-        let guard = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let dir = std::env::temp_dir().join(format!(
             "carapace-sandbox_{test}_{}",
             std::time::SystemTime::now()
@@ -39,7 +34,6 @@ impl Sandbox {
             dir,
             env: HashMap::new(),
             replies: HashMap::new(),
-            _guard: guard,
         }
     }
 
@@ -90,8 +84,6 @@ impl Sandbox {
             dir: self.dir.clone(),
             replies: self.replies.clone(),
         };
-        let mock_json = serde_json::to_string(&mock).unwrap();
-        unsafe { std::env::set_var("CARAPACE_SANDBOX", &mock_json) };
 
         // traverse takes the full word list (last word = completed value)
         let mut words = context.args.clone();
@@ -99,8 +91,8 @@ impl Sandbox {
         let mut completion = carapace_core::traverse(&model, words);
         completion.context.dir = context.dir;
         completion.context.env = context.env;
+        completion.context.mock = Some(mock);
         let invoked = completion.action.invoke(&completion.context);
-        unsafe { std::env::remove_var("CARAPACE_SANDBOX") };
 
         Run {
             export: carapace_core::export::Export::from_parts(&invoked.meta, &invoked.values),

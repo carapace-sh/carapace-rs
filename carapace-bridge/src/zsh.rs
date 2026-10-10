@@ -16,7 +16,7 @@ pub fn action(command: &[&str]) -> Action {
             args.extend(c.args.iter().map(String::as_str));
             args.push(&c.value);
 
-            let Some(config_dir) = super::config_dir() else {
+            let Some(config_dir) = super::config_dir(c) else {
                 return Action::message("failed to resolve config dir");
             };
             let rc_path = config_dir.join("carapace/bridge/zsh/.zshrc");

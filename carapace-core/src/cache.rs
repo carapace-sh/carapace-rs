@@ -17,9 +17,9 @@ fn fnv1a(data: &str) -> String {
     format!("{hash:016x}")
 }
 
-/// Base cache directory, honoring `CARAPACE_SANDBOX` (a JSON-encoded mock).
-pub fn cache_dir() -> Option<PathBuf> {
-    if let Some(mock) = crate::mock::Mock::current() {
+/// Base cache directory, honoring an attached sandbox mock.
+fn cache_dir(context: &crate::context::Context) -> Option<PathBuf> {
+    if let Some(mock) = &context.mock {
         return Some(mock.dir.join("cache").join("carapace"));
     }
     let cache_root = match std::env::var("XDG_CACHE_HOME") {
@@ -35,7 +35,7 @@ pub fn cache_dir() -> Option<PathBuf> {
 /// Cache file path for a call site and key components.
 ///
 /// Layout: `<cache>/carapace/<executable>/<site-hash>/<key-hash>`
-pub fn file(site: &str, keys: &[String]) -> Option<PathBuf> {
+pub fn file(context: &crate::context::Context, site: &str, keys: &[String]) -> Option<PathBuf> {
     let executable = std::env::args()
         .next()
         .map(|arg| {
@@ -45,7 +45,7 @@ pub fn file(site: &str, keys: &[String]) -> Option<PathBuf> {
                 .unwrap_or_else(|| arg.clone())
         })
         .unwrap_or_else(|| "unknown".to_owned());
-    let dir = cache_dir()?.join(executable).join(fnv1a(site));
+    let dir = cache_dir(context)?.join(executable).join(fnv1a(site));
     // always hash the keys (even empty) so the path is always a file
     Some(dir.join(fnv1a(&keys.join("\u{1}"))))
 }

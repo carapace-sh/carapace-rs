@@ -363,7 +363,7 @@ impl Action {
         }
         let site = site.to_owned();
         Self::callback(move |c| {
-            let Some(cache_file) = crate::cache::file(&site, &keys) else {
+            let Some(cache_file) = crate::cache::file(c, &site, &keys) else {
                 return self.invoke(c).to_action();
             };
             if let Some(cached) = crate::cache::load(&cache_file, timeout_secs) {

@@ -48,8 +48,8 @@ fn fish_bridge_uses_custom_config() {
     )
     .unwrap();
 
-    let sandbox = Sandbox::new("bridge-fish");
-    unsafe { std::env::set_var("XDG_CONFIG_HOME", &dir) };
+    let mut sandbox = Sandbox::new("bridge-fish");
+    sandbox.env("XDG_CONFIG_HOME", dir.to_string_lossy().as_ref());
     let run = sandbox.run(
         || {
             let cmd = cli();
@@ -59,7 +59,6 @@ fn fish_bridge_uses_custom_config() {
         },
         &[""],
     );
-    unsafe { std::env::remove_var("XDG_CONFIG_HOME") };
     std::fs::remove_dir_all(&dir).ok();
 
     let values = run.values();
@@ -151,8 +150,8 @@ fn zsh_bridge_uses_custom_config() {
     )
     .unwrap();
 
-    let sandbox = Sandbox::new("bridge-zsh");
-    unsafe { std::env::set_var("XDG_CONFIG_HOME", &dir) };
+    let mut sandbox = Sandbox::new("bridge-zsh");
+    sandbox.env("XDG_CONFIG_HOME", dir.to_string_lossy().as_ref());
     let run = sandbox.run(
         || {
             let cmd = cli();
@@ -162,7 +161,6 @@ fn zsh_bridge_uses_custom_config() {
         },
         &[""],
     );
-    unsafe { std::env::remove_var("XDG_CONFIG_HOME") };
     std::fs::remove_dir_all(&dir).ok();
 
     let values = run.values();
@@ -226,13 +224,8 @@ fn cobra_bridge_prefixes_bare_flag_values() {
             "main\n:0\n".to_owned(),
         )]),
     };
-    // the sandbox holds the global lock: no other sandbox test may run
-    // while the process-global mock env is set
-    let _lock = Sandbox::new("bridge-cobra-direct");
-    unsafe { std::env::set_var("CARAPACE_SANDBOX", serde_json::to_string(&mock).unwrap()) };
-    let invoked =
-        bridge::cobra::action(&["git"]).invoke(&carapace_core::Context::new(["--branch="]));
-    unsafe { std::env::remove_var("CARAPACE_SANDBOX") };
+    let invoked = bridge::cobra::action(&["git"])
+        .invoke(&carapace_core::Context::new(["--branch="]).mock(mock));
     let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
     assert_eq!(values, vec!["--branch=main".to_string()]);
 }
@@ -295,11 +288,8 @@ fn inshellisense_bridge_includes_flags_for_flag_words() {
             .to_owned(),
         )]),
     };
-    let _lock = Sandbox::new("bridge-inshell-flags");
-    unsafe { std::env::set_var("CARAPACE_SANDBOX", serde_json::to_string(&mock).unwrap()) };
-    let invoked =
-        bridge::inshellisense::action(&["bridgeish"]).invoke(&carapace_core::Context::new(["-"]));
-    unsafe { std::env::remove_var("CARAPACE_SANDBOX") };
+    let invoked = bridge::inshellisense::action(&["bridgeish"])
+        .invoke(&carapace_core::Context::new(["-"]).mock(mock));
 
     let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
     assert!(values.contains(&"--flag".to_string()), "{values:?}");

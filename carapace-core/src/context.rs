@@ -16,6 +16,8 @@ pub struct Context {
     pub env: HashMap<String, String>,
     /// Working directory for the action.
     pub dir: PathBuf,
+    /// Sandbox mock for tests: mocked replies and cache root (None in production).
+    pub mock: Option<crate::mock::Mock>,
 }
 
 impl Context {
@@ -55,6 +57,12 @@ impl Context {
         self
     }
 
+    /// Attach a sandbox mock: mocked replies and the cache root for tests.
+    pub fn mock(mut self, mock: crate::mock::Mock) -> Self {
+        self.mock = Some(mock);
+        self
+    }
+
     pub fn lookup_env(&self, key: &str) -> Option<&str> {
         self.env.get(key).map(|v| v.as_str())
     }
@@ -87,10 +95,13 @@ impl Context {
 
     /// Execute a command with this context's environment and directory.
     ///
-    /// When a sandbox mock is active (`CARAPACE_SANDBOX`) and a reply is
+    /// When a sandbox mock is attached to the context and a reply is
     /// registered for the command, the mocked output is returned instead.
     pub fn execute(&self, program: &str, args: &[&str]) -> Result<Vec<u8>, String> {
-        if let Some(reply) = crate::mock::Mock::current().and_then(|mock| mock.reply(program, args))
+        if let Some(reply) = self
+            .mock
+            .as_ref()
+            .and_then(|mock| mock.reply(program, args))
         {
             return Ok(reply.into_bytes());
         }

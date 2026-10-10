@@ -64,9 +64,11 @@ fn lookup_longhand(cmd: &Command, arg: &str, prefix: char) -> Option<MatchedFlag
     match attached {
         Some(value) => {
             if !flag.takes_value || flag.argument_style.accepts_delimited {
+                // the prefix is the flag name including the delimiter
+                // (Go SplitAfterN), not the full argument with its value
                 Some(MatchedFlag {
                     flag: flag.clone(),
-                    arg_prefix: arg.to_owned(),
+                    arg_prefix: format!("{}{}{}=", prefix, prefix, name),
                     args: vec![value],
                 })
             } else {

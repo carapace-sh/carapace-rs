@@ -295,3 +295,14 @@ fn hyphen_values_are_consumed_as_flag_arguments() {
         .collect();
     assert!(values.is_empty(), "hyphen arg ends variadic consumption");
 }
+
+#[test]
+fn completes_attached_flag_value_with_partial_value() {
+    // the arg prefix is the flag name including the delimiter, so the
+    // partially typed value is replaced by the completed values
+    assert_eq!(
+        complete(&["--output=fi"]),
+        vec!["--output=file1", "--output=file2"]
+    );
+    assert_eq!(complete(&["-o=fi"]), vec!["-o=file1", "-o=file2"]);
+}

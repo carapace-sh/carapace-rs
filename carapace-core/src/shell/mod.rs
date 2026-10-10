@@ -232,3 +232,51 @@ pub(crate) fn sgr(style_name: &str) -> String {
     };
     code.to_owned()
 }
+
+/// Longest shared prefix of `a` and `b` (char-aligned).
+pub(crate) fn common_prefix<'a>(a: &'a str, b: &str) -> &'a str {
+    let len = a
+        .char_indices()
+        .zip(b.chars())
+        .take_while(|((_, a_char), b_char)| a_char == b_char)
+        .map(|((index, a_char), _)| index + a_char.len_utf8())
+        .last()
+        .unwrap_or(0);
+    &a[..len]
+}
+
+/// Longest shared prefix across a slice of strings.
+pub(crate) fn common_prefix_of(values: &[&str]) -> String {
+    let mut iter = values.iter().copied();
+    match iter.next() {
+        Some(first) => iter.fold(first.to_owned(), |acc, value| {
+            common_prefix(&acc, value).to_owned()
+        }),
+        None => String::new(),
+    }
+}
+
+/// Longest common prefix of the values' `display` fields.
+pub(crate) fn common_display_prefix(values: &RawValues) -> String {
+    common_prefix_of(
+        &values
+            .iter()
+            .map(|v| v.display.as_str())
+            .collect::<Vec<_>>(),
+    )
+}
+
+/// Longest common prefix of the values' inserted `value` fields.
+pub(crate) fn common_value_prefix(values: &RawValues) -> String {
+    common_prefix_of(&values.iter().map(|v| v.value.as_str()).collect::<Vec<_>>())
+}
+
+/// Whether completion of `value` suppresses the trailing space.
+pub(crate) fn matches_nospace(meta: &Meta, value: &RawValue) -> bool {
+    if value.nospace == Some(true) {
+        return true;
+    }
+    meta.nospace
+        .iter()
+        .any(|suffix| *suffix == '*' || value.value.ends_with(*suffix))
+}

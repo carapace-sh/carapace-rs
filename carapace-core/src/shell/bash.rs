@@ -1,8 +1,9 @@
 //! Bash value formatting (port of Go `internal/shell/bash/action.go`).
 
 use crate::meta::Meta;
-use crate::value::RawValue;
-use crate::value::RawValues;
+use crate::value::{RawValue, RawValues};
+
+use super::{common_display_prefix, common_value_prefix, matches_nospace};
 
 /// Bash-specific inputs collected during patching.
 #[derive(Clone, Debug, Default)]
@@ -88,50 +89,6 @@ fn requires_quoting(value: &str, wordbreaks: &str) -> bool {
     value.chars().any(|c| special.contains(c)) || wordbreaks.chars().any(|c| value.contains(c))
 }
 
-fn matches_nospace(meta: &Meta, value: &RawValue) -> bool {
-    if value.nospace == Some(true) {
-        return true;
-    }
-    meta.nospace
-        .iter()
-        .any(|suffix| *suffix == '*' || value.value.ends_with(*suffix))
-}
-
-/// Longest prefix shared by all strings.
-fn common_prefix<'a>(a: &'a str, b: &str) -> &'a str {
-    let len = a
-        .char_indices()
-        .zip(b.chars())
-        .take_while(|((_, a_char), b_char)| a_char == b_char)
-        .map(|((index, a_char), _)| index + a_char.len_utf8())
-        .last()
-        .unwrap_or(0);
-    &a[..len]
-}
-
-fn common_prefix_of(values: &[&str]) -> String {
-    let mut iter = values.iter().copied();
-    match iter.next() {
-        Some(first) => iter.fold(first.to_owned(), |acc, value| {
-            common_prefix(&acc, value).to_owned()
-        }),
-        None => String::new(),
-    }
-}
-
-fn common_display_prefix(values: &[RawValue]) -> String {
-    common_prefix_of(
-        &values
-            .iter()
-            .map(|v| v.display.as_str())
-            .collect::<Vec<_>>(),
-    )
-}
-
-fn common_value_prefix(values: &[RawValue]) -> String {
-    common_prefix_of(&values.iter().map(|v| v.value.as_str()).collect::<Vec<_>>())
-}
-
 /// Format values for bash consumption: `nospace\001value\nvalue...`.
 pub fn action_raw_values(
     current_word: &str,
@@ -207,7 +164,7 @@ fn render(meta: &Meta, values: &[RawValue], context: &Context, forced_nospace: b
 /// Generate the bash completion snippet for a binary.
 pub fn snippet(binary: &str) -> String {
     format!(
-        r#"#compdef {binary}
+        r#"#!/bin/bash
 _{binary}_completion() {{
   export COMP_LINE
   export COMP_POINT

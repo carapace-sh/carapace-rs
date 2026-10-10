@@ -72,6 +72,7 @@ fn complete_dispatches_on_carapace_arg() {
 #[test]
 fn snippet_contains_registration() {
     let snippet = carapace_clap::snippet(factory, Shell::Bash);
+    assert!(snippet.starts_with("#!/bin/bash"), "{snippet}");
     assert!(snippet.contains("complete -o noquote -F _myapp_completion myapp"));
     assert!(snippet.contains("xargs myapp _carapace bash"));
 }

@@ -2,8 +2,9 @@
 
 use crate::meta::Meta;
 use crate::shell::sgr;
-use crate::value::RawValue;
 use crate::value::RawValues;
+
+use super::matches_nospace;
 
 /// Remove newline, carriage return and tab.
 fn sanitize(value: &str) -> String {
@@ -130,15 +131,6 @@ fn raw_current_word(current_word: &str) -> String {
             .to_owned(),
         _ => current_word.to_owned(),
     }
-}
-
-fn matches_nospace(meta: &Meta, value: &RawValue) -> bool {
-    if value.nospace == Some(true) {
-        return true;
-    }
-    meta.nospace
-        .iter()
-        .any(|suffix| *suffix == '*' || value.value.ends_with(*suffix))
 }
 
 /// Escape a display string for zstyle patterns.

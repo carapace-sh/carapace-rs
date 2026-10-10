@@ -1,5 +1,6 @@
 //! Simple line-based formatters: oil, tcsh, cmd-clink, ion, bash-ble.
 
+use super::{common_display_prefix, common_value_prefix, matches_nospace};
 use crate::meta::Meta;
 use crate::value::{RawValue, RawValues};
 
@@ -21,50 +22,6 @@ pub(crate) fn trimmed_description(description: &str) -> String {
         return result;
     }
     trimmed.to_owned()
-}
-
-fn matches_nospace(meta: &Meta, value: &RawValue) -> bool {
-    if value.nospace == Some(true) {
-        return true;
-    }
-    meta.nospace
-        .iter()
-        .any(|suffix| *suffix == '*' || value.value.ends_with(*suffix))
-}
-
-fn common_prefix<'a>(a: &'a str, b: &str) -> &'a str {
-    let len = a
-        .char_indices()
-        .zip(b.chars())
-        .take_while(|((_, a_char), b_char)| a_char == b_char)
-        .map(|((index, a_char), _)| index + a_char.len_utf8())
-        .last()
-        .unwrap_or(0);
-    &a[..len]
-}
-
-fn common_prefix_of(values: &[&str]) -> String {
-    let mut iter = values.iter().copied();
-    match iter.next() {
-        Some(first) => iter.fold(first.to_owned(), |acc, value| {
-            common_prefix(&acc, value).to_owned()
-        }),
-        None => String::new(),
-    }
-}
-
-/// Longest common display/value prefix across values.
-fn common_display_prefix(values: &[RawValue]) -> String {
-    common_prefix_of(
-        &values
-            .iter()
-            .map(|v| v.display.as_str())
-            .collect::<Vec<_>>(),
-    )
-}
-
-fn common_value_prefix(values: &[RawValue]) -> String {
-    common_prefix_of(&values.iter().map(|v| v.value.as_str()).collect::<Vec<_>>())
 }
 
 /// Oil: values with inline `\u{1}` nospace indicator, single value plain.

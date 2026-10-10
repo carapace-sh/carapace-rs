@@ -48,7 +48,6 @@ pub fn parse(key: &str, spec: &FlagSpec) -> Option<Flag> {
         required: suffixes.contains(&'!'),
         description: spec.description.clone(),
         argument_style: ArgumentStyle::ALL,
-        optarg_delimiter: '=',
         ..Default::default()
     };
 

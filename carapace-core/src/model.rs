@@ -77,8 +77,6 @@ pub struct Flag {
     pub optional: bool,
     /// Which value-binding forms are accepted.
     pub argument_style: ArgumentStyle,
-    /// Delimiter between flag name and value (`=`, `:`; control char disables).
-    pub optarg_delimiter: char,
     /// Whether the flag may occur multiple times.
     pub repeatable: bool,
     /// Whether the flag is required.
@@ -117,12 +115,6 @@ impl Flag {
     /// Flags accepting hyphen values never treat such arguments as flags.
     pub fn looks_like_flag(&self, arg: &str) -> bool {
         !self.allow_hyphen_values && arg.starts_with(DEFAULT_FLAG_PREFIX)
-    }
-
-    /// Delimiter between flag name and optarg value. A control character
-    /// disables the delimiter, allowing directly attached values.
-    pub fn delimiter_enabled(&self) -> bool {
-        self.optarg_delimiter >= ' '
     }
 
     pub fn is_optarg(&self) -> bool {

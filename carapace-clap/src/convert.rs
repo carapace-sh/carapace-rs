@@ -115,7 +115,6 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
         nargs,
         optional,
         argument_style: argument_style(arg),
-        optarg_delimiter: '=',
         repeatable,
         required: arg.is_required_set(),
         hidden: arg.is_hide_set(),

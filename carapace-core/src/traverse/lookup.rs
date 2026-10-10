@@ -34,11 +34,6 @@ impl MatchedFlag {
     pub fn is_optarg(&self) -> bool {
         self.flag.is_optarg()
     }
-
-    /// A control-character delimiter disables it, enabling directly attached values.
-    pub fn delimiter_disabled(&self) -> bool {
-        !self.flag.delimiter_enabled()
-    }
 }
 
 /// Look up the flag referenced by `arg` (e.g. `--verbose=tr`, `-vf`, `-v=tr`).
@@ -135,8 +130,7 @@ fn lookup_shorthand_series(cmd: &Command, arg: &str, prefix: char) -> Option<Mat
                 args: vec![rest.strip_prefix('=').unwrap_or(&rest).to_owned()],
             });
         }
-        let attached_allowed =
-            flag.argument_style.accepts_attached || (flag.is_optarg() && !flag.delimiter_enabled());
+        let attached_allowed = flag.argument_style.accepts_attached;
         if attached_allowed {
             return Some(MatchedFlag {
                 flag: flag.clone(),

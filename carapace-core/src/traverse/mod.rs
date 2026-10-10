@@ -150,17 +150,6 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
                     context,
                 };
             }
-            if !not_double_prefixed
-                && flag.is_optarg()
-                && flag.delimiter_disabled()
-                && flag.accepts_attached()
-                && flag.arg_prefix == context.value
-            {
-                return Completion {
-                    action: get_flag(cmd, &flag.flag.name).prefix(&flag.arg_prefix),
-                    context,
-                };
-            }
         }
         return Completion {
             action: action_flags(cmd),

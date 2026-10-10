@@ -92,20 +92,6 @@ fn bool_flag_never_consumes() {
 }
 
 #[test]
-fn delimiter_enabled() {
-    let f = Flag {
-        optarg_delimiter: '=',
-        ..Default::default()
-    };
-    assert!(f.delimiter_enabled());
-    let disabled = Flag {
-        optarg_delimiter: '\u{1}',
-        ..Default::default()
-    };
-    assert!(!disabled.delimiter_enabled());
-}
-
-#[test]
 fn default_argument_style_accepts_all() {
     assert_eq!(Flag::default().argument_style, ArgumentStyle::ALL);
 }

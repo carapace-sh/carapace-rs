@@ -1,3 +1,4 @@
+use carapace_clap::Carapace;
 use carapace_core::Action;
 use carapace_testkit::Sandbox;
 use clap::{Arg, Command};
@@ -59,20 +60,18 @@ fn sandbox_replies_mock_commands() {
         .run(
             || {
                 let cmd = Command::new("myapp").arg(Arg::new("branch").index(1));
-                carapace_clap::Gen::new(cmd)
-                    .positional_completion(
-                        1,
-                        Action::exec_command("git", &["branch", "--list"], |stdout| {
-                            let output = String::from_utf8_lossy(stdout).into_owned();
-                            let branches: Vec<String> = output
-                                .lines()
-                                .filter(|line| !line.is_empty())
-                                .map(String::from)
-                                .collect();
-                            Action::values(branches)
-                        }),
-                    )
-                    .into_command()
+                cmd.positional_completion(
+                    1,
+                    Action::exec_command("git", &["branch", "--list"], |stdout| {
+                        let output = String::from_utf8_lossy(stdout).into_owned();
+                        let branches: Vec<String> = output
+                            .lines()
+                            .filter(|line| !line.is_empty())
+                            .map(String::from)
+                            .collect();
+                        Action::values(branches)
+                    }),
+                )
             },
             &[""],
         )
@@ -88,14 +87,12 @@ fn sandbox_env_reaches_actions() {
         .run(
             || {
                 let cmd = Command::new("myapp").arg(Arg::new("value").index(1));
-                carapace_clap::Gen::new(cmd)
-                    .positional_completion(
-                        1,
-                        Action::callback(|context| {
-                            Action::values([context.get_env("SANDBOX_ENV_TEST")])
-                        }),
-                    )
-                    .into_command()
+                cmd.positional_completion(
+                    1,
+                    Action::callback(|context| {
+                        Action::values([context.get_env("SANDBOX_ENV_TEST")])
+                    }),
+                )
             },
             &[""],
         )
@@ -110,16 +107,14 @@ fn sandbox_cache_persists_across_runs() {
     fn cached_cmd(calls: &Arc<AtomicUsize>) -> Command {
         let calls = calls.clone();
         let cmd = Command::new("myapp").arg(Arg::new("value").index(1));
-        carapace_clap::Gen::new(cmd)
-            .positional_completion(
-                1,
-                Action::callback(move |_| {
-                    calls.fetch_add(1, Ordering::SeqCst);
-                    Action::values(["cached"])
-                })
-                .cache("sandbox-cache-site", 60, vec!["k".into()]),
-            )
-            .into_command()
+        cmd.positional_completion(
+            1,
+            Action::callback(move |_| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Action::values(["cached"])
+            })
+            .cache("sandbox-cache-site", 60, vec!["k".into()]),
+        )
     }
 
     let calls = Arc::new(AtomicUsize::new(0));

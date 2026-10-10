@@ -17,21 +17,18 @@ carapace-clap = { git = "https://github.com/carapace-sh/carapace-rs" }
 
 ```rust,no_run
 use carapace_core::Action;
-use carapace_clap::Gen;
+use carapace_clap::Carapace;
 use clap::builder::{ArgAction, ValueHint};
 use clap::{Arg, Command};
 
 fn cli() -> Command {
-    let cmd = Command::new("demo")
+    Command::new("demo")
         .arg(Arg::new("profile").long("profile").action(ArgAction::Set))
         .arg(Arg::new("target").index(1))
-        .subcommand(Command::new("build").about("build things"));
-
-    Gen::new(cmd)
+        .subcommand(Command::new("build").about("build things"))
         .flag_completion("profile", Action::values(["dev", "staging", "prod"]))
         .positional_completion(1, Action::values(["x86", "arm", "wasm"]))
         .positional_any_completion(Action::files(Vec::<String>::new()))
-        .into_command()
 }
 
 fn main() {
@@ -94,7 +91,7 @@ Layout:
 
 ```
 carapace-core/    engine: model, action, traverse, shell formatters, cache, uid, export
-carapace-clap/    clap adapter: Gen builder, extension slots, _carapace entry
+carapace-clap/    clap adapter: Carapace extension trait, extension slots, _carapace entry
 carapace-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions
 carapace-spec/    YAML user specs: flag suffixes, macros ($files, $directories, $executables), parsing modes, spec dump
 carapace-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin, clap, cobra, inshellisense
@@ -117,7 +114,7 @@ Bridging external completion frameworks:
 ```rust
 use carapace_bridge as bridge;
 
-Gen::new(cmd).positional_any_completion(
-    bridge::action("fish", &["myapp"]),   // or bash/zsh/carapace/carapace-bin/clap
-).into_command();
+Command::new("outer").positional_any_completion(
+    bridge::action("fish", &["myapp"]),   // or bash/zsh/carapace/carapace-bin/clap/cobra/inshellisense
+);
 ```

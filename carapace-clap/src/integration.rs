@@ -1,58 +1,63 @@
-//! Builder-style integration API (port of Go `carapace.Gen(cmd)`).
+//! Fluent completion wiring for clap commands (port of Go `carapace.Gen`).
 
-use crate::completer::CommandCompleter;
+use crate::completer::{CommandCompleter, DashAnyCompleter};
 use carapace_core::Action;
 
-/// Completion configuration for a clap command.
+/// Completion wiring for [`clap::Command`].
 ///
-/// Mirrors Go carapace's `Gen`: completers are attached to the underlying
-/// clap command and stay with it.
-#[derive(Debug)]
-pub struct Gen {
-    cmd: clap::Command,
+/// Go carapace wraps the command in a `Carapace` struct because Go cannot
+/// add methods to foreign types; here the extension trait provides the same
+/// chaining directly on `clap::Command`:
+///
+/// ```rust
+/// use carapace_clap::Carapace;
+/// use carapace_core::Action;
+/// use clap::Command;
+///
+/// let cmd = Command::new("myapp")
+///     .flag_completion("profile", Action::values(["dev", "prod"]));
+/// ```
+pub trait Carapace {
+    /// Complete the value(s) of the arg with the given clap id.
+    fn arg_completion(self, id: &str, action: Action) -> Self;
+    /// Complete the value(s) of the named flag (long name or shorthand).
+    fn flag_completion(self, name: &str, action: Action) -> Self;
+    /// Complete the positional at the given index (1-based).
+    fn positional_completion(self, index: usize, action: Action) -> Self;
+    /// Complete any positional beyond the defined ones.
+    fn positional_any_completion(self, action: Action) -> Self;
+    /// Complete any positional after `--`.
+    fn positional_dash_any_completion(self, action: Action) -> Self;
 }
 
-impl Gen {
-    /// Wrap a clap command for completion configuration.
-    ///
-    /// The command is built so positional indices are resolved.
-    pub fn new(mut cmd: clap::Command) -> Self {
-        cmd.build();
-        Self { cmd }
-    }
-
-    /// Complete the positional at the given index (1-based).
-    pub fn positional_completion(mut self, index: usize, action: Action) -> Self {
-        super::positional_completion(&mut self.cmd, index, action);
+impl Carapace for clap::Command {
+    fn arg_completion(mut self, id: &str, action: Action) -> Self {
+        self.build();
+        crate::arg_completion(&mut self, id, action);
         self
     }
 
-    /// Complete any positional beyond the defined ones.
-    pub fn positional_any_completion(mut self, action: Action) -> Self {
-        self.cmd = self.cmd.add(CommandCompleter::new(action));
+    fn flag_completion(mut self, name: &str, action: Action) -> Self {
+        self.build();
+        crate::flag_completion(&mut self, name, action);
         self
     }
 
-    /// Complete the value(s) of the named flag.
-    pub fn flag_completion(mut self, name: &str, action: Action) -> Self {
-        super::flag_completion(&mut self.cmd, name, action);
+    fn positional_completion(mut self, index: usize, action: Action) -> Self {
+        self.build();
+        crate::positional_completion(&mut self, index, action);
         self
     }
 
-    /// Complete any positional after `--`.
-    pub fn positional_dash_any_completion(mut self, action: Action) -> Self {
-        self.cmd = self.cmd.add(crate::DashAnyCompleter::new(action));
+    fn positional_any_completion(mut self, action: Action) -> Self {
+        self.build();
+        self = self.add(CommandCompleter::new(action));
         self
     }
 
-    /// Complete the value(s) of the arg with the given clap id.
-    pub fn arg_completion(mut self, id: &str, action: Action) -> Self {
-        super::arg_completion(&mut self.cmd, id, action);
+    fn positional_dash_any_completion(mut self, action: Action) -> Self {
+        self.build();
+        self = self.add(DashAnyCompleter::new(action));
         self
-    }
-
-    /// Unwrap the configured clap command.
-    pub fn into_command(self) -> clap::Command {
-        self.cmd
     }
 }

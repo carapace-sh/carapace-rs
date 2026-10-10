@@ -1,4 +1,4 @@
-use carapace_clap::Gen;
+use carapace_clap::Carapace;
 use carapace_core::Action;
 use carapace_core::shell::Shell;
 use clap::builder::ArgAction;
@@ -207,10 +207,9 @@ fn execute_embedded_completes_nested_tree() {
         .arg(Arg::new("rest").num_args(0..).index(2));
 
     // outer command delegates its positionals to the embedded tree
-    let outer = Command::new("myapp").arg(Arg::new("rest").num_args(0..).index(1));
-    let outer = Gen::new(outer)
-        .positional_any_completion(carapace_clap::execute_embedded(embedded))
-        .into_command();
+    let outer = Command::new("myapp")
+        .arg(Arg::new("rest").num_args(0..).index(1))
+        .positional_any_completion(carapace_clap::execute_embedded(embedded));
 
     let model = carapace_clap::to_model(&mut outer.clone());
     let completion = carapace_core::traverse(&model, vec!["".to_string()]);
@@ -227,14 +226,13 @@ fn execute_embedded_completes_nested_tree() {
     );
 
     // with completers attached on the embedded command
-    let embedded = Gen::new(Command::new("inner").arg(Arg::new("mode").index(1)))
-        .positional_completion(1, Action::values(["fast", "slow"]))
-        .into_command();
+    let embedded = Command::new("inner")
+        .arg(Arg::new("mode").index(1))
+        .positional_completion(1, Action::values(["fast", "slow"]));
 
-    let outer = Command::new("myapp").arg(Arg::new("rest").num_args(0..).index(1));
-    let outer = Gen::new(outer)
-        .positional_any_completion(carapace_clap::execute_embedded(embedded))
-        .into_command();
+    let outer = Command::new("myapp")
+        .arg(Arg::new("rest").num_args(0..).index(1))
+        .positional_any_completion(carapace_clap::execute_embedded(embedded));
 
     let model = carapace_clap::to_model(&mut outer.clone());
     let completion = carapace_core::traverse(&model, vec!["".to_string()]);
@@ -272,13 +270,12 @@ fn bash_list_mode_renders_display_with_description() {
 
     let output = carapace_clap::complete_output(
         || {
-            let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
-            carapace_clap::Gen::new(cmd)
+            Command::new("myapp")
+                .arg(Arg::new("target").index(1))
                 .positional_completion(
                     1,
                     Action::values_described([("alpha", "first"), ("beta", "second")]),
                 )
-                .into_command()
         },
         Shell::Bash,
         &["".to_string()],
@@ -303,9 +300,7 @@ fn bash_quotes_values_containing_wordbreak_chars() {
     let output = carapace_clap::complete_output(
         || {
             let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
-            carapace_clap::Gen::new(cmd)
-                .positional_completion(1, Action::values(["a:b"]))
-                .into_command()
+            cmd.positional_completion(1, Action::values(["a:b"]))
         },
         Shell::Bash,
         &["".to_string()],
@@ -328,9 +323,7 @@ fn bash_trims_wordbreak_prefix_from_values() {
         || {
             let cmd = Command::new("myapp")
                 .arg(Arg::new("profile").long("profile").action(ArgAction::Set));
-            carapace_clap::Gen::new(cmd)
-                .flag_completion("profile", Action::values(["dev"]))
-                .into_command()
+            cmd.flag_completion("profile", Action::values(["dev"]))
         },
         Shell::Bash,
         &["--profile=de".to_string()],

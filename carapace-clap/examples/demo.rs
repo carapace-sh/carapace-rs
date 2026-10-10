@@ -2,7 +2,7 @@
 //!
 //! Register completions with (bash): `source <(cargo run ... -- _carapace bash)`.
 
-use carapace_clap::Gen;
+use carapace_clap::Carapace;
 use carapace_core::Action;
 use clap::builder::{ArgAction, ValueHint};
 use clap::{Arg, Command};
@@ -42,11 +42,9 @@ fn cli() -> Command {
         )
         .subcommand(Command::new("test").about("run tests"));
 
-    Gen::new(cmd)
-        .flag_completion("profile", Action::values(["dev", "staging", "prod"]))
+    cmd.flag_completion("profile", Action::values(["dev", "staging", "prod"]))
         .positional_completion(1, Action::values(["x86", "arm", "wasm"]))
         .positional_any_completion(Action::files(Vec::<String>::new()))
-        .into_command()
 }
 
 fn main() {

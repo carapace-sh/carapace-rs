@@ -1,4 +1,4 @@
-use carapace_clap::{Gen, to_model};
+use carapace_clap::{Carapace, to_model};
 use carapace_core::{Action, Context, Nargs};
 use clap::builder::{ArgAction, ValueHint};
 use clap::{Arg, Command};
@@ -155,17 +155,16 @@ fn value_hint_maps_to_file_completion() {
 }
 
 #[test]
-fn gen_attaches_completions() {
+fn carapace_attaches_completions() {
     let cmd = Command::new("app")
         .arg(Arg::new("profile").long("profile").action(ArgAction::Set))
         .arg(Arg::new("target").index(1))
         .arg(Arg::new("rest").num_args(0..).index(2));
 
-    let cmd = Gen::new(cmd)
+    let mut cmd = cmd
         .flag_completion("profile", Action::values(["dev", "prod"]))
         .positional_completion(1, Action::values(["x86", "arm"]))
-        .positional_any_completion(Action::values(["anything"]))
-        .into_command();
+        .positional_any_completion(Action::values(["anything"]));
 
     let model = to_model(&mut cmd.clone());
     let profile = model.lookup_long("profile").unwrap();
@@ -183,15 +182,13 @@ fn gen_attaches_completions() {
 }
 
 #[test]
-fn gen_attaches_to_subcommands() {
+fn carapace_attaches_to_subcommands() {
     let cmd = Command::new("app").subcommand(
         Command::new("build").arg(Arg::new("jobs").long("jobs").action(ArgAction::Set)),
     );
 
     let configured = cmd.mut_subcommand("build", |build| {
-        Gen::new(build)
-            .flag_completion("jobs", Action::values(["1", "2"]))
-            .into_command()
+        build.flag_completion("jobs", Action::values(["1", "2"]))
     });
 
     let model = to_model(&mut configured.clone());
@@ -287,13 +284,10 @@ fn help_subcommand_completes_commands() {
 
 #[test]
 fn dash_any_completion() {
-    let mut cmd = Gen::new(
-        Command::new("app")
-            .arg(Arg::new("target").index(1))
-            .arg(Arg::new("rest").num_args(0..).index(2)),
-    )
-    .positional_dash_any_completion(Action::values(["after-dash"]))
-    .into_command();
+    let mut cmd = Command::new("app")
+        .arg(Arg::new("target").index(1))
+        .arg(Arg::new("rest").num_args(0..).index(2))
+        .positional_dash_any_completion(Action::values(["after-dash"]));
 
     let model = to_model(&mut cmd);
     assert!(model.dash_any.is_some());

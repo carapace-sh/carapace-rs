@@ -1,4 +1,5 @@
 use carapace_bridge as bridge;
+use carapace_clap::Carapace;
 use carapace_core::Action;
 use carapace_testkit::Sandbox;
 use clap::builder::ArgAction;
@@ -22,12 +23,7 @@ fn carapace_bridge_completes_git() {
             r#"{"version":"0.1.0","Meta":{"Messages":[],"Nospace":[]},"Values":[{"Value":"commit","Display":"commit","Description":"record changes"}]}"#,
         );
     let run = sandbox.run(
-        || {
-            let cmd = cli();
-            carapace_clap::Gen::new(cmd)
-                .positional_any_completion(bridge::carapace(&["git"]))
-                .into_command()
-        },
+        || cli().positional_any_completion(bridge::carapace(&["git"])),
         &[""],
     );
     let values = run.values();
@@ -51,12 +47,7 @@ fn fish_bridge_uses_custom_config() {
     let mut sandbox = Sandbox::new("bridge-fish");
     sandbox.env("XDG_CONFIG_HOME", dir.to_string_lossy().as_ref());
     let run = sandbox.run(
-        || {
-            let cmd = cli();
-            carapace_clap::Gen::new(cmd)
-                .positional_any_completion(bridge::fish::action(&["bridgefish"]))
-                .into_command()
-        },
+        || cli().positional_any_completion(bridge::fish::action(&["bridgefish"])),
         &[""],
     );
     std::fs::remove_dir_all(&dir).ok();
@@ -86,10 +77,7 @@ fn clap_bridge_parses_lines_and_nospace() {
         sandbox.run(
             || {
                 let script = script.clone();
-                let cmd = cli();
-                carapace_clap::Gen::new(cmd)
-                    .positional_any_completion(bridge::clap(&[script.as_str()]))
-                    .into_command()
+                cli().positional_any_completion(bridge::clap(&[script.as_str()]))
             },
             &[""],
         )
@@ -119,12 +107,7 @@ fn clap_bridge_parses_lines_and_nospace() {
         path.to_string_lossy().into_owned()
     };
     let run = sandbox.run(
-        || {
-            let cmd = cli();
-            carapace_clap::Gen::new(cmd)
-                .positional_any_completion(bridge::clap(&[script2.as_str()]))
-                .into_command()
-        },
+        || cli().positional_any_completion(bridge::clap(&[script2.as_str()])),
         &[""],
     );
     std::fs::remove_file(&script2).ok();
@@ -153,12 +136,7 @@ fn zsh_bridge_uses_custom_config() {
     let mut sandbox = Sandbox::new("bridge-zsh");
     sandbox.env("XDG_CONFIG_HOME", dir.to_string_lossy().as_ref());
     let run = sandbox.run(
-        || {
-            let cmd = cli();
-            carapace_clap::Gen::new(cmd)
-                .positional_any_completion(bridge::zsh::action(&["bridgezsh"]))
-                .into_command()
-        },
+        || cli().positional_any_completion(bridge::zsh::action(&["bridgezsh"])),
         &[""],
     );
     std::fs::remove_dir_all(&dir).ok();
@@ -183,12 +161,7 @@ fn cobra_bridge_parses_values_and_descriptions() {
         .with("commit\trecord changes\nbranch\tlist branches\n:0\n");
 
     let run = sandbox.run(
-        || {
-            let cmd = cli();
-            carapace_clap::Gen::new(cmd)
-                .positional_any_completion(bridge::cobra::action(&["git"]))
-                .into_command()
-        },
+        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
         &[""],
     );
     run.expect(Action::values_described([
@@ -204,11 +177,9 @@ fn cobra_bridge_reattaches_flag_prefix() {
 
     let run = sandbox.run(
         || {
-            let cmd =
-                Command::new("outer").arg(Arg::new("branch").long("branch").action(ArgAction::Set));
-            carapace_clap::Gen::new(cmd)
+            Command::new("outer")
+                .arg(Arg::new("branch").long("branch").action(ArgAction::Set))
                 .flag_completion("branch", bridge::cobra::action(&["git"]))
-                .into_command()
         },
         &["--branch="],
     );
@@ -236,12 +207,7 @@ fn cobra_bridge_honors_nospace_directive() {
     sandbox.reply("git", &["__complete", ""]).with("dir/\n:2\n");
 
     let run = sandbox.run(
-        || {
-            let cmd = cli();
-            carapace_clap::Gen::new(cmd)
-                .positional_any_completion(bridge::cobra::action(&["git"]))
-                .into_command()
-        },
+        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
         &[""],
     );
     assert!(
@@ -264,12 +230,7 @@ fn inshellisense_bridge_skips_flags_for_plain_words() {
         );
 
     let run = sandbox.run(
-        || {
-            let cmd = cli();
-            carapace_clap::Gen::new(cmd)
-                .positional_any_completion(bridge::inshellisense::action(&["bridgeish"]))
-                .into_command()
-        },
+        || cli().positional_any_completion(bridge::inshellisense::action(&["bridgeish"])),
         &[""],
     );
     assert_eq!(run.values(), vec!["one".to_string()]);

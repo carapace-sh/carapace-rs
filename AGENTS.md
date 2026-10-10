@@ -58,7 +58,7 @@ cargo run -p carapace-clap --example demo -- _carapace spec
 ```
 carapace-core/    framework-independent engine: model, action, traverse, shell formatters,
                   cache, uid, export, mock
-carapace-clap/    clap adapter: Gen builder, extension completers, _carapace entry point
+carapace-clap/    clap adapter: Carapace extension trait, extension completers, _carapace entry point
 carapace-macros/  completer!/command_completer! expression wrappers for clap derive
 carapace-spec/    YAML specs: from_yaml parsing, to_yaml dump, $-macro resolution
 carapace-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin,
@@ -74,42 +74,47 @@ These are settled; don't relitigate without cause, and preserve them when refact
    to args via `unstable-ext` (`ArgCompleter` implements `ArgExt`, same pattern as
    clap_complete's `ArgValueCompleter`). This removes the global mutable state that
    forces Go's sandbox to run tests in a subprocess.
-2. **Framework-agnostic model as the seam.** The engine (`carapace_core::traverse`)
+2. **`Carapace` extension trait instead of a wrapper type.** Go's `Gen(cmd)` wraps
+   commands because Go cannot add methods to foreign types; here `impl Carapace for
+   clap::Command` provides the same chaining without a wrapper or `into_command()`.
+   Do not name completion traits `CommandExt`/`ArgExt` — those are clap's
+   payload-marker traits (opposite impl direction).
+13. **Framework-agnostic model as the seam.** The engine (`carapace_core::traverse`)
    never sees framework types; adapters convert into `model::Command` once per request.
    The spec backend plugs in through the same seam. Do not let clap types leak into
    `carapace-core`.
-3. **Own lenient traversal, never clap's parser.** clap's parser errors on unknown
+13. **Own lenient traversal, never clap's parser.** clap's parser errors on unknown
    flags and cannot express optarg/custom-prefix semantics; carapace's completion
    needs lenient classification. The `Flag` model fields (`nargs`, `optional`,
    `argument_style`, `allow_hyphen_values`, `optarg_delimiter`) are the clap-native
    replacement for pflagfork's reflection.
-4. **`LookupArg` port semantics matter.** `arg_prefix` is the flag name *including the
+13. **`LookupArg` port semantics matter.** `arg_prefix` is the flag name *including the
    delimiter* (`--profile=`), not the full argument — re-attachment via
    `Action::prefix(arg_prefix)` corrupts candidates otherwise (fixed in `122762a`).
-5. **Bash patch context flows explicitly.** `complete_output` keeps the
+13. **Bash patch context flows explicitly.** `complete_output` keeps the
    `bash::Patch::Patched` result in a local and passes `bash::Context` to the
    formatter; no thread-locals or hidden channels. `patch()` re-lexes `COMP_LINE`,
    drops redirect tokens and the binary name (Go's `args[2:]`), and unsets the COMP_*
    environment (consume-once).
-6. **No `CARAPACE_SANDBOX`.** Go's env var is a subprocess handoff; the Rust sandbox is
+13. **No `CARAPACE_SANDBOX`.** Go's env var is a subprocess handoff; the Rust sandbox is
    in-process and the `Mock` (replies + cache root) travels on the `Context`
    (`Context::mock`). Don't reintroduce process-global env state for tests.
-7. **Context owns the environment.** Actions read environment through
+13. **Context owns the environment.** Actions read environment through
    `Context::lookup_env`/`get_env`, never `std::env::var` (the plan's stated rule).
    Bridge config dirs, for example, resolve from the context. Process env reads are
    acceptable only in entry-point code (before a `Context` exists) and for genuinely
    shell-provided variables (`COMP_*`, `CARAPACE_COMPLINE`).
-8. **One conflated type became two.** Go's `Action` conflates lazy and materialized;
+13. **One conflated type became two.** Go's `Action` conflates lazy and materialized;
    here `Action::invoke(&Context) -> InvokedAction` splits them. Modifiers compose via
    `map_invoked`.
-9. **`ActionMessage`, not `Result`, for failures.** Completion is best-effort; a
+13. **`ActionMessage`, not `Result`, for failures.** Completion is best-effort; a
    failing completer degrades to a visible message (Go semantics).
-10. **Std threads, not rayon, for `Batch`.** Batches are small; the dependency is not
+13. **Std threads, not rayon, for `Batch`.** Batches are small; the dependency is not
     justified. Closures must be `Send + Sync` and must not share unsynchronized state.
-11. **No CompleteEnv-style activation.** The `_carapace` snippet protocol is the
+13. **No CompleteEnv-style activation.** The `_carapace` snippet protocol is the
     ecosystem interface (carapace-bin, tabdance, specs); env-activated completion
     would bypass COMP_* patching and bifurcate the protocol.
-12. **Wire format is frozen.** `export::Export` JSON (version 0.1.0), `styles.json`,
+13. **Wire format is frozen.** `export::Export` JSON (version 0.1.0), `styles.json`,
     and the remaining `CARAPACE_*` env vars (`LOG`, `COLOR`, `NOSPACE`, `MERGEFLAGS`,
     `UNFILTERED`, `LENIENT`, `EXPERIMENTAL`) match Go byte-for-byte where consumed by
     external tooling.

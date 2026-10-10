@@ -19,7 +19,7 @@ pub fn patch(args: Vec<String>) -> Vec<String> {
     args.into_iter()
         .map(|arg| match arg.chars().next() {
             Some(quote @ ('"' | '\'' | '`')) if arg.ends_with(quote) && arg.len() > 1 => {
-                carapace_shlex::dequote_partial(&arg, carapace_shlex::Format::Nushell)
+                carapace_shlex::complete(&arg, carapace_shlex::Format::Nushell).current_word
             }
             _ => arg,
         })

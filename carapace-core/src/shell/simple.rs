@@ -145,8 +145,7 @@ pub mod cmd_clink {
         if compline.is_empty() {
             return args;
         }
-        let (mut words, _) =
-            carapace_shlex::complete_tokens(&compline, carapace_shlex::Format::Cmd);
+        let mut words = carapace_shlex::complete(&compline, carapace_shlex::Format::Cmd).words;
         if !words.is_empty() {
             words.remove(0); // the binary name
         }

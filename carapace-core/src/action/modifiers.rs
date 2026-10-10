@@ -181,37 +181,42 @@ impl Action {
     /// is re-attached. A `$`-prefixed current word completes environment
     /// variable names instead.
     pub fn split(self, format: crate::Format) -> Self {
-        let _ = format; // Default and Bash share POSIX lexing so far
         let inner = self;
         Self::callback(move |c| {
-            let (mut words, tail) = carapace_shlex::complete_tokens(&c.value, format);
-            let prefix = c.value[..c.value.len() - tail.token.len()].to_owned();
-            if tail.is_empty() && !c.value.is_empty() {
-                // the cursor starts a new word
-                words.push(String::new());
-            }
+            let completion = carapace_shlex::complete(&c.value, format);
+            // rune span to byte offset
+            let byte_offset = |rune_index: usize| {
+                c.value
+                    .char_indices()
+                    .nth(rune_index)
+                    .map(|(i, _)| i)
+                    .unwrap_or(c.value.len())
+            };
 
             let mut context = c.clone();
             context.parts = Vec::new();
-            context.value = words.pop().unwrap_or_default();
-            context.args = words;
+            context.value = completion.current_word.clone();
+            context.args = completion
+                .words
+                .get(..completion.words.len().saturating_sub(1))
+                .unwrap_or_default()
+                .to_vec();
 
-            // `$name` completes environment variable names
-            if let Some(name) = tail
-                .token
-                .strip_prefix('$')
-                .filter(|name| !name.is_empty() && !name.starts_with('{'))
-            {
-                context.value = name.to_owned();
+            // `$name` completes environment variable names (the reference's
+            // replaced region is the variable's span, e.g. the naive
+            // COMP_WORDS suffix for bash)
+            if let Some(variable) = &completion.variable {
+                let prefix = c.value[..byte_offset(variable.span().start)].to_owned();
+                context.value = variable.name.clone();
                 let names: Vec<String> = context
                     .env
                     .keys()
-                    .filter(|key| key.starts_with(name))
+                    .filter(|key| key.starts_with(&context.value))
                     .cloned()
                     .collect();
                 let values = names
                     .iter()
-                    .map(|name| crate::value::RawValue::new(format!("${name}")))
+                    .map(|name| crate::value::RawValue::new(variable.insert(name)))
                     .collect();
                 return InvokedAction {
                     values,
@@ -222,6 +227,7 @@ impl Action {
                 .nospace([]);
             }
 
+            let prefix = c.value[..byte_offset(completion.span.start)].to_owned();
             let invoked = inner.invoke(&context);
             let values = invoked
                 .values
@@ -229,8 +235,7 @@ impl Action {
                 .map(|mut value| {
                     let nospace = crate::shell::matches_nospace(&invoked.meta, &value);
                     if !nospace || value.value.contains(' ') {
-                        value.value =
-                            carapace_shlex::quote_insertion(&value.value, tail.open_quote);
+                        value.value = completion.quote(&value.value);
                     }
                     if !nospace {
                         value.value.push(' ');

@@ -224,61 +224,27 @@ pub fn patch(args: Vec<String>) -> Patch {
         .and_then(|point| point.parse().ok())
         .unwrap_or(compline.len());
     let comp_type = std::env::var("COMP_TYPE").unwrap_or_default();
-    let wordbreaks = std::env::var("COMP_WORDBREAKS").unwrap_or_default();
-    let wordbreak_chars: Vec<char> = wordbreaks.chars().filter(|c| !c.is_whitespace()).collect();
-
+    // COMP_WORDBREAKS is consumed by the lexer's classifier
     let truncated = truncate_at_byte(&compline, comp_point);
-
-    let (tokens, tail) = carapace_shlex::complete_tokens(&truncated, carapace_shlex::Format::Bash);
-
-    let result = if tokens.is_empty() {
-        Patch::Patched {
-            args: Vec::new(),
-            wordbreak_prefix: String::new(),
-            comp_type: comp_type.clone(),
-        }
-    } else {
-        // drop redirects: operator plus its target
-        let mut cleaned: Vec<String> = Vec::with_capacity(tokens.len());
-        let mut iter = tokens.iter().peekable();
-        let mut redirect_target = false;
-        while let Some(token) = iter.next() {
-            if is_redirect(token) {
-                if iter.peek().is_none() {
-                    redirect_target = true; // completing the redirect target
-                } else {
-                    iter.next(); // skip the target
-                }
-                continue;
-            }
-            cleaned.push(token.clone());
-        }
-        if redirect_target {
-            return Patch::Redirect;
-        }
-        // drop the binary name: traverse expects post-binary words
-        // (Go skips shell name and binary via args[2:])
-        if !cleaned.is_empty() {
-            cleaned.remove(0);
-        }
-        if tail.is_empty() && !truncated.is_empty() {
-            // the cursor starts a new word (Go's lexer emits it)
-            cleaned.push(String::new());
-        }
-        let wordbreak_prefix = tail
-            .token
-            .rfind(|c: char| wordbreak_chars.contains(&c))
-            .map(|index| tail.token[..=index].to_owned())
-            .unwrap_or_default();
-        Patch::Patched {
-            args: cleaned,
-            wordbreak_prefix,
-            comp_type: comp_type.clone(),
-        }
-    };
-
+    let context = carapace_shlex::complete(&truncated, carapace_shlex::Format::Bash);
     unset_bash_env();
-    result
+
+    if context.is_redirect {
+        // completing a redirect target: files (Go's RedirectError)
+        return Patch::Redirect;
+    }
+
+    // words are redirect-filtered and include the binary name plus the
+    // trailing cursor word; traverse expects post-binary words
+    let mut cleaned = context.words;
+    if !cleaned.is_empty() {
+        cleaned.remove(0);
+    }
+    Patch::Patched {
+        args: cleaned,
+        wordbreak_prefix: context.prefix,
+        comp_type: comp_type.clone(),
+    }
 }
 
 fn truncate_at_byte(line: &str, point: usize) -> String {
@@ -287,12 +253,6 @@ fn truncate_at_byte(line: &str, point: usize) -> String {
         end -= 1;
     }
     line[..end].to_owned()
-}
-
-/// Whether the token is a shell redirect operator (e.g. `>`, `2>`, `>>`, `&>`).
-fn is_redirect(token: &str) -> bool {
-    let trimmed = token.trim_start_matches(['0', '1', '2', '&']);
-    matches!(trimmed, ">" | ">>" | "<" | "<<") || token == ">&" || token == "<&"
 }
 
 fn unset_bash_env() {

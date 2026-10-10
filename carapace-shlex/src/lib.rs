@@ -1,6 +1,5 @@
-//! Shell lexing for completion (Rust port of the
-//! [carapace-shlex](https://github.com/carapace-sh/carapace-shlex) completion
-//! primitives, POSIX quoting only so far).
+//! Shell lexing for completion — Rust port of the
+//! [carapace-shlex](https://github.com/carapace-sh/carapace-shlex) library.
 //!
 //! The host shell usually does the word splitting and hands the completer
 //! its words plus context (`COMP_LINE`, `COMP_POINT`, ...). Re-lexing is
@@ -8,322 +7,337 @@
 //! words (`bash::patch`), and values that are themselves command lines
 //! (`Action::split`).
 
-/// Shell format for lexing a value (Go `shlex.Format`).
-///
-/// `Default` and `Bash` share POSIX lexing so far; other formats fall back
-/// to `Default` until their quoting machines are ported.
-use shlex::Shlex;
+mod completion;
+mod format;
+mod formats;
+mod lexer;
+mod quote;
+mod substitution;
+mod token;
+mod tokenslice;
+mod variable;
+mod wordbreak;
 
-/// Shell format for lexing/quoting a value (Go `shlex.Format`).
-///
-/// `Default`, `Bash` and `Fish` share POSIX quoting (Go's `fishQuoteWord`
-/// is `posixQuoteWord`); `Cmd` and `Nushell` have their own escape and
-/// quote rules.
+pub use completion::{CompletionContext, complete};
+pub use token::{LexerState, Span, Token, TokenType};
+pub use wordbreak::WordbreakType;
+
+/// The bash COMP_WORDBREAKS default.
+pub const BASH_WORDBREAKS: &str = " \t\r\n\"'@><=;|&():";
+
+/// Shell format for lexing/quoting a value (Go `shlex.Format`): the name
+/// of one of the supported shells. The lexing behavior per name lives in
+/// the format implementations; unknown names are rejected by [`split`],
+/// yield an empty context in [`complete`], and fall back to the default
+/// format in [`join`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Format {
+    /// The empty format name, resolving to Bash. Spec macros and callers
+    /// that omit the shell use this.
     #[default]
     Default,
     Bash,
-    Fish,
     Cmd,
+    Elvish,
+    Fish,
+    Hilbish,
     Nushell,
-}
-
-/// Lexing rules of a format: which characters quote and where the escape
-/// character is honored.
-#[derive(Clone, Copy)]
-struct FormatSpec {
-    /// Characters that open/close a quoted region.
-    quotes: &'static [char],
-    /// The escape character, if the format has one.
-    escape: Option<char>,
-    /// The escape character is honored outside quotes.
-    escape_outside_quotes: bool,
-    /// The escape character is honored inside double quotes.
-    escape_inside_double_quote: bool,
+    Oil,
+    Powershell,
+    Tcsh,
+    Xonsh,
+    Zsh,
 }
 
 impl Format {
-    fn spec(self) -> FormatSpec {
+    /// The format's name string.
+    pub fn as_str(self) -> &'static str {
         match self {
-            Self::Default | Self::Bash | Self::Fish => FormatSpec {
-                quotes: &['\'', '"'],
-                escape: Some('\\'),
-                escape_outside_quotes: true,
-                escape_inside_double_quote: true,
-            },
-            Self::Cmd => FormatSpec {
-                quotes: &['"'],
-                escape: Some('^'),
-                escape_outside_quotes: true,
-                escape_inside_double_quote: false,
-            },
-            Self::Nushell => FormatSpec {
-                quotes: &['\'', '"', '`'],
-                escape: Some('\\'),
-                escape_outside_quotes: false,
-                escape_inside_double_quote: true,
-            },
+            Self::Default => "",
+            Self::Bash => "bash",
+            Self::Cmd => "cmd",
+            Self::Elvish => "elvish",
+            Self::Fish => "fish",
+            Self::Hilbish => "hilbish",
+            Self::Nushell => "nushell",
+            Self::Oil => "oil",
+            Self::Powershell => "powershell",
+            Self::Tcsh => "tcsh",
+            Self::Xonsh => "xonsh",
+            Self::Zsh => "zsh",
+        }
+    }
+
+    /// Parse a format name; the empty name is Default. Unknown names are
+    /// rejected.
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "" => Some(Self::Default),
+            "bash" => Some(Self::Bash),
+            "cmd" => Some(Self::Cmd),
+            "elvish" => Some(Self::Elvish),
+            "fish" => Some(Self::Fish),
+            "hilbish" => Some(Self::Hilbish),
+            "nushell" => Some(Self::Nushell),
+            "oil" => Some(Self::Oil),
+            "powershell" => Some(Self::Powershell),
+            "tcsh" => Some(Self::Tcsh),
+            "xonsh" => Some(Self::Xonsh),
+            "zsh" => Some(Self::Zsh),
+            _ => None,
         }
     }
 }
 
-/// The raw (still quoted) trailing token of a command line.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct RawTail<'a> {
-    /// The token the cursor sits in (quotes included).
-    pub token: &'a str,
-    /// The quote character if the token ends inside an open quote.
-    pub open_quote: Option<char>,
-    /// Whether the token is complete (a shlex tokenizer would have yielded it).
-    pub complete: bool,
-}
-
-impl<'a> RawTail<'a> {
-    /// Empty tail: the cursor starts a new word.
-    pub fn is_empty(&self) -> bool {
-        self.token.is_empty()
-    }
-}
-
-/// The raw trailing token of the command line, bounded by whitespace
-/// outside quotes.
-///
-/// `split_whitespace` would both split inside quoted whitespace and return
-/// the previous word for a trailing space; neither matches bash's word the
-/// cursor sits in.
-pub fn raw_last_token(line: &str, format: Format) -> RawTail<'_> {
-    let spec = format.spec();
-    let mut start = 0;
-    let mut quote: Option<char> = None;
-    let mut escaped = false;
-    for (index, c) in line.char_indices() {
-        let escape_applies = spec.escape.is_some()
-            && match quote {
-                Some(q) => q == '"' && spec.escape_inside_double_quote,
-                None => spec.escape_outside_quotes,
-            };
-        if escaped {
-            escaped = false;
-        } else if Some(c) == spec.escape && escape_applies {
-            escaped = true;
-        } else if quote.is_none() && spec.quotes.contains(&c) {
-            quote = Some(c);
-        } else if quote == Some(c) {
-            quote = None;
-        } else if quote.is_none() && c.is_whitespace() {
-            start = index + c.len_utf8();
-        }
-    }
-    RawTail {
-        token: &line[start..],
-        open_quote: quote,
-        complete: quote.is_none() && !escaped,
-    }
-}
-
-/// Tokenize a command line like the shell would, recovering a trailing
-/// partial token.
-///
-/// The shlex crate drops a trailing partial token (open quote or trailing
-/// escape); the recovered dequoted word is appended so the completion sees
-/// the word the cursor sits in. The [`RawTail`] describes that tail for
-/// prefix computation and insertion quoting.
-pub fn complete_tokens(line: &str, format: Format) -> (Vec<String>, RawTail<'_>) {
-    let tail = raw_last_token(line, format);
-    let mut tokens = match format {
-        Format::Cmd => tokenize_cmd(line),
-        _ => Shlex::new(line).collect(),
-    };
-    if !tail.is_empty() && !tail.complete {
-        // the tokenizer lost the trailing partial token (open quote,
-        // trailing escape): shlex drops it, the cmd tokenizer truncates it
-        if matches!(format, Format::Cmd) && tail.open_quote.is_none() {
-            tokens.pop(); // the truncated prefix is already the last word
-        }
-        tokens.push(dequote_partial(tail.token, format));
-    }
-    (tokens, tail)
-}
-
-/// Tokenize a cmd.exe command line: whitespace-delimited words, `"..."`
-/// quoting (quotes stripped) and `^` escaping outside quotes.
-fn tokenize_cmd(line: &str) -> Vec<String> {
+/// Partition a string into tokens using the given format. Word and
+/// wordbreak tokens are yielded; whitespace and comments are skipped.
+/// Unknown format names are rejected.
+pub fn split(s: &str, format: Format) -> Option<Vec<Token>> {
+    let impl_ = format::format_impl_for(format)?;
+    let mut lexer = lexer::Lexer::new(s, impl_);
     let mut tokens = Vec::new();
-    let mut current = String::new();
-    let mut started = false;
-    let mut in_quotes = false;
-    let mut escaped = false;
-    for c in line.chars() {
-        if escaped {
-            current.push(c);
-            escaped = false;
-        } else if c == '^' && !in_quotes {
-            escaped = true;
-        } else if c == '"' {
-            in_quotes = !in_quotes;
-            started = true;
-        } else if c.is_whitespace() && !in_quotes {
-            if started {
-                tokens.push(std::mem::take(&mut current));
-                started = false;
-            }
-        } else {
-            current.push(c);
-            started = true;
-        }
+    while let Some(token) = lexer.next() {
+        tokens.push(token);
     }
-    if started {
-        tokens.push(current);
-    }
-    tokens
+    Some(impl_.post_process(tokens))
 }
 
-/// Lenient dequote of a partial shell token: open quotes and a trailing
-/// escape are tolerated.
-pub fn dequote_partial(token: &str, format: Format) -> String {
-    let spec = format.spec();
-    let mut result = String::new();
-    let mut quote: Option<char> = None;
-    let mut chars = token.chars();
-    while let Some(c) = chars.next() {
-        let escape_applies = spec.escape.is_some()
-            && match quote {
-                Some(q) => q == '"' && spec.escape_inside_double_quote,
-                None => spec.escape_outside_quotes,
-            };
-        match c {
-            c if Some(c) == spec.escape && escape_applies => match chars.next() {
-                Some(next) => result.push(next),
-                None => break,
-            },
-            c if quote.is_none() && spec.quotes.contains(&c) => quote = Some(c),
-            c if quote == Some(c) => quote = None,
-            c => result.push(c),
-        }
-    }
-    result
-}
-
-/// Quote a completion candidate for insertion at the cursor described by
-/// `open_quote` (port of `quoteInsertionDefault` for POSIX formats): an
-/// open quote is closed with the format's escape rules, a bareword is
-/// quoted only when needed (`posixQuoteWord`).
-pub fn quote_insertion(value: &str, open_quote: Option<char>) -> String {
-    match open_quote {
-        Some('\'') => format!("'{}'", value.replace('\'', "'\\''")),
-        Some('"') => format!("\"{}\"", escape_double_quote(value)),
-        _ => quote_word(value),
-    }
-}
-
-/// Quote a bareword as a complete word (port of `posixQuoteWord`): only
-/// `"` `'` whitespace, `` ` `` `$` and `\\` force quoting.
-fn quote_word(value: &str) -> String {
-    if value.is_empty() {
-        return "\"\"".to_owned();
-    }
-    if !value
-        .chars()
-        .any(|c| matches!(c, '"' | '\'' | ' ' | '`' | '$' | '\n' | '\r' | '\t' | '\\'))
-    {
-        return value.to_owned();
-    }
-    format!("\"{}\"", escape_double_quote(value))
-}
-
-/// Escape for insertion inside double quotes.
-fn escape_double_quote(value: &str) -> String {
-    let mut result = String::with_capacity(value.len());
-    for c in value.chars() {
-        if matches!(c, '\\' | '"' | '$' | '`') {
-            result.push('\\');
-        }
-        if c == '\n' || c == '\r' {
-            // line continuation: the newline is consumed by the shell
-            result.push('\\');
-        }
-        result.push(c);
-    }
-    result
-}
-
-/// Quote and join words for insertion into a command line of the format
-/// (port of Go `shlex.Join`): each word quoted only when needed, empty
-/// words as `""`.
-pub fn join(args: &[String], format: Format) -> String {
-    let _ = format; // Default, Bash and Fish share POSIX quoting so far
-    args.iter()
-        .map(|arg| quote_word(arg))
+/// Concatenate words using the format's quoting rules. Unknown format
+/// names fall back to the default format.
+pub fn join(s: &[String], format: Format) -> String {
+    let Some(impl_) = format::format_impl_for(format) else {
+        return join(s, Format::Default);
+    };
+    s.iter()
+        .map(|arg| impl_.quote_word(arg))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// Quote a single word using the format's quoting rules.
+pub fn quote_word(s: &str, format: Format) -> String {
+    match format::format_impl_for(format) {
+        Some(impl_) => impl_.quote_word(s),
+        None => quote_word(s, Format::Default),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn complete_tokens(line: &str) -> (Vec<String>, RawTail<'_>) {
-        super::complete_tokens(line, Format::default())
-    }
-
-    fn raw_last_token(line: &str) -> RawTail<'_> {
-        super::raw_last_token(line, Format::default())
-    }
-
-    fn dequote_partial(token: &str) -> String {
-        super::dequote_partial(token, Format::default())
+    #[test]
+    fn split_bash_words_and_wordbreaks() {
+        let tokens = split("echo 'a b' c", Format::Bash).unwrap();
+        let values: Vec<&str> = tokens.iter().map(|t| t.value.as_str()).collect();
+        assert_eq!(values, vec!["echo", "a b", "c"]);
     }
 
     #[test]
-    fn complete_tokens_recovers_partial_tail() {
-        assert_eq!(complete_tokens("myapp \"ab").0, vec!["myapp", "ab"]);
-        assert_eq!(complete_tokens("myapp 'ab").0, vec!["myapp", "ab"]);
-        assert_eq!(complete_tokens("myapp a\\").0, vec!["myapp", "a"]);
-        assert_eq!(complete_tokens("myapp a b ").0, vec!["myapp", "a", "b"]);
-        assert_eq!(complete_tokens("myapp 'ab c").0, vec!["myapp", "ab c"]);
-        assert_eq!(complete_tokens("myapp foo:ba").0, vec!["myapp", "foo:ba"]);
+    fn split_skips_comments() {
+        let tokens = split("echo hi # note", Format::Bash).unwrap();
+        let values: Vec<&str> = tokens.iter().map(|t| t.value.as_str()).collect();
+        assert_eq!(values, vec!["echo", "hi"]);
     }
 
     #[test]
-    fn raw_last_token_reports_state() {
-        assert_eq!(raw_last_token("foo bar").token, "bar");
-        assert!(raw_last_token("foo bar").complete);
-        assert_eq!(raw_last_token("foo ").token, "");
-        assert!(raw_last_token("foo ").complete);
-        assert_eq!(raw_last_token("foo \"ab").open_quote, Some('"'));
-        assert!(!raw_last_token("foo \"ab").complete);
-        assert_eq!(raw_last_token("'a b' rest").token, "rest");
-        assert_eq!(raw_last_token("'a b c").token, "'a b c");
-        assert_eq!(raw_last_token("it\\").open_quote, None);
-        assert!(!raw_last_token("it\\").complete);
+    fn split_classifies_operators() {
+        let tokens = split("echo foo > out.txt", Format::Bash).unwrap();
+        assert!(
+            tokens.iter().any(|t| t.kind == TokenType::Wordbreak
+                && t.wordbreak_type == WordbreakType::RedirectOutput)
+        );
     }
 
     #[test]
-    fn dequote_partial_strips_quotes_and_escapes() {
-        assert_eq!(dequote_partial("\"ab"), "ab");
-        assert_eq!(dequote_partial("'a b c"), "a b c");
-        assert_eq!(dequote_partial("a\\"), "a");
-        assert_eq!(dequote_partial("--bool="), "--bool=");
+    fn split_recovers_partial_tail() {
+        // the trailing partial token (open quote) is preserved
+        let tokens = split("myapp \"ab", Format::Bash).unwrap();
+        let values: Vec<&str> = tokens.iter().map(|t| t.value.as_str()).collect();
+        assert_eq!(values, vec!["myapp", "ab"]);
     }
 
     #[test]
-    fn quote_insertion_closes_open_quotes() {
-        assert_eq!(quote_insertion("a b", Some('\'')), "'a b'");
-        assert_eq!(quote_insertion("it' end", Some('\'')), "'it'\\'' end'");
-        assert_eq!(quote_insertion("a\"b", Some('"')), "\"a\\\"b\"");
-        assert_eq!(quote_insertion("plain", None), "plain");
-        assert_eq!(quote_insertion("--bool=true", None), "--bool=true");
-        assert_eq!(quote_insertion("a b", None), "\"a b\"");
-        assert_eq!(quote_insertion("", None), "\"\"");
+    fn split_trailing_space_yields_empty_word() {
+        let tokens = split("myapp ", Format::Bash).unwrap();
+        let values: Vec<&str> = tokens.iter().map(|t| t.value.as_str()).collect();
+        assert_eq!(values, vec!["myapp", ""]);
+    }
+
+    #[test]
+    fn split_multibyte_spans_are_rune_based() {
+        let tokens = split("café", Format::Bash).unwrap();
+        assert_eq!(tokens[0].span, Span { start: 0, end: 4 }); // 4 runes
+    }
+
+    #[test]
+    fn join_quotes_only_when_needed() {
+        let words = vec!["plain".to_owned(), "a b".to_owned(), String::new()];
+        assert_eq!(join(&words, Format::Bash), "plain \"a b\" \"\"");
+        // `=` does not force quoting (posixQuoteWord's trigger set)
+        assert_eq!(
+            join(&["--bool=true".to_owned()], Format::Bash),
+            "--bool=true"
+        );
+    }
+
+    #[test]
+    fn complete_reports_wordbreak_prefix() {
+        let context = complete("myapp --profile=dev", Format::Bash);
+        assert_eq!(context.current_word, "--profile=dev");
+        assert_eq!(context.prefix, "--profile=");
+    }
+
+    #[test]
+    fn complete_detects_redirect() {
+        let context = complete("myapp > out", Format::Bash);
+        assert!(context.is_redirect);
+    }
+
+    #[test]
+    fn complete_closes_open_quote_on_insertion() {
+        let context = complete("myapp 'a b", Format::Bash);
+        assert_eq!(context.quoting_state, LexerState::Quoting);
+        assert_eq!(context.quote("a c"), "'a c'");
+    }
+
+    #[test]
+    fn complete_detects_variables() {
+        let context = complete("echo café | grep $HO", Format::Bash);
+        let variable = context.variable.as_ref().expect("variable expected");
+        assert_eq!(variable.name, "HO");
+        assert_eq!(variable.insert("HOME"), "$HOME");
+    }
+
+    #[test]
+    fn complete_trailing_space_starts_new_word() {
+        let context = complete("myapp ", Format::Bash);
+        assert_eq!(context.current_word, "");
+        assert_eq!(context.words, vec!["myapp", ""]);
+        assert_eq!(context.span.start, 6);
     }
 }
 
-#[test]
-fn complete_tokens_cmd_caret_edge_cases() {
-    use Format::Cmd;
-    assert_eq!(complete_tokens("one^ two", Cmd).0, vec!["one two"]);
-    assert_eq!(complete_tokens("myapp one^", Cmd).0, vec!["myapp", "one"]);
-    assert_eq!(complete_tokens("\"a\" \"b\"", Cmd).0, vec!["a", "b"]);
-    assert_eq!(complete_tokens("myapp \"\" ", Cmd).0, vec!["myapp", ""]);
+// ported from Go completion_test.go (TestComplete)
+#[cfg(test)]
+mod completion_tests {
+    use super::tokenslice::TokenSliceExt;
+    use super::*;
+
+    struct Case {
+        input: &'static str,
+        want_word: &'static str,
+        want_prefix: &'static str,
+        want_state: LexerState,
+        want_redirect: bool,
+        want_words: &'static [&'static str],
+    }
+
+    #[test]
+    fn complete_matches_go_reference() {
+        let cases = vec![
+            Case {
+                input: "echo hel",
+                want_word: "hel",
+                want_prefix: "",
+                want_state: LexerState::InWord,
+                want_redirect: false,
+                want_words: &["echo", "hel"],
+            },
+            Case {
+                input: "echo \"hel",
+                want_word: "hel",
+                want_prefix: "",
+                want_state: LexerState::QuotingEscaping,
+                want_redirect: false,
+                want_words: &["echo", "hel"],
+            },
+            Case {
+                input: "echo 'hel",
+                want_word: "hel",
+                want_prefix: "",
+                want_state: LexerState::Quoting,
+                want_redirect: false,
+                want_words: &["echo", "hel"],
+            },
+            Case {
+                input: "echo foo | grep bar",
+                want_word: "bar",
+                want_prefix: "",
+                want_state: LexerState::InWord,
+                want_redirect: false,
+                want_words: &["grep", "bar"],
+            },
+            Case {
+                input: "echo foo > bar",
+                want_word: "bar",
+                want_prefix: "",
+                want_state: LexerState::InWord,
+                want_redirect: true,
+                want_words: &["echo", "foo"],
+            },
+            Case {
+                input: "echo foo=bar",
+                want_word: "foo=bar",
+                want_prefix: "foo=",
+                want_state: LexerState::InWord,
+                want_redirect: false,
+                want_words: &["echo", "foo=bar"],
+            },
+            Case {
+                input: "",
+                want_word: "",
+                want_prefix: "",
+                want_state: LexerState::Start,
+                want_redirect: false,
+                want_words: &[""],
+            },
+            Case {
+                input: "echo foo\\",
+                want_word: "foo",
+                want_prefix: "",
+                want_state: LexerState::Escaping,
+                want_redirect: false,
+                want_words: &["echo", "foo"],
+            },
+        ];
+        for case in &cases {
+            let context = complete(case.input, Format::Bash);
+            assert_eq!(context.current_word, case.want_word, "{}: word", case.input);
+            assert_eq!(context.prefix, case.want_prefix, "{}: prefix", case.input);
+            assert_eq!(
+                context.quoting_state, case.want_state,
+                "{}: state",
+                case.input
+            );
+            assert_eq!(
+                context.is_redirect, case.want_redirect,
+                "{}: redirect",
+                case.input
+            );
+            assert_eq!(context.words, case.want_words, "{}: words", case.input);
+        }
+    }
+
+    #[test]
+    fn unknown_format_is_rejected() {
+        assert!(
+            split(
+                "echo hi",
+                Format::from_name("nosuch").unwrap_or(Format::Bash)
+            )
+            .is_some()
+        );
+        // from_name rejects unknown names
+        assert!(Format::from_name("nosuch").is_none());
+    }
+
+    #[test]
+    fn substitution_words_roundtrip_unquoted() {
+        // port of substitution_test.go: closed substitution scopes are words
+        let tokens = split("echo $(echo test)", Format::Bash).unwrap();
+        let words = tokens.words_with_substitutions();
+        let words: Vec<&str> = words.iter().map(|t| t.value.as_str()).collect();
+        assert_eq!(words, vec!["echo", "$(echo test)"]);
+    }
 }

@@ -35,7 +35,7 @@ spec/YAML backend or other adapters can plug in later; `carapace-clap` is the pr
 carapace-lib-rs/
 ├── carapace-core/        # framework-independent: model, action, traverse, shell, style, cache, uid, export
 ├── carapace-clap/        # clap adapter: Command → model, extension API, integration entry points
-├── carapace-macros/      # (phase 3) optional derive/attribute sugar
+├── carapace-macros/      # expression wrappers for clap derive wiring
 ├── carapace-testkit/     # sandbox harness (port of carapace/sandbox) + golden tests
 ├── carapace-spec/        # YAML specs as command trees
 ├── carapace-bridge/      # external completer bridges (fish, bash, zsh, carapace, clap)
@@ -179,10 +179,17 @@ carapace_clap::complete(cmd_factory).unwrap();   // like CompleteEnv: handles CA
 - `_carapace` CLI port: `spec`, `style`, `export`, multi-completer re-invocation for
   binaries embedding several commands.
 
-### Derive story (phase 3)
+### Derive story
 
-Leverage clap derive's `add = ...` escape hatch (as clap_complete does) plus an optional
-`carapace_macros::completer(...)` attribute for terser wiring.
+clap derive forwards unknown `#[arg(...)]` / `#[command(...)]` entries to builder
+methods, so the `add = ...` escape hatch (as clap_complete uses) attaches the
+extension completers directly. `carapace_macros::completer!`/`command_completer!`
+wrap an action expression in the matching extension type for terser wiring:
+
+```rust
+#[arg(long, add = carapace_macros::completer!(Action::values(["dev", "prod"])))]
+profile: Option<String>,
+```
 
 ## carapace-testkit
 
@@ -231,7 +238,7 @@ external frameworks as regular carapace [`Action`]s.
 | M5 | powershell, xonsh, tcsh, ion, oil, bash-ble; `Batch`, `Timeout` | done (std threads, not rayon) |
 | M6 | `exec_command`/`_e`, `styles`/`style_config`, snippet modes + `$SHELL` detect | done |
 | M6.5 | UIDs/queries, `ActionImport`/`ActionExecute` + `execute_embedded` multi-completer, `_carapace style set`, `_carapace spec` dump | done |
-| P2 | sandbox testkit (in-process harness), spec crate (YAML), bridge crate | done; derive sugar open |
+| P2 | sandbox testkit (in-process harness), spec crate (YAML), bridge crate, derive sugar | done |
 
 ## Risks / decisions
 

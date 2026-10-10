@@ -46,6 +46,16 @@ fn main() {
 }
 ```
 
+With clap derive, `carapace_macros::completer!` attaches completers inline:
+
+```rust,ignore
+#[derive(Parser)]
+struct Cli {
+    #[arg(long, add = carapace_macros::completer!(Action::values(["dev", "prod"])))]
+    profile: Option<String>,
+}
+```
+
 Register completions per shell (see `snippet()` for the exact scripts):
 
 ```bash
@@ -76,7 +86,7 @@ See `PLAN.md` for the full porting plan and status.
 ## Development
 
 ```bash
-cargo test          # 157 tests across 14 suites
+cargo test          # 161 tests across 15 suites
 cargo clippy        # clean
 ```
 
@@ -88,6 +98,7 @@ carapace-clap/    clap adapter: Gen builder, extension slots, _carapace entry
 carapace-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions
 carapace-spec/    YAML user specs: flag suffixes, macros ($files, $directories, $executables), parsing modes, spec dump
 carapace-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin, clap, cobra, inshellisense
+carapace-macros/  expression wrappers (`completer!`) for clap derive wiring
 ```
 
 Testing completions:

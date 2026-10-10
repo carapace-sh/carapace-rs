@@ -55,13 +55,24 @@ pub fn complete_output(
     let mut cmd = factory();
     let model = crate::to_model(&mut cmd);
 
-    let (completion, bash_context) = if shell == Shell::Bash {
-        complete_bash(&model, words)
-    } else {
-        (
+    let (completion, bash_context) = match shell {
+        Shell::Bash => complete_bash(&model, words),
+        // shells handing over quoted words: dequote before traversal
+        Shell::Nushell => (
+            carapace_core::traverse(&model, carapace_core::shell::nushell::patch(words.to_vec())),
+            bash::Context::default(),
+        ),
+        Shell::CmdClink => (
+            carapace_core::traverse(
+                &model,
+                carapace_core::shell::simple::cmd_clink::patch(words.to_vec()),
+            ),
+            bash::Context::default(),
+        ),
+        _ => (
             carapace_core::traverse(&model, words.to_vec()),
             bash::Context::default(),
-        )
+        ),
     };
     let invoked = completion.action.invoke(&completion.context);
     shell.value(

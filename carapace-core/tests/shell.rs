@@ -1,4 +1,12 @@
 use carapace_core::export::Export;
+
+/// Serializes tests that touch process environment variables.
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 use carapace_core::{Action, Context, Meta, RawValue};
 
 #[test]
@@ -100,4 +108,34 @@ fn bash_common_prefix_space_hack() {
     let (nospace, data) = output.split_once('\u{1}').unwrap();
     assert_eq!(nospace, "true");
     assert_eq!(data, "one\nonly");
+}
+
+#[test]
+fn nushell_patch_dequotes_args() {
+    let patched = carapace_core::shell::nushell::patch(vec![
+        "\"a b\"".into(),
+        "'single'".into(),
+        "`raw string`".into(),
+        "plain".into(),
+        "\"".into(), // lone quote: not dequotable, kept
+    ]);
+    assert_eq!(patched, vec!["a b", "single", "raw string", "plain", "\""]);
+}
+
+#[test]
+fn cmd_clink_patch_relexes_compline() {
+    let _guard = env_lock();
+    unsafe { std::env::set_var("CARAPACE_COMPLINE", "myapp --flag \"a b\" tail") };
+    let patched = carapace_core::shell::simple::cmd_clink::patch(vec!["ignored".into()]);
+    unsafe { std::env::remove_var("CARAPACE_COMPLINE") };
+    assert_eq!(patched, vec!["--flag", "a b", "tail"]);
+}
+
+#[test]
+fn cmd_clink_patch_honors_caret_escape() {
+    let _guard = env_lock();
+    unsafe { std::env::set_var("CARAPACE_COMPLINE", "myapp one^ two") };
+    let patched = carapace_core::shell::simple::cmd_clink::patch(vec![]);
+    unsafe { std::env::remove_var("CARAPACE_COMPLINE") };
+    assert_eq!(patched, vec!["one two"]);
 }

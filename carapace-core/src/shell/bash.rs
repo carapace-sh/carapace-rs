@@ -229,7 +229,7 @@ pub fn patch(args: Vec<String>) -> Patch {
 
     let truncated = truncate_at_byte(&compline, comp_point);
 
-    let (tokens, tail) = carapace_shlex::complete_tokens(&truncated);
+    let (tokens, tail) = carapace_shlex::complete_tokens(&truncated, carapace_shlex::Format::Bash);
 
     let result = if tokens.is_empty() {
         Patch::Patched {

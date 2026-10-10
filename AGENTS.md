@@ -41,7 +41,7 @@ test, either the port or the test is wrong — check the Go source first.
 ## Build & Test Commands
 
 ```bash
-cargo test --workspace        # 179 tests across 17 suites; must pass
+cargo test --workspace        # 182 tests across 17 suites; must pass
 cargo fmt                     # format; cargo fmt --check must be clean
 cargo clippy --workspace      # must be warning-free
 ```
@@ -151,6 +151,11 @@ These are settled; don't relitigate without cause, and preserve them when refact
   (fish/zsh/... quote machines) — Default and Bash share POSIX lexing.
 - `Action::execute` forwards the outer context (env, dir, mock) into the
   embedded traversal; embedded trees are not separate processes.
+- Shell patches at the entry point: bash re-lexes `COMP_LINE` (redirect
+  filtering, wordbreak prefix, binary drop), nushell dequotes quoted args,
+  cmd-clink re-lexes `CARAPACE_COMPLINE` with cmd rules (`^` escaping, `"`
+  quoting). Carapace-shlex lexing is format-aware; its cmd tokenizer is the
+  first non-POSIX one.
 
 ## Naming
 

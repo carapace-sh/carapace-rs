@@ -16,15 +16,56 @@ use shlex::Shlex;
 
 /// Shell format for lexing/quoting a value (Go `shlex.Format`).
 ///
-/// `Default`, `Bash` and `Fish` share POSIX quoting so far (Go's
-/// `fishQuoteWord` is `posixQuoteWord`); other formats fall back to
-/// `Default` until their quoting machines are ported.
+/// `Default`, `Bash` and `Fish` share POSIX quoting (Go's `fishQuoteWord`
+/// is `posixQuoteWord`); `Cmd` and `Nushell` have their own escape and
+/// quote rules.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Format {
     #[default]
     Default,
     Bash,
     Fish,
+    Cmd,
+    Nushell,
+}
+
+/// Lexing rules of a format: which characters quote and where the escape
+/// character is honored.
+#[derive(Clone, Copy)]
+struct FormatSpec {
+    /// Characters that open/close a quoted region.
+    quotes: &'static [char],
+    /// The escape character, if the format has one.
+    escape: Option<char>,
+    /// The escape character is honored outside quotes.
+    escape_outside_quotes: bool,
+    /// The escape character is honored inside double quotes.
+    escape_inside_double_quote: bool,
+}
+
+impl Format {
+    fn spec(self) -> FormatSpec {
+        match self {
+            Self::Default | Self::Bash | Self::Fish => FormatSpec {
+                quotes: &['\'', '"'],
+                escape: Some('\\'),
+                escape_outside_quotes: true,
+                escape_inside_double_quote: true,
+            },
+            Self::Cmd => FormatSpec {
+                quotes: &['"'],
+                escape: Some('^'),
+                escape_outside_quotes: true,
+                escape_inside_double_quote: false,
+            },
+            Self::Nushell => FormatSpec {
+                quotes: &['\'', '"', '`'],
+                escape: Some('\\'),
+                escape_outside_quotes: false,
+                escape_inside_double_quote: true,
+            },
+        }
+    }
 }
 
 /// The raw (still quoted) trailing token of a command line.
@@ -51,16 +92,22 @@ impl<'a> RawTail<'a> {
 /// `split_whitespace` would both split inside quoted whitespace and return
 /// the previous word for a trailing space; neither matches bash's word the
 /// cursor sits in.
-pub fn raw_last_token(line: &str) -> RawTail<'_> {
+pub fn raw_last_token(line: &str, format: Format) -> RawTail<'_> {
+    let spec = format.spec();
     let mut start = 0;
     let mut quote: Option<char> = None;
     let mut escaped = false;
     for (index, c) in line.char_indices() {
+        let escape_applies = spec.escape.is_some()
+            && match quote {
+                Some(q) => q == '"' && spec.escape_inside_double_quote,
+                None => spec.escape_outside_quotes,
+            };
         if escaped {
             escaped = false;
-        } else if c == '\\' && quote != Some('\'') {
+        } else if Some(c) == spec.escape && escape_applies {
             escaped = true;
-        } else if quote.is_none() && (c == '\'' || c == '"') {
+        } else if quote.is_none() && spec.quotes.contains(&c) {
             quote = Some(c);
         } else if quote == Some(c) {
             quote = None;
@@ -82,29 +129,71 @@ pub fn raw_last_token(line: &str) -> RawTail<'_> {
 /// escape); the recovered dequoted word is appended so the completion sees
 /// the word the cursor sits in. The [`RawTail`] describes that tail for
 /// prefix computation and insertion quoting.
-pub fn complete_tokens(line: &str) -> (Vec<String>, RawTail<'_>) {
-    let mut tokens: Vec<String> = Shlex::new(line).collect();
-    let tail = raw_last_token(line);
+pub fn complete_tokens(line: &str, format: Format) -> (Vec<String>, RawTail<'_>) {
+    let mut tokens = match format {
+        Format::Cmd => tokenize_cmd(line),
+        _ => Shlex::new(line).collect(),
+    };
+    let tail = raw_last_token(line, format);
     if !tail.is_empty() && !tail.complete {
-        tokens.push(dequote_partial(tail.token));
+        tokens.push(dequote_partial(tail.token, format));
     }
     (tokens, tail)
 }
 
+/// Tokenize a cmd.exe command line: whitespace-delimited words, `"..."`
+/// quoting (quotes stripped) and `^` escaping outside quotes.
+fn tokenize_cmd(line: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut started = false;
+    let mut in_quotes = false;
+    let mut escaped = false;
+    for c in line.chars() {
+        if escaped {
+            current.push(c);
+            escaped = false;
+        } else if c == '^' && !in_quotes {
+            escaped = true;
+        } else if c == '"' {
+            in_quotes = !in_quotes;
+            started = true;
+        } else if c.is_whitespace() && !in_quotes {
+            if started {
+                tokens.push(std::mem::take(&mut current));
+                started = false;
+            }
+        } else {
+            current.push(c);
+            started = true;
+        }
+    }
+    if started {
+        tokens.push(current);
+    }
+    tokens
+}
+
 /// Lenient dequote of a partial shell token: open quotes and a trailing
 /// escape are tolerated.
-pub fn dequote_partial(token: &str) -> String {
+pub fn dequote_partial(token: &str, format: Format) -> String {
+    let spec = format.spec();
     let mut result = String::new();
     let mut quote: Option<char> = None;
     let mut chars = token.chars();
     while let Some(c) = chars.next() {
+        let escape_applies = spec.escape.is_some()
+            && match quote {
+                Some(q) => q == '"' && spec.escape_inside_double_quote,
+                None => spec.escape_outside_quotes,
+            };
         match c {
-            '\'' | '"' if quote.is_none() => quote = Some(c),
-            c if quote == Some(c) => quote = None,
-            '\\' if quote != Some('\'') => match chars.next() {
+            c if Some(c) == spec.escape && escape_applies => match chars.next() {
                 Some(next) => result.push(next),
                 None => break,
             },
+            c if quote.is_none() && spec.quotes.contains(&c) => quote = Some(c),
+            c if quote == Some(c) => quote = None,
             c => result.push(c),
         }
     }
@@ -168,6 +257,18 @@ pub fn join(args: &[String], format: Format) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn complete_tokens(line: &str) -> (Vec<String>, RawTail<'_>) {
+        super::complete_tokens(line, Format::default())
+    }
+
+    fn raw_last_token(line: &str) -> RawTail<'_> {
+        super::raw_last_token(line, Format::default())
+    }
+
+    fn dequote_partial(token: &str) -> String {
+        super::dequote_partial(token, Format::default())
+    }
 
     #[test]
     fn complete_tokens_recovers_partial_tail() {

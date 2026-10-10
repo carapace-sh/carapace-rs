@@ -184,7 +184,7 @@ impl Action {
         let _ = format; // Default and Bash share POSIX lexing so far
         let inner = self;
         Self::callback(move |c| {
-            let (mut words, tail) = carapace_shlex::complete_tokens(&c.value);
+            let (mut words, tail) = carapace_shlex::complete_tokens(&c.value, format);
             let prefix = c.value[..c.value.len() - tail.token.len()].to_owned();
             if tail.is_empty() && !c.value.is_empty() {
                 // the cursor starts a new word

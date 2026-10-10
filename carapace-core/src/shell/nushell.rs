@@ -11,6 +11,21 @@ fn sanitize(value: &str) -> String {
     value.replace(['\n', '\r'], "")
 }
 
+/// Patch arguments passed unprocessed by nushell: dequote quoted strings
+/// and trim backtick strings (port of Go `nushell.Patch`).
+///
+/// see https://www.nushell.sh/book/working_with_strings.html
+pub fn patch(args: Vec<String>) -> Vec<String> {
+    args.into_iter()
+        .map(|arg| match arg.chars().next() {
+            Some(quote @ ('"' | '\'' | '`')) if arg.ends_with(quote) && arg.len() > 1 => {
+                carapace_shlex::dequote_partial(&arg, carapace_shlex::Format::Nushell)
+            }
+            _ => arg,
+        })
+        .collect()
+}
+
 fn escape(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }

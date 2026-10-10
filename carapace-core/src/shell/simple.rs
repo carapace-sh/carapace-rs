@@ -135,6 +135,24 @@ pub mod cmd_clink {
         value.replace(['\n', '\t'], "")
     }
 
+    /// Re-lex `CARAPACE_COMPLINE` with cmd.exe rules and drop the binary
+    /// name (port of Go `cmd_clink.Patch`).
+    pub fn patch(args: Vec<String>) -> Vec<String> {
+        let Ok(compline) = std::env::var("CARAPACE_COMPLINE") else {
+            return args;
+        };
+        unsafe { std::env::remove_var("CARAPACE_COMPLINE") };
+        if compline.is_empty() {
+            return args;
+        }
+        let (mut words, _) =
+            carapace_shlex::complete_tokens(&compline, carapace_shlex::Format::Cmd);
+        if !words.is_empty() {
+            words.remove(0); // the binary name
+        }
+        words
+    }
+
     pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) -> String {
         let _ = current_word;
         values

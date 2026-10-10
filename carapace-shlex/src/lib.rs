@@ -14,15 +14,17 @@
 /// to `Default` until their quoting machines are ported.
 use shlex::Shlex;
 
-/// Shell format for lexing a value (Go `shlex.Format`).
+/// Shell format for lexing/quoting a value (Go `shlex.Format`).
 ///
-/// `Default` and `Bash` share POSIX lexing so far; other formats fall back
-/// to `Default` until their quoting machines are ported.
+/// `Default`, `Bash` and `Fish` share POSIX quoting so far (Go's
+/// `fishQuoteWord` is `posixQuoteWord`); other formats fall back to
+/// `Default` until their quoting machines are ported.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Format {
     #[default]
     Default,
     Bash,
+    Fish,
 }
 
 /// The raw (still quoted) trailing token of a command line.
@@ -143,9 +145,24 @@ fn escape_double_quote(value: &str) -> String {
         if matches!(c, '\\' | '"' | '$' | '`') {
             result.push('\\');
         }
+        if c == '\n' || c == '\r' {
+            // line continuation: the newline is consumed by the shell
+            result.push('\\');
+        }
         result.push(c);
     }
     result
+}
+
+/// Quote and join words for insertion into a command line of the format
+/// (port of Go `shlex.Join`): each word quoted only when needed, empty
+/// words as `""`.
+pub fn join(args: &[String], format: Format) -> String {
+    let _ = format; // Default, Bash and Fish share POSIX quoting so far
+    args.iter()
+        .map(|arg| quote_word(arg))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[cfg(test)]

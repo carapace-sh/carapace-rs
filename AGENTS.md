@@ -57,7 +57,7 @@ cargo run -p carapace-clap --example demo -- _carapace spec
 
 ```
 carapace-shlex/   shell lexing for completion: tokenizing with partial-token recovery,
-                  insertion quoting (port of carapace-shlex's completion primitives)
+                  insertion quoting and Join per format (port of carapace-shlex)
 carapace-core/    framework-independent engine: model, action, traverse, shell formatters,
                   cache, uid, export, mock
 carapace-clap/    clap adapter: Carapace extension trait, extension completers, _carapace entry point
@@ -176,6 +176,9 @@ names aligned with Go so specs/macros port mechanically.
 
 ## Gotchas
 
+- The bridges delegate word joining/quoting to `carapace_shlex::join` (Go's
+  `shlex.Join`); quoting is only applied when the shell needs it, and an empty
+  word renders as `""` (the inshellisense workaround strips it).
 - fish 4.x splits `complete -a` arguments on whitespace; a `\t` escape inside the
   argument separates value from description. Sandbox tests must set `-f` (no file
   fallback) for deterministic candidate lists.

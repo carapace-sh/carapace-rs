@@ -223,7 +223,7 @@ fn cobra_bridge_honors_nospace_directive() {
 fn inshellisense_bridge_skips_flags_for_plain_words() {
     let mut sandbox = Sandbox::new("bridge-inshell-values");
     sandbox
-        .reply("inshellisense", &["complete", "'bridgeish'  "])
+        .reply("inshellisense", &["complete", "bridgeish  "])
         .with(
             r#"{"suggestions":[
                 {"name":"one","allNames":["one"],"description":"first","icon":""},
@@ -243,7 +243,7 @@ fn inshellisense_bridge_includes_flags_for_flag_words() {
     let mock = carapace_core::mock::Mock {
         dir: std::env::temp_dir(),
         replies: std::collections::HashMap::from([(
-            carapace_core::mock::Mock::key("inshellisense", &["complete", "'bridgeish' '-'"]),
+            carapace_core::mock::Mock::key("inshellisense", &["complete", "bridgeish -"]),
             r#"{"suggestions":[
                 {"name":"one","allNames":["one"],"description":"first","icon":""},
                 {"name":"--flag","allNames":["--flag","-f"],"description":"a flag","icon":"\ud83d\udd17"}

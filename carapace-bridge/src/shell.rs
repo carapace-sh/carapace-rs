@@ -20,9 +20,10 @@ pub fn bash(command: &[&str]) -> Action {
             let mut args = command.clone();
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            let mut joined = bash_join(&args);
+            let mut joined = carapace_shlex::join(&args, carapace_shlex::Format::Bash);
             if c.value.is_empty() {
-                joined = joined.trim_end_matches("\"\"").to_owned();
+                // the empty value arg renders as `""`
+                joined = joined.strip_suffix("\"\"").unwrap_or(&joined).to_owned();
             }
 
             let snippet_path = std::env::temp_dir().join(format!(
@@ -81,15 +82,4 @@ pub fn bash(command: &[&str]) -> Action {
             }
         })
     })
-}
-
-/// Bash-quote and join arguments for `COMP_LINE` and bridge inputs.
-pub(crate) fn bash_join(args: &[String]) -> String {
-    args.iter()
-        .map(|arg| {
-            let escaped = arg.replace('\'', "'\\''");
-            format!("'{escaped}'")
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
 }

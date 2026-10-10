@@ -11,8 +11,8 @@ pub fn action(command: &[&str]) -> Action {
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
 
-            let mut input = super::shell::bash_join(&args);
-            if input.ends_with("''") {
+            let mut input = carapace_shlex::join(&args, carapace_shlex::Format::Bash);
+            if input.ends_with("\"\"") {
                 // inshellisense can't handle quotes yet; the empty word
                 // degrades to a trailing space
                 input = format!("{} ", &input[..input.len() - 2]);

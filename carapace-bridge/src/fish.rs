@@ -3,17 +3,6 @@
 
 use carapace_core::Action;
 
-/// Fish-quote and join arguments for `complete --do-complete`.
-fn fish_join(args: &[String]) -> String {
-    args.iter()
-        .map(|arg| {
-            let escaped = arg.replace('\\', "\\\\").replace('\'', "\\'");
-            format!("'{escaped}'")
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
 /// Bridge completions registered in fish.
 pub fn action(command: &[&str]) -> Action {
     super::action_command(command, move |command| {
@@ -35,7 +24,7 @@ pub fn action(command: &[&str]) -> Action {
             let snippet = format!(
                 "source '{}/config.fish';complete --do-complete=\"{}\"",
                 fish_config_dir.display(),
-                fish_join(&args)
+                carapace_shlex::join(&args, carapace_shlex::Format::Fish)
                     .replace('\\', "\\\\")
                     .replace('"', "\\\"")
                     .replace('$', "\\$"),

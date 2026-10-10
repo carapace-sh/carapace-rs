@@ -202,20 +202,39 @@ fn cobra_bridge_parses_values_and_descriptions() {
 #[test]
 fn cobra_bridge_reattaches_flag_prefix() {
     let mut sandbox = Sandbox::new("bridge-cobra-prefix");
-    sandbox
-        .reply("git", &["__complete", "--branch="])
-        .with("main\n:0\n");
+    sandbox.reply("git", &["__complete", ""]).with("main\n:0\n");
 
     let run = sandbox.run(
         || {
-            let cmd = cli();
+            let cmd =
+                Command::new("outer").arg(Arg::new("branch").long("branch").action(ArgAction::Set));
             carapace_clap::Gen::new(cmd)
-                .positional_any_completion(bridge::cobra::action(&["git"]))
+                .flag_completion("branch", bridge::cobra::action(&["git"]))
                 .into_command()
         },
         &["--branch="],
     );
     assert_eq!(run.values(), vec!["--branch=main".to_string()]);
+}
+
+#[test]
+fn cobra_bridge_prefixes_bare_flag_values() {
+    let mock = carapace_core::mock::Mock {
+        dir: std::env::temp_dir(),
+        replies: std::collections::HashMap::from([(
+            carapace_core::mock::Mock::key("git", &["__complete", "--branch="]),
+            "main\n:0\n".to_owned(),
+        )]),
+    };
+    // the sandbox holds the global lock: no other sandbox test may run
+    // while the process-global mock env is set
+    let _lock = Sandbox::new("bridge-cobra-direct");
+    unsafe { std::env::set_var("CARAPACE_SANDBOX", serde_json::to_string(&mock).unwrap()) };
+    let invoked =
+        bridge::cobra::action(&["git"]).invoke(&carapace_core::Context::new(["--branch="]));
+    unsafe { std::env::remove_var("CARAPACE_SANDBOX") };
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    assert_eq!(values, vec!["--branch=main".to_string()]);
 }
 
 #[test]
@@ -265,26 +284,24 @@ fn inshellisense_bridge_skips_flags_for_plain_words() {
 
 #[test]
 fn inshellisense_bridge_includes_flags_for_flag_words() {
-    let mut sandbox = Sandbox::new("bridge-inshell-flags");
-    sandbox
-        .reply("inshellisense", &["complete", "'bridgeish' '-'"])
-        .with(
+    let mock = carapace_core::mock::Mock {
+        dir: std::env::temp_dir(),
+        replies: std::collections::HashMap::from([(
+            carapace_core::mock::Mock::key("inshellisense", &["complete", "'bridgeish' '-'"]),
             r#"{"suggestions":[
                 {"name":"one","allNames":["one"],"description":"first","icon":""},
                 {"name":"--flag","allNames":["--flag","-f"],"description":"a flag","icon":"\ud83d\udd17"}
-            ]}"#,
-        );
+            ]}"#
+            .to_owned(),
+        )]),
+    };
+    let _lock = Sandbox::new("bridge-inshell-flags");
+    unsafe { std::env::set_var("CARAPACE_SANDBOX", serde_json::to_string(&mock).unwrap()) };
+    let invoked =
+        bridge::inshellisense::action(&["bridgeish"]).invoke(&carapace_core::Context::new(["-"]));
+    unsafe { std::env::remove_var("CARAPACE_SANDBOX") };
 
-    let run = sandbox.run(
-        || {
-            let cmd = cli();
-            carapace_clap::Gen::new(cmd)
-                .positional_any_completion(bridge::inshellisense::action(&["bridgeish"]))
-                .into_command()
-        },
-        &["-"],
-    );
-    let values = run.values();
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
     assert!(values.contains(&"--flag".to_string()), "{values:?}");
     assert!(values.contains(&"-f".to_string()), "{values:?}");
     assert!(!values.contains(&"one".to_string()), "{values:?}");

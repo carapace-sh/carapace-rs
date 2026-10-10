@@ -93,8 +93,13 @@ impl Sandbox {
         let mock_json = serde_json::to_string(&mock).unwrap();
         unsafe { std::env::set_var("CARAPACE_SANDBOX", &mock_json) };
 
-        let completion = carapace_core::traverse(&model, context.args.clone());
-        let invoked = completion.action.invoke(&context);
+        // traverse takes the full word list (last word = completed value)
+        let mut words = context.args.clone();
+        words.push(context.value.clone());
+        let mut completion = carapace_core::traverse(&model, words);
+        completion.context.dir = context.dir;
+        completion.context.env = context.env;
+        let invoked = completion.action.invoke(&completion.context);
         unsafe { std::env::remove_var("CARAPACE_SANDBOX") };
 
         Run {

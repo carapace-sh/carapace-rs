@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guide for AI agents working in the `carapace-lib-rs` repository.
+Guide for AI agents working in the `carapace-rs` repository.
 
 ## Project Overview
 
@@ -18,6 +18,21 @@ live next to this one and should be consulted when porting or verifying behavior
 | `../carapace-bridge` | bridge reference: `pkg/actions/bridge/*.go` |
 | `../carapace-shlex` | shell lexing reference: `completion.go` (Complete, quoting states, wordbreaks) |
 | `../carapace-spec` | YAML spec format and core macros |
+
+## Repository Naming Taxonomy
+
+`carapace-rs` is the Rust port; language ports are a reserved family. Keep tokens
+atomic behind the `-` delimiter and follow these categories:
+
+| Pattern | Category | Examples |
+|---|---|---|
+| `carapace-<tool>` | completion specs for a tool (full tool name) | `carapace-aws`, `carapace-python` |
+| `carapace-spec-<framework>` | spec adapters | `carapace-spec-clap`, `carapace-spec-kong` |
+| `carapace-lex-<name>` | lexers | `carapace-lex-bash` |
+| `carapace-<lang>` | language ports (reserved) | `carapace-rs` (this repo), `carapace-py` |
+
+Language codes (`rs`, `py`, ...) are reserved suffixes; tool specs always use the
+full tool name so they never compete for those tokens.
 
 Rule of thumb: port behavior 1:1 in spirit (same semantics, same edge cases, same wire
 format), adapt the *shape* to idiomatic Rust. When Go and Rust behavior diverge in a

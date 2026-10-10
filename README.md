@@ -1,4 +1,4 @@
-# carapace-lib-rs
+# carapace-rs
 
 Rust port of [carapace](https://github.com/carapace-sh/carapace) — full-featured
 dynamic shell completion — with [clap](https://github.com/clap-rs/clap) as the
@@ -12,7 +12,7 @@ for bridging, caching and embedding.
 
 ```toml
 [dependencies]
-carapace-clap = { git = "https://github.com/carapace-sh/carapace-lib-rs" }
+carapace-clap = { git = "https://github.com/carapace-sh/carapace-rs" }
 ```
 
 ```rust,no_run

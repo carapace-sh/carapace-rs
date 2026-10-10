@@ -203,6 +203,7 @@ fn message(meta: &Meta) -> String {
 /// Each tag group is `tag\003displays\003values`, groups separated by `\002`.
 pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) -> String {
     let state = quoting_state(&raw_current_word(current_word));
+    let mut noprefix = false;
 
     let mut tag_groups: Vec<(String, Vec<String>, Vec<String>)> = Vec::new();
     for value in values {
@@ -245,6 +246,12 @@ pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) ->
             format!("{display}:{description}")
         };
 
+        noprefix = noprefix
+            || matches_no_prefix(
+                meta,
+                zsh_value.strip_prefix(current_word).unwrap_or(&zsh_value),
+            );
+
         if let Some(group) = tag_groups.iter_mut().find(|(t, _, _)| *t == tag) {
             group.1.push(entry);
             group.2.push(zsh_value);
@@ -265,9 +272,19 @@ pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) ->
         "{}\u{1}{}\u{1}{}\u{1}{}\u{1}",
         zstyles(values),
         message(meta),
-        false,
+        noprefix,
         tag_groups
     )
+}
+
+/// Whether the newly-inserted part matches the no-prefix matcher
+/// (port of `common.PrefixMatcher.Matches`; empty never matches).
+fn matches_no_prefix(meta: &Meta, inserted: &str) -> bool {
+    !inserted.is_empty()
+        && meta
+            .no_prefix
+            .iter()
+            .any(|prefix| *prefix == '*' || inserted.starts_with(*prefix))
 }
 
 /// Generate the zsh completion snippet for a binary.

@@ -410,3 +410,27 @@ fn files_suffix_filters_candidate_names() {
     assert_eq!(names, vec!["script.sh"]);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn zsh_noprefix_flag_in_output() {
+    let _guard = env_lock();
+    clear_compline();
+
+    let meta = carapace_core::Meta::default().no_prefix(['p']);
+    let output = zsh::action_raw_values("a", &meta, &values());
+    let sections: Vec<&str> = output.split('\u{1}').collect();
+    assert_eq!(
+        sections[2], "true",
+        "newly inserted part of apple matches no-prefix"
+    );
+
+    let meta = carapace_core::Meta::default().no_prefix(['z']);
+    let output = zsh::action_raw_values("a", &meta, &values());
+    let sections: Vec<&str> = output.split('\u{1}').collect();
+    assert_eq!(sections[2], "false", "no value starts with z");
+
+    let meta = carapace_core::Meta::default();
+    let output = zsh::action_raw_values("a", &meta, &values());
+    let sections: Vec<&str> = output.split('\u{1}').collect();
+    assert_eq!(sections[2], "false", "unset no-prefix never matches");
+}

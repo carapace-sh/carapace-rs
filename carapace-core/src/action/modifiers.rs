@@ -72,12 +72,14 @@ impl Action {
     }
 
     /// Prevent common prefix insertion for the given prefixes (all when none given).
-    ///
-    /// Currently a no-op: accepted for API parity with Go carapace but not yet
-    /// wired into the shell formatters.
     pub fn no_prefix(self, prefixes: impl IntoIterator<Item = char>) -> Self {
-        let _ = prefixes;
-        self
+        let mut meta = Meta::default();
+        let prefixes: Vec<char> = prefixes.into_iter().collect();
+        if prefixes.is_empty() {
+            meta.no_prefix.push('*');
+        }
+        meta.no_prefix.extend(prefixes);
+        self.with_meta(meta)
     }
 
     /// Set a static style on all values.
@@ -264,6 +266,7 @@ impl Action {
                 meta: Meta {
                     messages: export.meta.messages.clone(),
                     nospace: export.meta.nospace.clone(),
+                    no_prefix: Vec::new(),
                     usage: export.meta.usage.clone(),
                     queries: Vec::new(),
                 },
@@ -367,6 +370,7 @@ impl Action {
                 let meta = Meta {
                     messages: cached.meta.messages.clone(),
                     nospace: cached.meta.nospace.clone(),
+                    no_prefix: Vec::new(),
                     usage: cached.meta.usage.clone(),
                     queries: Vec::new(),
                 };
@@ -387,6 +391,11 @@ impl Action {
     }
 
     /// Use the alternative action when invocation exceeds `secs` seconds.
+    ///
+    /// The invocation runs on a detached thread and is not cancelled on
+    /// timeout (Go's version has the same limitation since callbacks don't
+    /// check for cancellation): it finishes in the background and its
+    /// result is discarded.
     pub fn timeout(self, secs: u64, alternative: Self) -> Self {
         let inner = Arc::new(self);
         let alternative = Arc::new(alternative);

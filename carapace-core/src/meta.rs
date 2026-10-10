@@ -10,6 +10,8 @@ pub struct Meta {
     pub messages: Messages,
     /// Characters for which no space is inserted after completion (`*` matches all).
     pub nospace: Vec<char>,
+    /// Prefix characters for which no common prefix is inserted (`*` matches all).
+    pub no_prefix: Vec<char>,
     /// Usage string shown alongside messages (experimental).
     pub usage: Option<String>,
     /// Queries (experimental, tabdance).
@@ -36,6 +38,11 @@ impl Meta {
         self
     }
 
+    pub fn no_prefix(mut self, prefixes: impl IntoIterator<Item = char>) -> Self {
+        self.no_prefix.extend(prefixes);
+        self
+    }
+
     pub fn usage(mut self, usage: impl Into<String>) -> Self {
         self.usage = Some(usage.into());
         self
@@ -54,6 +61,9 @@ impl Meta {
         self.nospace.extend(other.nospace.iter().copied());
         self.nospace.sort_unstable();
         self.nospace.dedup();
+        self.no_prefix.extend(other.no_prefix.iter().copied());
+        self.no_prefix.sort_unstable();
+        self.no_prefix.dedup();
         if self.usage.is_none() {
             self.usage = other.usage.clone();
         }

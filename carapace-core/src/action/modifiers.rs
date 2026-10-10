@@ -263,13 +263,7 @@ impl Action {
     pub fn import(output: &str) -> Self {
         match crate::export::Export::from_json(output) {
             Some(export) => Self {
-                meta: Meta {
-                    messages: export.meta.messages.clone(),
-                    nospace: export.meta.nospace.clone(),
-                    no_prefix: Vec::new(),
-                    usage: export.meta.usage.clone(),
-                    queries: Vec::new(),
-                },
+                meta: export.meta.to_meta(),
                 kind: crate::action::ActionKind::Raw(export.to_raw_values()),
             },
             None => Self::message(format!(
@@ -367,15 +361,8 @@ impl Action {
                 return self.invoke(c).to_action();
             };
             if let Some(cached) = crate::cache::load(&cache_file, timeout_secs) {
-                let meta = Meta {
-                    messages: cached.meta.messages.clone(),
-                    nospace: cached.meta.nospace.clone(),
-                    no_prefix: Vec::new(),
-                    usage: cached.meta.usage.clone(),
-                    queries: Vec::new(),
-                };
                 return Action {
-                    meta,
+                    meta: cached.meta.to_meta(),
                     kind: crate::action::ActionKind::Raw(cached.to_raw_values()),
                 };
             }

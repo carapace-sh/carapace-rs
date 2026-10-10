@@ -61,3 +61,46 @@ fn export_sorts_by_value() {
     let json = carapace_core::export::Export::from_parts(&invoked.meta, &invoked.values).to_json();
     assert!(json.find("\"a\"").unwrap() < json.find("\"b\"").unwrap());
 }
+
+#[test]
+fn import_parses_go_carapace_export() {
+    // shape emitted by Go carapace: flattened meta, matcher strings,
+    // lowercase value keys
+    let json = r#"{
+        "version": "v0.7.0",
+        "messages": ["oops"],
+        "noprefix": "ab",
+        "nospace": "/=",
+        "usage": "the usage",
+        "queries": ["cmd://app/sub?flag=force&C_VALUE=x"],
+        "values": [
+            {"value": "a", "display": "a", "description": "first"},
+            {"value": "b/c", "display": "b/c", "style": "blue", "uid": "file://x/y"}
+        ]
+    }"#;
+    let invoked = Action::import(json).invoke(&Context::default());
+    assert_eq!(invoked.values[0].value, "a");
+    assert_eq!(invoked.values[0].description, "first");
+    assert_eq!(invoked.values[1].style, "blue");
+    assert_eq!(invoked.meta.messages, vec!["oops"]);
+    assert_eq!(invoked.meta.nospace, vec!['/', '=']);
+    assert_eq!(invoked.meta.no_prefix, vec!['a', 'b']);
+    assert_eq!(invoked.meta.usage.as_deref(), Some("the usage"));
+    assert_eq!(invoked.meta.queries[0].scheme, "cmd");
+    assert_eq!(invoked.meta.queries[0].host, "app");
+    assert_eq!(invoked.meta.queries[0].path, "sub");
+}
+
+#[test]
+fn export_json_matches_go_shape() {
+    let meta = carapace_core::Meta::default()
+        .nospace(['/'])
+        .no_prefix(['a']);
+    let invoked = Action::values_described([("a", "first")]).invoke(&Context::default());
+    let json = carapace_core::export::Export::from_parts(&meta, &invoked.values).to_json();
+    assert!(!json.contains("\"Meta\""), "meta must be flattened: {json}");
+    assert!(json.contains("\"values\":"), "{json}");
+    assert!(json.contains("\"value\":\"a\""), "{json}");
+    assert!(json.contains("\"nospace\":\"/\""), "{json}");
+    assert!(json.contains("\"noprefix\":\"a\""), "{json}");
+}

@@ -41,7 +41,7 @@ test, either the port or the test is wrong — check the Go source first.
 ## Build & Test Commands
 
 ```bash
-cargo test --workspace        # 163 tests across 15 suites; must pass
+cargo test --workspace        # 168 tests across 15 suites; must pass
 cargo fmt                     # format; cargo fmt --check must be clean
 cargo clippy --workspace      # must be warning-free
 ```
@@ -114,10 +114,19 @@ These are settled; don't relitigate without cause, and preserve them when refact
 13. **No CompleteEnv-style activation.** The `_carapace` snippet protocol is the
     ecosystem interface (carapace-bin, tabdance, specs); env-activated completion
     would bypass COMP_* patching and bifurcate the protocol.
-13. **Wire format is frozen.** `export::Export` JSON (version 0.1.0), `styles.json`,
-    and the remaining `CARAPACE_*` env vars (`LOG`, `COLOR`, `NOSPACE`, `MERGEFLAGS`,
-    `UNFILTERED`, `LENIENT`, `EXPERIMENTAL`) match Go byte-for-byte where consumed by
-    external tooling.
+13. **Wire format is frozen — Go's exact shape.** `export::Export` JSON follows Go
+    `internal/export`: meta is *flattened* into the top level with lowercase keys
+    (Go struct embedding), nospace/noprefix are sorted character *strings* with `*`
+    wildcard (Go matcher JSON forms), queries are uid-URL strings, and value keys
+    are lowercase. Never reintroduce the nested `"Meta"` wrapper or capitalized
+    keys — the carapace bridge cannot read Go carapace-bin output then. The one
+    sanctioned extension: optional per-value `nospace` (Go ignores unknown keys)
+    so cache round-trips stay faithful. `styles.json` and the `CARAPACE_*` env
+    vars (`LOG`, `COLOR`, `NOSPACE`, `MERGEFLAGS`, `UNFILTERED`, `LENIENT`,
+    `EXPERIMENTAL`) likewise match Go.
+14. **`PATH` splitting is platform-aware** via `std::env::split_paths` (`:` on
+    unix, `;` on Windows); likewise executables check the unix permission bits
+    or the `.exe` extension.
 
 ## Naming
 

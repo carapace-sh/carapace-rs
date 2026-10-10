@@ -20,7 +20,9 @@ fn carapace_bridge_completes_git() {
     sandbox
         .reply("git", &["_carapace", "export", "", ""])
         .with(
-            r#"{"version":"0.1.0","Meta":{"Messages":[],"Nospace":[]},"Values":[{"Value":"commit","Display":"commit","Description":"record changes"}]}"#,
+            // carapace-bin export shape: flattened lowercase meta, matcher
+            // strings, lowercase value keys
+            r#"{"version":"v0.7.0","messages":[],"noprefix":"","nospace":"","usage":"","values":[{"value":"commit","display":"commit","description":"record changes"}]}"#,
         );
     let run = sandbox.run(
         || cli().positional_any_completion(bridge::carapace(&["git"])),
@@ -88,7 +90,7 @@ fn clap_bridge_parses_lines_and_nospace() {
     assert!(values.contains(&"fast".to_string()), "{values:?}");
     assert!(values.contains(&"slow".to_string()), "{values:?}");
     assert!(
-        !run.output().contains("\"Nospace\":[\"*\"]"),
+        !run.output().contains("\"nospace\":\"*\""),
         "no /-suffix: no nospace"
     );
 
@@ -112,7 +114,7 @@ fn clap_bridge_parses_lines_and_nospace() {
     );
     std::fs::remove_file(&script2).ok();
     assert!(
-        run.output().contains("\"Nospace\":[\"*\"]"),
+        run.output().contains("\"nospace\":\"*\""),
         "dir/x triggers nospace: {}",
         run.output()
     );
@@ -211,7 +213,7 @@ fn cobra_bridge_honors_nospace_directive() {
         &[""],
     );
     assert!(
-        run.output().contains("\"Nospace\":[\"*\"]"),
+        run.output().contains("\"nospace\":\"*\""),
         "{}",
         run.output()
     );

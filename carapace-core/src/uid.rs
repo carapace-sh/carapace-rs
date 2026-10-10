@@ -54,3 +54,26 @@ pub fn with_opts(scheme: &str, host: &str, value: &str, opts: &[(&str, &str)]) -
     }
     url
 }
+
+/// Inverse of [`path_escape`]: decode `%XX` percent-escapes.
+pub fn path_unescape(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut result = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if let Some(byte) = bytes
+                .get(index + 1..index + 3)
+                .and_then(|hex| std::str::from_utf8(hex).ok())
+                .and_then(|hex| u8::from_str_radix(hex, 16).ok())
+            {
+                result.push(byte);
+                index += 3;
+                continue;
+            }
+        }
+        result.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8_lossy(&result).into_owned()
+}

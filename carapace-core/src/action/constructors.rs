@@ -205,7 +205,7 @@ impl Action {
             let path = c.get_env("PATH");
             let mut values = Vec::new();
             let mut seen = std::collections::HashSet::new();
-            for dir in path.split(':').filter(|dir| !dir.is_empty()) {
+            for dir in std::env::split_paths(&path) {
                 let Ok(entries) = std::fs::read_dir(dir) else {
                     continue;
                 };

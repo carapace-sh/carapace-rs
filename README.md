@@ -81,7 +81,7 @@ cargo run -p carapace-clap --example demo -- _carapace export -- ""
   semantics), and per-shell formatters behind the shared dispatch
   (filtering, flag merging, message integration, nospace propagation, sorting).
 
-See `PLAN.md` for the full porting plan and status.
+See `AGENTS.md` for architecture, design decisions, and contribution guidance.
 
 ## Development
 

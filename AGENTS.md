@@ -41,7 +41,7 @@ test, either the port or the test is wrong — check the Go source first.
 ## Build & Test Commands
 
 ```bash
-cargo test --workspace        # 170 tests across 15 suites; must pass
+cargo test --workspace        # 175 tests across 16 suites; must pass
 cargo fmt                     # format; cargo fmt --check must be clean
 cargo clippy --workspace      # must be warning-free
 ```
@@ -79,51 +79,51 @@ These are settled; don't relitigate without cause, and preserve them when refact
    clap::Command` provides the same chaining without a wrapper or `into_command()`.
    Do not name completion traits `CommandExt`/`ArgExt` — those are clap's
    payload-marker traits (opposite impl direction).
-15. **No non-POSIX flag modes.** Go's delimiter machinery (`OptargDelimiter`,
+3. **No non-POSIX flag modes.** Go's delimiter machinery (`OptargDelimiter`,
     delimiter-disabled optargs accepting attached values) serves third-party
     binaries with non-POSIX pflag, completed via carapace-bin. This engine only
     completes clap trees and YAML specs — both POSIX-only (`=` delimiter,
     attached/delimited/next styles via `ArgumentStyle`) — so the machinery is
     not ported; non-clap tools are delegated to their own completers by the
     bridges.
-15. **Framework-agnostic model as the seam.** The engine (`carapace_core::traverse`)
+4. **Framework-agnostic model as the seam.** The engine (`carapace_core::traverse`)
    never sees framework types; adapters convert into `model::Command` once per request.
    The spec backend plugs in through the same seam. Do not let clap types leak into
    `carapace-core`.
-15. **Own lenient traversal, never clap's parser.** clap's parser errors on unknown
+5. **Own lenient traversal, never clap's parser.** clap's parser errors on unknown
    flags and cannot express optarg/custom-prefix semantics; carapace's completion
    needs lenient classification. The `Flag` model fields (`nargs`, `optional`,
    `argument_style`, `allow_hyphen_values`, `optarg_delimiter`) are the clap-native
    replacement for pflagfork's reflection.
-15. **`LookupArg` port semantics matter.** `arg_prefix` is the flag name *including the
+6. **`LookupArg` port semantics matter.** `arg_prefix` is the flag name *including the
    delimiter* (`--profile=`), not the full argument — re-attachment via
    `Action::prefix(arg_prefix)` corrupts candidates otherwise (fixed in `122762a`).
-15. **Bash patch context flows explicitly.** `complete_output` keeps the
+7. **Bash patch context flows explicitly.** `complete_output` keeps the
    `bash::Patch::Patched` result in a local and passes `bash::Context` to the
    formatter; no thread-locals or hidden channels. `patch()` re-lexes `COMP_LINE`,
    drops redirect tokens and the binary name (Go's `args[2:]`), and unsets the COMP_*
    environment (consume-once). A trailing partial token (open quote or trailing
    escape) is recovered leniently — the shlex crate drops it, which would lose the
    word the cursor sits in; quoted whitespace stays within the word.
-15. **No `CARAPACE_SANDBOX`.** Go's env var is a subprocess handoff; the Rust sandbox is
+8. **No `CARAPACE_SANDBOX`.** Go's env var is a subprocess handoff; the Rust sandbox is
    in-process and the `Mock` (replies + cache root) travels on the `Context`
    (`Context::mock`). Don't reintroduce process-global env state for tests.
-15. **Context owns the environment.** Actions read environment through
+9. **Context owns the environment.** Actions read environment through
    `Context::lookup_env`/`get_env`, never `std::env::var` (the plan's stated rule).
    Bridge config dirs, for example, resolve from the context. Process env reads are
    acceptable only in entry-point code (before a `Context` exists) and for genuinely
    shell-provided variables (`COMP_*`, `CARAPACE_COMPLINE`).
-15. **One conflated type became two.** Go's `Action` conflates lazy and materialized;
+10. **One conflated type became two.** Go's `Action` conflates lazy and materialized;
    here `Action::invoke(&Context) -> InvokedAction` splits them. Modifiers compose via
    `map_invoked`.
-15. **`ActionMessage`, not `Result`, for failures.** Completion is best-effort; a
+11. **`ActionMessage`, not `Result`, for failures.** Completion is best-effort; a
    failing completer degrades to a visible message (Go semantics).
-15. **Std threads, not rayon, for `Batch`.** Batches are small; the dependency is not
+12. **Std threads, not rayon, for `Batch`.** Batches are small; the dependency is not
     justified. Closures must be `Send + Sync` and must not share unsynchronized state.
-15. **No CompleteEnv-style activation.** The `_carapace` snippet protocol is the
+13. **No CompleteEnv-style activation.** The `_carapace` snippet protocol is the
     ecosystem interface (carapace-bin, tabdance, specs); env-activated completion
     would bypass COMP_* patching and bifurcate the protocol.
-15. **Wire format is frozen — Go's exact shape.** `export::Export` JSON follows Go
+14. **Wire format is frozen — Go's exact shape.** `export::Export` JSON follows Go
     `internal/export`: meta is *flattened* into the top level with lowercase keys
     (Go struct embedding), nospace/noprefix are sorted character *strings* with `*`
     wildcard (Go matcher JSON forms), queries are uid-URL strings, and value keys
@@ -136,6 +136,19 @@ These are settled; don't relitigate without cause, and preserve them when refact
 15. **`PATH` splitting is platform-aware** via `std::env::split_paths` (`:` on
     unix, `;` on Windows); likewise executables check the unix permission bits
     or the `.exe` extension.
+
+## Action surface notes
+
+- `Action::split(format)` completes a value that is itself a shell-parsed
+  command line: the value is re-lexed, the inner action runs with the
+  preceding words as args, and candidates are requoted (open quotes closed
+  via `lex::quote_insertion`), spaced unless the inner action claims nospace,
+  and the raw prefix re-attached. A `$name` current word completes
+  environment variable names instead. **Unported:** `SplitP` pipelines
+  (redirect → files), `${...}` brace forms and non-POSIX lexing formats
+  (fish/zsh/... quote machines) — Default and Bash share POSIX lexing.
+- `Action::execute` forwards the outer context (env, dir, mock) into the
+  embedded traversal; embedded trees are not separate processes.
 
 ## Naming
 

@@ -180,22 +180,15 @@ impl Action {
     /// action claims nospace, and the raw prefix before the current word
     /// is re-attached. A `$`-prefixed current word completes environment
     /// variable names instead.
-    pub fn split(self, format: crate::lex::Format) -> Self {
+    pub fn split(self, format: crate::Format) -> Self {
         let _ = format; // Default and Bash share POSIX lexing so far
         let inner = self;
         Self::callback(move |c| {
-            let mut words: Vec<String> = shlex::Shlex::new(&c.value).collect();
-            let tail = crate::lex::raw_last_token(&c.value);
+            let (mut words, tail) = carapace_shlex::complete_tokens(&c.value);
             let prefix = c.value[..c.value.len() - tail.token.len()].to_owned();
-            if tail.is_empty() {
-                if !c.value.is_empty() {
-                    // the cursor starts a new word
-                    words.push(String::new());
-                }
-            } else if !tail.complete {
-                // shlex drops a trailing partial token (open quote or
-                // trailing escape); recover the dequoted word
-                words.push(crate::lex::dequote_partial(tail.token));
+            if tail.is_empty() && !c.value.is_empty() {
+                // the cursor starts a new word
+                words.push(String::new());
             }
 
             let mut context = c.clone();
@@ -234,9 +227,10 @@ impl Action {
                 .values
                 .into_iter()
                 .map(|mut value| {
-                    let nospace = crate::lex::matches_nospace(&invoked.meta, &value);
+                    let nospace = crate::shell::matches_nospace(&invoked.meta, &value);
                     if !nospace || value.value.contains(' ') {
-                        value.value = crate::lex::quote_insertion(&value.value, tail.open_quote);
+                        value.value =
+                            carapace_shlex::quote_insertion(&value.value, tail.open_quote);
                     }
                     if !nospace {
                         value.value.push(' ');

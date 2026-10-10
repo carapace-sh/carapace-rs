@@ -9,7 +9,6 @@ pub mod cache;
 pub mod config;
 pub mod context;
 pub mod export;
-pub mod lex;
 pub mod meta;
 pub mod mock;
 pub mod model;
@@ -19,6 +18,7 @@ pub mod uid;
 pub mod value;
 
 pub use action::{Action, InvokedAction, batch};
+pub use carapace_shlex::Format;
 pub use context::Context;
 pub use meta::Meta;
 pub use model::{ArgumentStyle, Command, Flag, Nargs, Positional};

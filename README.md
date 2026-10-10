@@ -90,6 +90,7 @@ cargo clippy        # clean
 Layout:
 
 ```
+carapace-shlex/   shell lexing: tokenizing, partial tokens, insertion quoting
 carapace-core/    engine: model, action, traverse, shell formatters, cache, uid, export
 carapace-clap/    clap adapter: Carapace extension trait, extension slots, _carapace entry
 carapace-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions

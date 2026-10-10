@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use carapace_core::lex::Format;
 use carapace_core::{Action, Command, Context, Flag, Positional};
+use carapace_shlex::Format;
 
 fn inner_action() -> Action {
     let mut cmd = Command::new("inner");

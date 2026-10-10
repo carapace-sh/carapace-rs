@@ -229,14 +229,7 @@ pub fn patch(args: Vec<String>) -> Patch {
 
     let truncated = truncate_at_byte(&compline, comp_point);
 
-    let mut tokens: Vec<String> = shlex::Shlex::new(&truncated).collect();
-    let tail = crate::lex::raw_last_token(&truncated);
-    if !tail.is_empty() && !tail.complete {
-        // shlex drops a trailing partial token (open quote or trailing
-        // escape); recover the dequoted value so the completion sees the
-        // word the cursor is in
-        tokens.push(crate::lex::dequote_partial(tail.token));
-    }
+    let (tokens, tail) = carapace_shlex::complete_tokens(&truncated);
 
     let result = if tokens.is_empty() {
         Patch::Patched {

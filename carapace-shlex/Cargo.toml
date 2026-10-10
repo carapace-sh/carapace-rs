@@ -1,0 +1,11 @@
+[package]
+name = "carapace-shlex"
+description = "Shell lexing for completion: tokenizing, partial tokens, insertion quoting"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+shlex = "1"

@@ -235,3 +235,63 @@ fn fixed_nargs_consume_flag_like_values() {
     );
     assert!(parsed.positionals.is_empty());
 }
+
+#[test]
+fn hyphen_values_are_consumed_as_flag_arguments() {
+    let cmd = Command::new("app").flag(Flag {
+        id: "grep".into(),
+        name: "grep".into(),
+        takes_value: true,
+        nargs: carapace_core::Nargs::Any,
+        allow_hyphen_values: true,
+        completion: Some(Action::values(["pattern1", "pattern2"])),
+        ..Default::default()
+    });
+
+    // "-not-a-flag" is consumed as a value of --grep, completing its value
+    let completion = traverse(
+        &cmd,
+        vec![
+            "--grep".into(),
+            "first".into(),
+            "-not-a-flag".into(),
+            "".into(),
+        ],
+    );
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .into_iter()
+        .map(|value| value.value)
+        .collect();
+    assert_eq!(values, vec!["pattern1", "pattern2"]);
+
+    // without allow_hyphen_values, "-not-a-flag" ends variadic consumption
+    // once a value was consumed (the first value is always taken)
+    let cmd = Command::new("app").flag(Flag {
+        id: "grep".into(),
+        name: "grep".into(),
+        takes_value: true,
+        nargs: carapace_core::Nargs::Any,
+        completion: Some(Action::values(["pattern1", "pattern2"])),
+        ..Default::default()
+    });
+    let completion = traverse(
+        &cmd,
+        vec![
+            "--grep".into(),
+            "first".into(),
+            "-not-a-flag".into(),
+            "".into(),
+        ],
+    );
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .into_iter()
+        .map(|value| value.value)
+        .collect();
+    assert!(values.is_empty(), "hyphen arg ends variadic consumption");
+}

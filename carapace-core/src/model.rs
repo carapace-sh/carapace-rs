@@ -85,6 +85,8 @@ pub struct Flag {
     pub required: bool,
     /// Whether the flag is hidden from completion.
     pub hidden: bool,
+    /// Whether values may start with the flag prefix (clap `allow_hyphen_values`).
+    pub allow_hyphen_values: bool,
     /// Help text.
     pub description: String,
     /// Style reference for flag-name completion.
@@ -110,8 +112,11 @@ impl Flag {
         }
     }
 
-    fn looks_like_flag(&self, arg: &str) -> bool {
-        arg.starts_with(DEFAULT_FLAG_PREFIX)
+    /// Whether `arg` looks like a flag for variadic consumption purposes.
+    ///
+    /// Flags accepting hyphen values never treat such arguments as flags.
+    pub fn looks_like_flag(&self, arg: &str) -> bool {
+        !self.allow_hyphen_values && arg.starts_with(DEFAULT_FLAG_PREFIX)
     }
 
     /// Delimiter between flag name and optarg value. A control character

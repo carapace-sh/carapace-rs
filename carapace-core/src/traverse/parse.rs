@@ -55,7 +55,11 @@ pub fn parse(cmd: &Command, args: &[String]) -> Parsed {
                     let unconditional = matches!(matched.flag.nargs, crate::model::Nargs::Exact(_));
                     for _ in 0..missing {
                         match iter.peek().map(|(_, next)| next.to_string()) {
-                            Some(next) if unconditional || !next.starts_with(cmd.flag_prefix) => {
+                            Some(next)
+                                if unconditional
+                                    || matched.flag.allow_hyphen_values
+                                    || !next.starts_with(cmd.flag_prefix) =>
+                            {
                                 values.push(next);
                                 iter.next();
                             }

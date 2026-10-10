@@ -16,7 +16,7 @@ live next to this one and should be consulted when porting or verifying behavior
 |---|---|
 | `../carapace` | core library: `action.go`, `traverse.go`, `complete.go`, `internal/shell/*`, `internal/pflagfork`, `pkg/*` |
 | `../carapace-bridge` | bridge reference: `pkg/actions/bridge/*.go` |
-| `../carapace-shlex` | shell lexing reference: `completion.go` (Complete, quoting states, wordbreaks) — ported as the `carapace-shlex` crate |
+| `../carapace-shlex` | shell lexing reference: `completion.go`, `shlex.go`, `quote.go`, `format_*.go` — the completion core is ported as the `carapace-shlex` crate; the verify-*_test real-shell corpora are not ported yet |
 | `../carapace-spec` | YAML spec format and core macros |
 
 ## Repository Naming Taxonomy
@@ -41,7 +41,7 @@ test, either the port or the test is wrong — check the Go source first.
 ## Build & Test Commands
 
 ```bash
-cargo test --workspace        # 182 tests across 17 suites; must pass
+cargo test --workspace        # 194 tests across 17 suites; must pass
 cargo fmt                     # format; cargo fmt --check must be clean
 cargo clippy --workspace      # must be warning-free
 ```
@@ -56,8 +56,11 @@ cargo run -p carapace-clap --example demo -- _carapace spec
 ## Workspace Layout
 
 ```
-carapace-shlex/   shell lexing for completion: tokenizing with partial-token recovery,
-                  insertion quoting and Join per format (port of carapace-shlex)
+carapace-shlex/   the ported carapace-shlex completion core: per-format lexing
+                  (12-state machine, quoting states, wordbreak/operator
+                  classification, spans), Complete() context (words, current
+                  word, wordbreak prefix, redirect/variable/substitution
+                  detection), Quote/Join per format
 carapace-core/    framework-independent engine: model, action, traverse, shell formatters,
                   cache, uid, export, mock
 carapace-clap/    clap adapter: Carapace extension trait, extension completers, _carapace entry point

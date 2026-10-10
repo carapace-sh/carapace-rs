@@ -91,14 +91,8 @@ fn load_styles() -> Styles {
 }
 
 fn config_dir() -> Option<std::path::PathBuf> {
-    match std::env::var("XDG_CONFIG_HOME") {
-        Ok(dir) if !dir.is_empty() => Some(std::path::PathBuf::from(dir)),
-        _ => {
-            let home = std::env::var("HOME").ok()?;
-            Some(std::path::PathBuf::from(home).join(".config"))
-        }
-    }
-    .map(|dir| dir.join("carapace"))
+    // honors XDG_CONFIG_HOME on unix; platform directory on Windows/macOS
+    dirs::config_dir().map(|dir| dir.join("carapace"))
 }
 
 fn config_file(name: &str) -> Option<std::path::PathBuf> {

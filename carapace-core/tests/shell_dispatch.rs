@@ -377,7 +377,7 @@ fn xonsh_quoting_and_style() {
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
     assert_eq!(json[0]["Value"], "back\\slash ");
     assert_eq!(json[1]["Value"], "plain ");
-    assert_eq!(json[2]["Style"].as_str().unwrap().contains("fg:red"), true);
+    assert!(json[2]["Style"].as_str().unwrap().contains("fg:red"));
     assert_eq!(json[3]["Value"], "'with space' ");
 }
 

@@ -38,12 +38,10 @@ fn bash_plain_values() {
     let output = Shell::Bash.value(
         "",
         &Meta::default(),
-        &{
-            let mut v = carapace_core::RawValues::new();
-            v.push(RawValue::new("alpha"));
-            v.push(RawValue::described("spaced value", "desc"));
-            v
-        },
+        &vec![
+            RawValue::new("alpha"),
+            RawValue::described("spaced value", "desc"),
+        ],
         &bash::Context::default(),
     );
     let (nospace, data) = output.split_once('\u{1}').unwrap();

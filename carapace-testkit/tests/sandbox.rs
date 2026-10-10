@@ -14,7 +14,7 @@ fn cli() -> Command {
 fn sandbox_completes_positionals() {
     let sandbox = Sandbox::new("positional");
     sandbox
-        .run(|| cli(), &[""])
+        .run(cli, &[""])
         .expect(Action::values_described([("build", "build things")]).tag("commands"));
 }
 
@@ -22,7 +22,7 @@ fn sandbox_completes_positionals() {
 fn sandbox_expect_not() {
     let sandbox = Sandbox::new("expectnot");
     sandbox
-        .run(|| cli(), &["build", ""])
+        .run(cli, &["build", ""])
         .expect_not(Action::values(["nonsense"]));
 }
 

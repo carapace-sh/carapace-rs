@@ -335,3 +335,68 @@ fn bash_trims_wordbreak_prefix_from_values() {
     assert!(output.contains("dev"), "{output:?}");
     assert!(!output.contains("--profile=dev"), "{output:?}");
 }
+
+#[test]
+fn bash_completes_inside_open_quote() {
+    let _guard = env_lock();
+    clear_comp_env();
+    unsafe { std::env::set_var("COMP_LINE", "myapp \"ab") };
+    unsafe { std::env::set_var("COMP_POINT", "10") };
+
+    // shlex drops the unterminated token; the completion must still see it
+    let output = carapace_clap::complete_output(
+        || {
+            let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
+            cmd.positional_completion(1, Action::values(["abc", "abd"]))
+        },
+        Shell::Bash,
+        &["\"ab".to_string()],
+    );
+    unsafe { std::env::remove_var("COMP_LINE") };
+    unsafe { std::env::remove_var("COMP_POINT") };
+
+    assert!(output.contains("abc"), "{output:?}");
+}
+
+#[test]
+fn bash_completes_after_trailing_escape() {
+    let _guard = env_lock();
+    clear_comp_env();
+    unsafe { std::env::set_var("COMP_LINE", "myapp a\\") };
+    unsafe { std::env::set_var("COMP_POINT", "9") };
+
+    let output = carapace_clap::complete_output(
+        || {
+            let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
+            cmd.positional_completion(1, Action::values(["a1", "a2"]))
+        },
+        Shell::Bash,
+        &["a\\".to_string()],
+    );
+    unsafe { std::env::remove_var("COMP_LINE") };
+    unsafe { std::env::remove_var("COMP_POINT") };
+
+    assert!(output.contains("a1"), "{output:?}");
+}
+
+#[test]
+fn bash_completes_inside_quoted_whitespace() {
+    let _guard = env_lock();
+    clear_comp_env();
+    unsafe { std::env::set_var("COMP_LINE", "myapp 'ab c") };
+    unsafe { std::env::set_var("COMP_POINT", "12") };
+
+    // quoted whitespace stays within the word: value is "ab c"
+    let output = carapace_clap::complete_output(
+        || {
+            let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
+            cmd.positional_completion(1, Action::values(["ab c1", "other"]))
+        },
+        Shell::Bash,
+        &["'ab c".to_string()],
+    );
+    unsafe { std::env::remove_var("COMP_LINE") };
+    unsafe { std::env::remove_var("COMP_POINT") };
+
+    assert!(output.contains("ab c1"), "{output:?}");
+}

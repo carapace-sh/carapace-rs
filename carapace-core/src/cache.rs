@@ -22,14 +22,8 @@ fn cache_dir(context: &crate::context::Context) -> Option<PathBuf> {
     if let Some(mock) = &context.mock {
         return Some(mock.dir.join("cache").join("carapace"));
     }
-    let cache_root = match std::env::var("XDG_CACHE_HOME") {
-        Ok(dir) if !dir.is_empty() => PathBuf::from(dir),
-        _ => {
-            let home = std::env::var("HOME").ok()?;
-            PathBuf::from(home).join(".cache")
-        }
-    };
-    Some(cache_root.join("carapace"))
+    // honors XDG_CACHE_HOME on unix; platform directory on Windows/macOS
+    Some(dirs::cache_dir()?.join("carapace"))
 }
 
 /// Cache file path for a call site and key components.

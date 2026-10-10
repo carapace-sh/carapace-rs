@@ -45,7 +45,7 @@ fn positional_at_resolves_repeatable() {
     assert_eq!(cmd.positional_at(0).unwrap().name, "first");
     assert_eq!(cmd.positional_at(1).unwrap().name, "rest");
     assert_eq!(cmd.positional_at(7).unwrap().name, "rest");
-    assert_eq!(cmd.positional_at(1).unwrap().repeatable, true);
+    assert!(cmd.positional_at(1).unwrap().repeatable);
 }
 
 #[test]

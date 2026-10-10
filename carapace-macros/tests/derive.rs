@@ -16,6 +16,6 @@ struct Cli {
 #[test]
 fn derive_completer_attaches_to_arg() {
     let sandbox = Sandbox::new("macros-derive");
-    let run = sandbox.run(|| Cli::command(), &["--profile", ""]);
+    let run = sandbox.run(Cli::command, &["--profile", ""]);
     run.expect(Action::values(["dev", "prod"]));
 }

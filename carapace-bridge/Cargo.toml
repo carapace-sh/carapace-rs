@@ -11,6 +11,7 @@ repository.workspace = true
 carapace-core = { path = "../carapace-core" }
 carapace-clap = { path = "../carapace-clap" }
 serde_json = "1"
+dirs = "6"
 
 [dev-dependencies]
 carapace-testkit = { path = "../carapace-testkit" }

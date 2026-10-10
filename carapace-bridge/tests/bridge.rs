@@ -56,7 +56,7 @@ fn fish_bridge_uses_custom_config() {
 
     let values = run.values();
     assert_eq!(values, vec!["one"]);
-    assert_eq!(run.output().contains("two-description"), true);
+    assert!(run.output().contains("two-description"));
 }
 
 #[test]
@@ -145,7 +145,7 @@ fn zsh_bridge_uses_custom_config() {
 
     let values = run.values();
     assert_eq!(values, vec!["one"]);
-    assert_eq!(run.output().contains("first value"), true);
+    assert!(run.output().contains("first value"));
 }
 
 #[test]

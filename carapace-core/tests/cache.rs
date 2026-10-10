@@ -79,7 +79,7 @@ fn cache_expires_after_ttl() {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let export = carapace_core::export::Export::from_parts(
         &carapace_core::Meta::default(),
-        &vec![carapace_core::RawValue::new("old")],
+        &[carapace_core::RawValue::new("old")],
     );
     carapace_core::cache::write(&path, &export).unwrap();
 

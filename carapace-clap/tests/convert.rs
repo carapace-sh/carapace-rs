@@ -161,7 +161,7 @@ fn carapace_attaches_completions() {
         .arg(Arg::new("target").index(1))
         .arg(Arg::new("rest").num_args(0..).index(2));
 
-    let mut cmd = cmd
+    let cmd = cmd
         .flag_completion("profile", Action::values(["dev", "prod"]))
         .positional_completion(1, Action::values(["x86", "arm"]))
         .positional_any_completion(Action::values(["anything"]));

@@ -41,7 +41,7 @@ test, either the port or the test is wrong — check the Go source first.
 ## Build & Test Commands
 
 ```bash
-cargo test --workspace        # 168 tests across 15 suites; must pass
+cargo test --workspace        # 170 tests across 15 suites; must pass
 cargo fmt                     # format; cargo fmt --check must be clean
 cargo clippy --workspace      # must be warning-free
 ```
@@ -102,7 +102,9 @@ These are settled; don't relitigate without cause, and preserve them when refact
    `bash::Patch::Patched` result in a local and passes `bash::Context` to the
    formatter; no thread-locals or hidden channels. `patch()` re-lexes `COMP_LINE`,
    drops redirect tokens and the binary name (Go's `args[2:]`), and unsets the COMP_*
-   environment (consume-once).
+   environment (consume-once). A trailing partial token (open quote or trailing
+   escape) is recovered leniently — the shlex crate drops it, which would lose the
+   word the cursor sits in; quoted whitespace stays within the word.
 15. **No `CARAPACE_SANDBOX`.** Go's env var is a subprocess handoff; the Rust sandbox is
    in-process and the `Mock` (replies + cache root) travels on the `Context`
    (`Context::mock`). Don't reintroduce process-global env state for tests.

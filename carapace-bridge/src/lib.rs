@@ -34,9 +34,8 @@ pub fn action(name: &str, command: &[&str]) -> Action {
 pub(crate) fn config_dir(context: &carapace_core::Context) -> Option<std::path::PathBuf> {
     match context.lookup_env("XDG_CONFIG_HOME") {
         Some(dir) if !dir.is_empty() => Some(std::path::PathBuf::from(dir)),
-        _ => context
-            .lookup_env("HOME")
-            .map(|home| std::path::PathBuf::from(home).join(".config")),
+        // honors XDG_CONFIG_HOME/HOME on unix; platform directory elsewhere
+        _ => dirs::config_dir(),
     }
 }
 

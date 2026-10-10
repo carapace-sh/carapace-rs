@@ -130,12 +130,17 @@ pub fn raw_last_token(line: &str, format: Format) -> RawTail<'_> {
 /// the word the cursor sits in. The [`RawTail`] describes that tail for
 /// prefix computation and insertion quoting.
 pub fn complete_tokens(line: &str, format: Format) -> (Vec<String>, RawTail<'_>) {
+    let tail = raw_last_token(line, format);
     let mut tokens = match format {
         Format::Cmd => tokenize_cmd(line),
         _ => Shlex::new(line).collect(),
     };
-    let tail = raw_last_token(line, format);
     if !tail.is_empty() && !tail.complete {
+        // the tokenizer lost the trailing partial token (open quote,
+        // trailing escape): shlex drops it, the cmd tokenizer truncates it
+        if matches!(format, Format::Cmd) && tail.open_quote.is_none() {
+            tokens.pop(); // the truncated prefix is already the last word
+        }
         tokens.push(dequote_partial(tail.token, format));
     }
     (tokens, tail)
@@ -312,4 +317,13 @@ mod tests {
         assert_eq!(quote_insertion("a b", None), "\"a b\"");
         assert_eq!(quote_insertion("", None), "\"\"");
     }
+}
+
+#[test]
+fn complete_tokens_cmd_caret_edge_cases() {
+    use Format::Cmd;
+    assert_eq!(complete_tokens("one^ two", Cmd).0, vec!["one two"]);
+    assert_eq!(complete_tokens("myapp one^", Cmd).0, vec!["myapp", "one"]);
+    assert_eq!(complete_tokens("\"a\" \"b\"", Cmd).0, vec!["a", "b"]);
+    assert_eq!(complete_tokens("myapp \"\" ", Cmd).0, vec!["myapp", ""]);
 }

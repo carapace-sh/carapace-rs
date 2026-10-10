@@ -230,12 +230,12 @@ pub fn patch(args: Vec<String>) -> Patch {
     let truncated = truncate_at_byte(&compline, comp_point);
 
     let mut tokens: Vec<String> = shlex::Shlex::new(&truncated).collect();
-    let (raw_tail, tail_complete) = raw_last_token(&truncated);
-    if !raw_tail.is_empty() && !tail_complete {
+    let tail = crate::lex::raw_last_token(&truncated);
+    if !tail.is_empty() && !tail.complete {
         // shlex drops a trailing partial token (open quote or trailing
         // escape); recover the dequoted value so the completion sees the
         // word the cursor is in
-        tokens.push(dequote_partial(raw_tail));
+        tokens.push(crate::lex::dequote_partial(tail.token));
     }
 
     let result = if tokens.is_empty() {
@@ -268,9 +268,14 @@ pub fn patch(args: Vec<String>) -> Patch {
         if !cleaned.is_empty() {
             cleaned.remove(0);
         }
-        let wordbreak_prefix = raw_tail
+        if tail.is_empty() && !truncated.is_empty() {
+            // the cursor starts a new word (Go's lexer emits it)
+            cleaned.push(String::new());
+        }
+        let wordbreak_prefix = tail
+            .token
             .rfind(|c: char| wordbreak_chars.contains(&c))
-            .map(|index| raw_tail[..=index].to_owned())
+            .map(|index| tail.token[..=index].to_owned())
             .unwrap_or_default();
         Patch::Patched {
             args: cleaned,
@@ -289,53 +294,6 @@ fn truncate_at_byte(line: &str, point: usize) -> String {
         end -= 1;
     }
     line[..end].to_owned()
-}
-
-/// The raw (still quoted) last token of the command line, bounded by
-/// whitespace outside quotes, and whether it is a complete shlex token
-/// (no open quote, no trailing escape).
-///
-/// `split_whitespace` would both split inside quoted whitespace and return
-/// the previous word for a trailing space; neither matches bash's word the
-/// cursor sits in.
-fn raw_last_token(line: &str) -> (&str, bool) {
-    let mut start = 0;
-    let mut quote: Option<char> = None;
-    let mut escaped = false;
-    for (index, c) in line.char_indices() {
-        if escaped {
-            escaped = false;
-        } else if c == '\\' && quote != Some('\'') {
-            escaped = true;
-        } else if quote.is_none() && (c == '\'' || c == '"') {
-            quote = Some(c);
-        } else if quote == Some(c) {
-            quote = None;
-        } else if quote.is_none() && c.is_whitespace() {
-            start = index + c.len_utf8();
-        }
-    }
-    (&line[start..], quote.is_none() && !escaped)
-}
-
-/// Lenient dequote of a partial shell token: open quotes and a trailing
-/// escape are tolerated.
-fn dequote_partial(token: &str) -> String {
-    let mut result = String::new();
-    let mut quote: Option<char> = None;
-    let mut chars = token.chars();
-    while let Some(c) = chars.next() {
-        match c {
-            '\'' | '"' if quote.is_none() => quote = Some(c),
-            c if quote == Some(c) => quote = None,
-            '\\' if quote != Some('\'') => match chars.next() {
-                Some(next) => result.push(next),
-                None => break,
-            },
-            c => result.push(c),
-        }
-    }
-    result
 }
 
 /// Whether the token is a shell redirect operator (e.g. `>`, `2>`, `>>`, `&>`).

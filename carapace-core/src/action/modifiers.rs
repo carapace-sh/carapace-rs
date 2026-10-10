@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::action::Action;
+use crate::action::{Action, InvokedAction};
 use crate::context::Context;
 use crate::meta::Meta;
 use crate::value::RawValue;
@@ -168,6 +168,86 @@ impl Action {
         let inner = self;
         Self::multiparts_n(divider, -1, move |c| {
             inner.invoke(c).to_action().nospace([])
+        })
+    }
+
+    /// Complete a value that is itself a shell-parsed command line
+    /// (port of Go `Action.Split`).
+    ///
+    /// The value is re-lexed; the wrapped action is invoked with the
+    /// preceding words as args and the current word as value. Candidates
+    /// are shell-quoted (open quotes closed), spaced unless the inner
+    /// action claims nospace, and the raw prefix before the current word
+    /// is re-attached. A `$`-prefixed current word completes environment
+    /// variable names instead.
+    pub fn split(self, format: crate::lex::Format) -> Self {
+        let _ = format; // Default and Bash share POSIX lexing so far
+        let inner = self;
+        Self::callback(move |c| {
+            let mut words: Vec<String> = shlex::Shlex::new(&c.value).collect();
+            let tail = crate::lex::raw_last_token(&c.value);
+            let prefix = c.value[..c.value.len() - tail.token.len()].to_owned();
+            if tail.is_empty() {
+                if !c.value.is_empty() {
+                    // the cursor starts a new word
+                    words.push(String::new());
+                }
+            } else if !tail.complete {
+                // shlex drops a trailing partial token (open quote or
+                // trailing escape); recover the dequoted word
+                words.push(crate::lex::dequote_partial(tail.token));
+            }
+
+            let mut context = c.clone();
+            context.parts = Vec::new();
+            context.value = words.pop().unwrap_or_default();
+            context.args = words;
+
+            // `$name` completes environment variable names
+            if let Some(name) = tail
+                .token
+                .strip_prefix('$')
+                .filter(|name| !name.is_empty() && !name.starts_with('{'))
+            {
+                context.value = name.to_owned();
+                let names: Vec<String> = context
+                    .env
+                    .keys()
+                    .filter(|key| key.starts_with(name))
+                    .cloned()
+                    .collect();
+                let values = names
+                    .iter()
+                    .map(|name| crate::value::RawValue::new(format!("${name}")))
+                    .collect();
+                return InvokedAction {
+                    values,
+                    ..Default::default()
+                }
+                .prefix(&prefix)
+                .to_action()
+                .nospace([]);
+            }
+
+            let invoked = inner.invoke(&context);
+            let values = invoked
+                .values
+                .into_iter()
+                .map(|mut value| {
+                    let nospace = crate::lex::matches_nospace(&invoked.meta, &value);
+                    if !nospace || value.value.contains(' ') {
+                        value.value = crate::lex::quote_insertion(&value.value, tail.open_quote);
+                    }
+                    if !nospace {
+                        value.value.push(' ');
+                    }
+                    value
+                })
+                .collect();
+            InvokedAction { values, ..invoked }
+                .prefix(&prefix)
+                .to_action()
+                .nospace([])
         })
     }
 

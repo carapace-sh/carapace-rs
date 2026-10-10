@@ -9,6 +9,7 @@ pub mod cache;
 pub mod config;
 pub mod context;
 pub mod export;
+pub mod lex;
 pub mod meta;
 pub mod mock;
 pub mod model;

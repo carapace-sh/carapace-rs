@@ -117,7 +117,12 @@ impl Action {
         Self::callback(move |c| {
             let mut args = c.args.clone();
             args.push(c.value.clone());
-            let completion = crate::traverse(&cmd, args);
+            let mut completion = crate::traverse(&cmd, args);
+            // the embedded tree runs with the outer context's environment,
+            // directory and sandbox mock
+            completion.context.env = c.env.clone();
+            completion.context.dir = c.dir.clone();
+            completion.context.mock = c.mock.clone();
             completion.action.invoke(&completion.context).to_action()
         })
     }
@@ -246,7 +251,7 @@ fn complete_path(context: &Context, filter: impl Fn(&Path) -> bool) -> Option<Ac
         Some(index) => (value[..index].to_owned(), value[index + 1..].to_owned()),
         None => (String::new(), value.clone()),
     };
-    let dir = if dir.is_empty() {
+    let resolved = if dir.is_empty() {
         context.dir.clone()
     } else {
         let expanded = expand_tilde(&dir);
@@ -257,7 +262,7 @@ fn complete_path(context: &Context, filter: impl Fn(&Path) -> bool) -> Option<Ac
             context.dir.join(path)
         }
     };
-    let entries = std::fs::read_dir(&dir).ok()?;
+    let entries = std::fs::read_dir(&resolved).ok()?;
     let mut values = Vec::new();
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -272,7 +277,9 @@ fn complete_path(context: &Context, filter: impl Fn(&Path) -> bool) -> Option<Ac
         if path.is_dir() {
             candidate.push('/');
         }
-        let mut value = RawValue::new(format!("{}/{}", dir_prefix(&dir), candidate));
+        // candidates keep the value's directory part (relative when the
+        // typed value is relative)
+        let mut value = RawValue::new(format!("{}{}", dir_prefix(Path::new(&dir)), candidate));
         if path.is_dir() {
             value = value.nospace(true);
         }

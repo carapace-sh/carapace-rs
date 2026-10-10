@@ -3,6 +3,14 @@ use carapace_core::{Action, Context, Nargs};
 use clap::builder::{ArgAction, ValueHint};
 use clap::{Arg, Command};
 
+/// Serializes tests that touch CARAPACE_* environment variables.
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[test]
 fn converts_flags() {
     let mut cmd = Command::new("app")
@@ -194,6 +202,7 @@ fn gen_attaches_to_subcommands() {
 
 #[test]
 fn hidden_subcommands_are_excluded() {
+    let _guard = env_lock();
     let mut cmd = Command::new("app")
         .subcommand(Command::new("visible").about("shown"))
         .subcommand(Command::new("secret").hide(true).about("hidden"));
@@ -223,6 +232,7 @@ fn hidden_subcommands_are_excluded() {
 
 #[test]
 fn hidden_flags_respect_hidden_env() {
+    let _guard = env_lock();
     let mut cmd = Command::new("app").arg(
         Arg::new("secret")
             .long("secret")

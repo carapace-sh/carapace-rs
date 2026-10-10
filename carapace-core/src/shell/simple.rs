@@ -1,28 +1,9 @@
 //! Simple line-based formatters: oil, tcsh, cmd-clink, ion, bash-ble.
 
+use super::trimmed_description;
 use super::{common_display_prefix, common_value_prefix, matches_nospace};
 use crate::meta::Meta;
 use crate::value::{RawValue, RawValues};
-
-/// Description trimmed per `CARAPACE_DESCRIPTION_LENGTH` (default 80).
-pub(crate) fn trimmed_description(description: &str) -> String {
-    let max_length = std::env::var("CARAPACE_DESCRIPTION_LENGTH")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(80);
-    let first_line = description.split('\n').next().unwrap_or_default();
-    let trimmed = first_line.trim();
-    let runes: Vec<char> = trimmed.chars().collect();
-    if runes.len() > max_length {
-        if max_length <= 3 {
-            return runes[..max_length].iter().collect();
-        }
-        let mut result: String = runes[..max_length - 3].iter().collect();
-        result.push_str("...");
-        return result;
-    }
-    trimmed.to_owned()
-}
 
 /// Oil: values with inline `\u{1}` nospace indicator, single value plain.
 pub mod oil {

@@ -23,19 +23,29 @@ fn export_roundtrip() {
 fn shell_export_value_is_json() {
     let action = Action::values(["x"]);
     let invoked = action.invoke(&Context::default());
-    let output = carapace_core::shell::Shell::Export.value("", &invoked.meta, &invoked.values);
+    let output = carapace_core::shell::Shell::Export.value(
+        "",
+        &invoked.meta,
+        &invoked.values,
+        &carapace_core::shell::bash::Context::default(),
+    );
     assert!(Export::from_json(&output).is_some());
 }
 
 #[test]
 fn bash_plain_values() {
     use carapace_core::shell::{Shell, bash};
-    let output = Shell::Bash.value("", &Meta::default(), &{
-        let mut v = carapace_core::RawValues::new();
-        v.push(RawValue::new("alpha"));
-        v.push(RawValue::described("spaced value", "desc"));
-        v
-    });
+    let output = Shell::Bash.value(
+        "",
+        &Meta::default(),
+        &{
+            let mut v = carapace_core::RawValues::new();
+            v.push(RawValue::new("alpha"));
+            v.push(RawValue::described("spaced value", "desc"));
+            v
+        },
+        &bash::Context::default(),
+    );
     let (nospace, data) = output.split_once('\u{1}').unwrap();
     assert_eq!(nospace, "false");
     let mut lines = data.lines();
@@ -48,7 +58,12 @@ fn bash_plain_values() {
 #[test]
 fn bash_nospace_marker() {
     let value = RawValue::new("dir/").nospace(true);
-    let output = carapace_core::shell::Shell::Bash.value("", &Meta::default(), &vec![value]);
+    let output = carapace_core::shell::Shell::Bash.value(
+        "",
+        &Meta::default(),
+        &vec![value],
+        &carapace_core::shell::bash::Context::default(),
+    );
     let (nospace, _) = output.split_once('\u{1}').unwrap();
     assert_eq!(nospace, "true");
 }
@@ -59,7 +74,12 @@ fn bash_common_prefix_collapse() {
         RawValue::described("one", "first"),
         RawValue::described("only", "second"),
     ];
-    let output = carapace_core::shell::Shell::Bash.value("o", &Meta::default(), &values);
+    let output = carapace_core::shell::Shell::Bash.value(
+        "o",
+        &Meta::default(),
+        &values,
+        &carapace_core::shell::bash::Context::default(),
+    );
     let (nospace, data) = output.split_once('\u{1}').unwrap();
     assert_eq!(nospace, "true");
     assert_eq!(data, "on");
@@ -73,7 +93,12 @@ fn bash_common_prefix_space_hack() {
     ];
     // current word already equals the common prefix: space-prefix the display,
     // values themselves are still rendered in normal (non-listing) mode
-    let output = carapace_core::shell::Shell::Bash.value("on", &Meta::default(), &values);
+    let output = carapace_core::shell::Shell::Bash.value(
+        "on",
+        &Meta::default(),
+        &values,
+        &carapace_core::shell::bash::Context::default(),
+    );
     let (nospace, data) = output.split_once('\u{1}').unwrap();
     assert_eq!(nospace, "true");
     assert_eq!(data, "one\nonly");

@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use super::trimmed_description;
 use crate::meta::Meta;
 use crate::shell::style::Style;
 use crate::value::RawValues;
@@ -12,25 +13,6 @@ fn sanitize(value: &str) -> String {
 
 fn escape(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
-}
-
-fn trimmed_description(description: &str) -> String {
-    let max_length = std::env::var("CARAPACE_DESCRIPTION_LENGTH")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(80);
-    let first_line = description.split('\n').next().unwrap_or_default();
-    let trimmed = first_line.trim();
-    let runes: Vec<char> = trimmed.chars().collect();
-    if runes.len() > max_length {
-        if max_length <= 3 {
-            return runes[..max_length].iter().collect();
-        }
-        let mut result: String = runes[..max_length - 3].iter().collect();
-        result.push_str("...");
-        return result;
-    }
-    trimmed.to_owned()
 }
 
 fn matches_nospace(meta: &Meta, value: &str) -> bool {

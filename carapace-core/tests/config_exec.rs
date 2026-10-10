@@ -116,12 +116,22 @@ fn case_insensitive_matching() {
     // case-sensitive by default
     assert!(
         !carapace_core::shell::Shell::Fish
-            .value("camel", &carapace_core::Meta::default(), &values)
+            .value(
+                "camel",
+                &carapace_core::Meta::default(),
+                &values,
+                &carapace_core::shell::bash::Context::default(),
+            )
             .contains("CamelCase")
     );
     unsafe { std::env::set_var("CARAPACE_MATCH", "CASE_INSENSITIVE") };
     let matched = carapace_core::shell::Shell::Fish
-        .value("camel", &carapace_core::Meta::default(), &values)
+        .value(
+            "camel",
+            &carapace_core::Meta::default(),
+            &values,
+            &carapace_core::shell::bash::Context::default(),
+        )
         .contains("CamelCase");
     unsafe { std::env::remove_var("CARAPACE_MATCH") };
     assert!(matched);

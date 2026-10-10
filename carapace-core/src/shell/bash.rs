@@ -3,7 +3,7 @@
 use crate::meta::Meta;
 use crate::value::{RawValue, RawValues};
 
-use super::{common_display_prefix, common_value_prefix, matches_nospace};
+use super::{common_display_prefix, common_value_prefix, matches_nospace, trimmed_description};
 
 /// Bash-specific inputs collected during patching.
 #[derive(Clone, Debug, Default)]
@@ -16,27 +16,17 @@ pub struct Context {
     pub wordbreaks: String,
 }
 
-thread_local! {
-    static PATCHED: std::cell::RefCell<Context> = std::cell::RefCell::new(Context::default());
-}
-
-/// Store the patch result for the current thread's formatting pass
-/// (thread-local equivalent of Go's acknowledged package-level globals).
-pub fn set_patch_context(context: Context) {
-    PATCHED.with(|state| *state.borrow_mut() = context);
-}
-
-/// Take the stored patch context (defaults when absent).
-pub fn take_patch_context() -> Context {
-    PATCHED.with(|state| state.borrow().clone())
-}
-
 /// COMP_TYPE value for successive-tab listing.
 const COMP_TYPE_LIST_SUCCESSIVE_TABS: &str = "63";
 
 /// Remove newline, carriage return and tab (would break the line format).
 fn sanitize(value: &str) -> String {
     value.replace(['\n', '\r', '\t'], "")
+}
+
+/// Escape `${` sequences so bash list output is not expanded.
+fn display_replacer(value: &str) -> String {
+    value.replace("${", "\\\\$\\{")
 }
 
 /// Escape for unquoted bash context.
@@ -148,11 +138,15 @@ fn render(meta: &Meta, values: &[RawValue], context: &Context, forced_nospace: b
                 }
             } else {
                 nospace = true;
-                let display = sanitize(&value.display);
+                let display = display_replacer(&sanitize(&value.display));
                 if value.description.is_empty() {
                     display
                 } else {
-                    format!("{} ({})", display, sanitize(&value.description))
+                    format!(
+                        "{} ({})",
+                        display,
+                        display_replacer(&sanitize(&trimmed_description(&value.description)))
+                    )
                 }
             }
         })
@@ -267,6 +261,11 @@ pub fn patch(args: Vec<String>) -> Patch {
         }
         if redirect_target {
             return Patch::Redirect;
+        }
+        // drop the binary name: traverse expects post-binary words
+        // (Go skips shell name and binary via args[2:])
+        if !cleaned.is_empty() {
+            cleaned.remove(0);
         }
         let wordbreak_prefix = raw_tail
             .rfind(|c: char| wordbreak_chars.contains(&c))

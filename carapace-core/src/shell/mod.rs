@@ -70,7 +70,13 @@ impl Shell {
     }
 
     /// Format invoked values for the shell, applying the shared dispatch steps.
-    pub fn value(&self, current_word: &str, meta: &Meta, values: &RawValues) -> String {
+    pub fn value(
+        &self,
+        current_word: &str,
+        meta: &Meta,
+        values: &RawValues,
+        bash_context: &bash::Context,
+    ) -> String {
         let mut meta = meta.clone();
         let mut values = values.clone();
 
@@ -111,9 +117,7 @@ impl Shell {
         unique(&mut values);
 
         match self {
-            Self::Bash => {
-                bash::action_raw_values(current_word, &meta, &values, &bash::Context::default())
-            }
+            Self::Bash => bash::action_raw_values(current_word, &meta, &values, bash_context),
             Self::BashBle => simple::bash_ble::action_raw_values(current_word, &meta, &values),
             Self::CmdClink => simple::cmd_clink::action_raw_values(current_word, &meta, &values),
             Self::Ion => simple::ion::action_raw_values(current_word, &meta, &values),
@@ -279,4 +283,21 @@ pub(crate) fn matches_nospace(meta: &Meta, value: &RawValue) -> bool {
     meta.nospace
         .iter()
         .any(|suffix| *suffix == '*' || value.value.ends_with(*suffix))
+}
+
+/// Description trimmed per `CARAPACE_DESCRIPTION_LENGTH` (default 80).
+pub(crate) fn trimmed_description(description: &str) -> String {
+    let max_length = crate::config::description_length();
+    let first_line = description.split('\n').next().unwrap_or_default();
+    let trimmed = first_line.trim();
+    let runes: Vec<char> = trimmed.chars().collect();
+    if runes.len() > max_length {
+        if max_length <= 3 {
+            return runes[..max_length].iter().collect();
+        }
+        let mut result: String = runes[..max_length - 3].iter().collect();
+        result.push_str("...");
+        return result;
+    }
+    trimmed.to_owned()
 }

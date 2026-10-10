@@ -54,49 +54,64 @@ pub fn complete_output(
 ) -> String {
     let mut cmd = factory();
     let model = crate::to_model(&mut cmd);
-    let completion = complete_model(&model, shell, words);
+
+    let (completion, bash_context) = if shell == Shell::Bash {
+        complete_bash(&model, words)
+    } else {
+        (
+            carapace_core::traverse(&model, words.to_vec()),
+            bash::Context::default(),
+        )
+    };
     let invoked = completion.action.invoke(&completion.context);
-    shell.value(&completion.context.value, &invoked.meta, &invoked.values)
+    shell.value(
+        &completion.context.value,
+        &invoked.meta,
+        &invoked.values,
+        &bash_context,
+    )
 }
 
-fn complete_model(
+/// Traverse with bash patching applied; returns the completion together
+/// with the patch context the formatter needs (wordbreak prefix, COMP_TYPE,
+/// COMP_WORDBREAKS).
+fn complete_bash(
     model: &carapace_core::Command,
-    shell: Shell,
     words: &[String],
-) -> carapace_core::Completion {
-    match shell {
-        Shell::Bash => match bash::patch(words.to_vec()) {
-            bash::Patch::Redirect => {
-                let context = carapace_core::Context::default().args(words.to_vec());
+) -> (carapace_core::Completion, bash::Context) {
+    match bash::patch(words.to_vec()) {
+        bash::Patch::Redirect => {
+            let context = carapace_core::Context::default().args(words.to_vec());
+            (
                 carapace_core::Completion {
                     action: carapace_core::Action::files(Vec::<String>::new()),
                     context,
-                }
-            }
-            bash::Patch::Patched {
-                args,
-                wordbreak_prefix,
-                comp_type,
-            } => {
-                bash::set_patch_context(bash::Context {
-                    wordbreak_prefix: wordbreak_prefix.clone(),
-                    comp_type: comp_type.clone(),
+                },
+                bash::Context::default(),
+            )
+        }
+        bash::Patch::Patched {
+            args,
+            wordbreak_prefix,
+            comp_type,
+        } => {
+            let completion = carapace_core::traverse(model, args);
+            (
+                completion,
+                bash::Context {
+                    // the current word already includes the wordbreak prefix;
+                    // the formatter trims it from the values so bash
+                    // re-attaches the prefix itself
+                    wordbreak_prefix,
+                    comp_type,
                     wordbreaks: std::env::var("COMP_WORDBREAKS").unwrap_or_default(),
-                });
-                let completion = carapace_core::traverse(model, args);
-                let mut invoked_context = completion.context.clone();
-                // wordbreak prefix: values are trimmed during formatting
-                if !wordbreak_prefix.is_empty() {
-                    invoked_context.value = format!("{wordbreak_prefix}{}", invoked_context.value);
-                }
-                carapace_core::Completion {
-                    action: completion.action,
-                    context: invoked_context,
-                }
-            }
-            bash::Patch::None => carapace_core::traverse(model, words.to_vec()),
-        },
-        _ => carapace_core::traverse(model, words.to_vec()),
+                },
+            )
+        }
+        bash::Patch::None => {
+            let completion = carapace_core::traverse(model, words.to_vec());
+            (completion, bash::Context::default())
+        }
     }
 }
 

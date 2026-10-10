@@ -1,4 +1,5 @@
 use carapace_clap::Gen;
+use carapace_core::Action;
 use carapace_core::shell::Shell;
 use clap::builder::ArgAction;
 use clap::{Arg, Command};
@@ -60,6 +61,7 @@ fn export_output_is_json() {
 
 #[test]
 fn complete_dispatches_on_carapace_arg() {
+    let _guard = env_lock();
     let args = vec![
         "_carapace".to_string(),
         "bash".to_string(),
@@ -257,4 +259,86 @@ fn spec_dumps_yaml() {
     let model = carapace_spec::from_yaml(&output).unwrap();
     assert_eq!(model.name, "myapp");
     assert!(model.flags.iter().any(|flag| flag.name == "profile"));
+}
+
+#[test]
+fn bash_list_mode_renders_display_with_description() {
+    let _guard = env_lock();
+    clear_comp_env();
+    unsafe { std::env::set_var("COMP_LINE", "myapp ") };
+    unsafe { std::env::set_var("COMP_POINT", "6") };
+    unsafe { std::env::set_var("COMP_TYPE", "63") };
+    unsafe { std::env::set_var("COMP_WORDBREAKS", " \"'@><=;|&(:") };
+
+    let output = carapace_clap::complete_output(
+        || {
+            let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
+            carapace_clap::Gen::new(cmd)
+                .positional_completion(
+                    1,
+                    Action::values_described([("alpha", "first"), ("beta", "second")]),
+                )
+                .into_command()
+        },
+        Shell::Bash,
+        &["".to_string()],
+    );
+    unsafe { std::env::remove_var("COMP_LINE") };
+    unsafe { std::env::remove_var("COMP_POINT") };
+    unsafe { std::env::remove_var("COMP_TYPE") };
+
+    let (nospace, data) = output.split_once('\u{1}').unwrap();
+    assert_eq!(nospace, "true", "list mode forces nospace: {output:?}");
+    assert_eq!(data, "alpha (first)\nbeta (second)", "{output:?}");
+}
+
+#[test]
+fn bash_quotes_values_containing_wordbreak_chars() {
+    let _guard = env_lock();
+    clear_comp_env();
+    unsafe { std::env::set_var("COMP_LINE", "myapp ") };
+    unsafe { std::env::set_var("COMP_POINT", "6") };
+    unsafe { std::env::set_var("COMP_WORDBREAKS", " \"'@><=;|&(:") };
+
+    let output = carapace_clap::complete_output(
+        || {
+            let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
+            carapace_clap::Gen::new(cmd)
+                .positional_completion(1, Action::values(["a:b"]))
+                .into_command()
+        },
+        Shell::Bash,
+        &["".to_string()],
+    );
+    unsafe { std::env::remove_var("COMP_LINE") };
+    unsafe { std::env::remove_var("COMP_POINT") };
+
+    assert!(output.contains("\"a:b\""), "{output:?}");
+}
+
+#[test]
+fn bash_trims_wordbreak_prefix_from_values() {
+    let _guard = env_lock();
+    clear_comp_env();
+    unsafe { std::env::set_var("COMP_LINE", "myapp --profile=de") };
+    unsafe { std::env::set_var("COMP_POINT", "18") };
+    unsafe { std::env::set_var("COMP_WORDBREAKS", " \"'@><=;|&(:") };
+
+    let output = carapace_clap::complete_output(
+        || {
+            let cmd = Command::new("myapp")
+                .arg(Arg::new("profile").long("profile").action(ArgAction::Set));
+            carapace_clap::Gen::new(cmd)
+                .flag_completion("profile", Action::values(["dev"]))
+                .into_command()
+        },
+        Shell::Bash,
+        &["--profile=de".to_string()],
+    );
+    unsafe { std::env::remove_var("COMP_LINE") };
+    unsafe { std::env::remove_var("COMP_POINT") };
+
+    // the wordbreak prefix is trimmed so bash re-attaches it itself
+    assert!(output.contains("dev"), "{output:?}");
+    assert!(!output.contains("--profile=dev"), "{output:?}");
 }

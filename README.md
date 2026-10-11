@@ -12,11 +12,12 @@ for bridging, caching and embedding.
 
 ```toml
 [dependencies]
-carapace-rs = { git = "https://github.com/carapace-sh/carapace-rs" }
+carapace-clap = { git = "https://github.com/carapace-sh/carapace-rs" }
 ```
 
 ```rust,no_run
-use carapace_rs::{Action, Carapace};
+use carapace_clap::Carapace;
+use carapace_core::Action;
 use clap::builder::{ArgAction, ValueHint};
 use clap::{Arg, Command};
 
@@ -34,7 +35,7 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     // handle completion requests; normal execution otherwise
-    if let Some(output) = carapace_rs::complete(cli, &args) {
+    if let Some(output) = carapace_clap::complete(cli, &args) {
         println!("{output}");
         return;
     }
@@ -93,7 +94,6 @@ cargo clippy        # clean
 Layout:
 
 ```
-carapace-rs/      facade crate: one-stop re-exports of the clap integration, Action API and macros
 carapace-shlex/   shell lexing: tokenizing, partial tokens, insertion quoting
 carapace-core/    engine: model, action, traverse, shell formatters, cache, uid, export
 carapace-clap/    clap adapter: Carapace extension trait, extension slots, _carapace entry

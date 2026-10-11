@@ -236,3 +236,39 @@ completion:
     assert_eq!(values, vec!["runnable"]);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn group_round_trip() {
+    let yaml = r#"
+name: mycmd
+commands:
+  - name: grouped
+    group: admin
+    description: grouped command
+  - name: plain
+"#;
+    let model = carapace_spec::from_yaml(yaml).unwrap();
+    assert_eq!(model.subcommands[0].group.as_deref(), Some("admin"));
+    assert_eq!(model.subcommands[1].group, None);
+
+    // the group drives tag and highlight style in completion
+    let completion = carapace_core::traverse(&model, vec![String::new()]);
+    let invoked = completion.action.invoke(&completion.context);
+    let grouped = invoked
+        .values
+        .iter()
+        .find(|v| v.value == "grouped")
+        .expect("grouped candidate");
+    assert_eq!(grouped.tag, "admin commands");
+    assert_eq!(grouped.style, "blue");
+    let plain = invoked
+        .values
+        .iter()
+        .find(|v| v.value == "plain")
+        .expect("plain candidate");
+    assert_eq!(plain.tag, "other commands");
+
+    // and it survives the YAML dump
+    let dumped = carapace_spec::to_yaml(&model);
+    assert!(dumped.contains("group: admin"), "{dumped}");
+}

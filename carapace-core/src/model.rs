@@ -166,6 +166,9 @@ pub struct Command {
     pub disable_flag_parsing: bool,
     /// Whether the command is hidden from completion.
     pub hidden: bool,
+    /// Group id this command belongs to (spec `group:`; completion tags
+    /// and the Highlight styles derive from it, Go `common.Group`).
+    pub group: Option<String>,
     /// Whether flags may be interspersed with positionals.
     pub interspersed: bool,
     /// Flag-prefix character.
@@ -197,6 +200,11 @@ impl Command {
 
     pub fn alias(mut self, alias: impl Into<String>) -> Self {
         self.aliases.push(alias.into());
+        self
+    }
+
+    pub fn group(mut self, group: impl Into<String>) -> Self {
+        self.group = Some(group.into());
         self
     }
 

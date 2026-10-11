@@ -31,6 +31,8 @@ struct Spec {
     #[serde(default)]
     description: String,
     #[serde(default)]
+    group: Option<String>,
+    #[serde(default)]
     hidden: bool,
     #[serde(default)]
     parsing: Option<String>,
@@ -122,6 +124,7 @@ fn convert(spec: Spec) -> Command {
         .description(spec.description.clone())
         .flag_prefix('-');
     model.aliases = spec.aliases.clone();
+    model.group = spec.group;
     model.hidden = spec.hidden;
     model.interspersed = parsing == Parsing::Interspersed;
     model.disable_flag_parsing = parsing == Parsing::Disabled;

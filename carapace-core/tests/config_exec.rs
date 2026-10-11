@@ -218,3 +218,36 @@ fn style_config_lists_carapace_entries() {
             .any(|v| v.starts_with("carapace.KeywordPositive="))
     );
 }
+
+#[test]
+fn highlight_and_loglevel_styles() {
+    use carapace_core::config::{for_log_level, styles};
+    let carapace = styles().carapace;
+    assert_eq!(carapace.highlight(0), "blue");
+    assert_eq!(carapace.highlight(11), "dim bold");
+    assert_eq!(carapace.highlight(12), "", "out of range is default");
+
+    assert_eq!(for_log_level("INFO"), "green");
+    assert_eq!(for_log_level("vdebug"), "dim white");
+    assert_eq!(for_log_level("panic"), "cyan");
+    assert_eq!(for_log_level("nosuch"), "");
+}
+
+#[test]
+fn style_config_lists_highlight_and_loglevel() {
+    carapace_core::config::reset_styles();
+    let action = Action::style_config();
+    let values: Vec<String> = action
+        .invoke(&Context::default())
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    assert!(values.iter().any(|v| v == "carapace.Highlight1=blue"));
+    assert!(values.iter().any(|v| v == "carapace.Highlight12=dim bold"));
+    assert!(
+        values
+            .iter()
+            .any(|v| v == "carapace.LogLevelWarning=yellow")
+    );
+}

@@ -237,6 +237,34 @@ impl Action {
             format!("carapace.FlagNoArg={}", carapace.flag_no_arg),
             format!("carapace.FlagOptArg={}", carapace.flag_opt_arg),
         ];
+        for (level, style) in carapace.highlight.iter().enumerate() {
+            values.push(format!("carapace.Highlight{}={style}", level + 1));
+        }
+        values.push(format!(
+            "carapace.LogLevelTrace={}",
+            carapace.log_level_trace
+        ));
+        values.push(format!(
+            "carapace.LogLevelDebug={}",
+            carapace.log_level_debug
+        ));
+        values.push(format!("carapace.LogLevelInfo={}", carapace.log_level_info));
+        values.push(format!(
+            "carapace.LogLevelWarning={}",
+            carapace.log_level_warning
+        ));
+        values.push(format!(
+            "carapace.LogLevelError={}",
+            carapace.log_level_error
+        ));
+        values.push(format!(
+            "carapace.LogLevelCritical={}",
+            carapace.log_level_critical
+        ));
+        values.push(format!(
+            "carapace.LogLevelFatal={}",
+            carapace.log_level_fatal
+        ));
         for (name, style) in &config.custom {
             values.push(format!("{name}={style}"));
         }

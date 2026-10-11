@@ -272,13 +272,65 @@ pub fn action_flags(cmd: &Command) -> Action {
 }
 
 /// Completion of the visible subcommands of the command.
+///
+/// Commands carry their group's tag (`{id} commands`) and the Highlight
+/// style of the group's position (Go `common.Group`); the group order is
+/// the first-appearance order among the subcommands, matching how the
+/// spec registers groups.
 pub fn action_commands(cmd: &Command) -> Action {
     let include_hidden = crate::config::hidden() == crate::config::Hidden::IncludeCarapace;
+
+    let mut group_order: Vec<String> = Vec::new();
+    let mut group_of: std::collections::HashMap<String, Option<String>> =
+        std::collections::HashMap::new();
+    for subcommand in &cmd.subcommands {
+        if let Some(group) = &subcommand.group {
+            if !group_order.contains(group) {
+                group_order.push(group.clone());
+            }
+        }
+        group_of.insert(subcommand.name.clone(), subcommand.group.clone());
+        for alias in &subcommand.aliases {
+            group_of.insert(alias.clone(), subcommand.group.clone());
+        }
+    }
+    let has_groups = !group_order.is_empty();
+
     let values: Vec<(String, String)> = cmd
         .subcommands
         .iter()
         .filter(|subcommand| include_hidden || !subcommand.hidden)
-        .map(|subcommand| (subcommand.name.clone(), subcommand.description.clone()))
+        .flat_map(|subcommand| {
+            std::iter::once((subcommand.name.clone(), subcommand.description.clone())).chain(
+                subcommand
+                    .aliases
+                    .iter()
+                    .map(|alias| (alias.clone(), subcommand.description.clone())),
+            )
+        })
         .collect();
-    Action::values_described(values).tag("commands")
+    let action = Action::values_described(values).tag("commands");
+
+    let carapace_styles = crate::config::styles().carapace;
+    let group_for_tag = group_of.clone();
+    let group_for_style = group_of;
+    action
+        .tag_f(
+            move |value| match group_for_tag.get(&value.value).cloned().flatten() {
+                Some(group) if group.ends_with(" commands") => group,
+                Some(group) => format!("{group} commands"),
+                None if has_groups => "other commands".to_owned(),
+                None => "commands".to_owned(),
+            },
+        )
+        .style_f(
+            move |value| match group_for_style.get(&value.value).cloned().flatten() {
+                Some(group) => group_order
+                    .iter()
+                    .position(|id| *id == group)
+                    .map(|level| carapace_styles.highlight(level))
+                    .unwrap_or_default(),
+                _ => String::new(),
+            },
+        )
 }

@@ -18,6 +18,8 @@ struct SpecOut {
     aliases: Vec<String>,
     #[serde(skip_serializing_if = "String::is_empty")]
     description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    group: Option<String>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     hidden: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -41,6 +43,7 @@ impl From<&Command> for SpecOut {
             name: command.name.clone(),
             aliases: command.aliases.clone(),
             description: command.description.clone(),
+            group: command.group.clone(),
             hidden: command.hidden,
             parsing: match (!command.interspersed, command.disable_flag_parsing) {
                 (true, true) => Some("disabled"),

@@ -15,6 +15,16 @@ pub struct CarapaceStyles {
     pub flag_multi_arg: String,
     pub flag_no_arg: String,
     pub flag_opt_arg: String,
+    /// Highlight styles 1-12 (command-group styling and general
+    /// consumer use).
+    pub highlight: [String; 12],
+    pub log_level_trace: String,
+    pub log_level_debug: String,
+    pub log_level_info: String,
+    pub log_level_warning: String,
+    pub log_level_error: String,
+    pub log_level_critical: String,
+    pub log_level_fatal: String,
 }
 
 impl Default for CarapaceStyles {
@@ -32,7 +42,35 @@ impl Default for CarapaceStyles {
             flag_multi_arg: "magenta".to_owned(),
             flag_no_arg: String::new(),
             flag_opt_arg: "yellow".to_owned(),
+            highlight: [
+                "blue".to_owned(),
+                "yellow".to_owned(),
+                "magenta".to_owned(),
+                "cyan".to_owned(),
+                "green".to_owned(),
+                "dim blue".to_owned(),
+                "dim yellow".to_owned(),
+                "dim magenta".to_owned(),
+                "dim cyan".to_owned(),
+                "dim green".to_owned(),
+                "bold".to_owned(),
+                "dim bold".to_owned(),
+            ],
+            log_level_trace: "blue".to_owned(),
+            log_level_debug: "dim white".to_owned(),
+            log_level_info: "green".to_owned(),
+            log_level_warning: "yellow".to_owned(),
+            log_level_error: "magenta".to_owned(),
+            log_level_critical: "red".to_owned(),
+            log_level_fatal: "cyan".to_owned(),
         }
+    }
+}
+
+impl CarapaceStyles {
+    /// The style for a highlight level 0..11 (Go `carapace.Highlight`).
+    pub fn highlight(&self, level: usize) -> String {
+        self.highlight.get(level).cloned().unwrap_or_default()
     }
 }
 
@@ -105,6 +143,22 @@ fn load_styles() -> Styles {
             "carapace.KeywordNegative" => styles.carapace.keyword_negative = style,
             "carapace.KeywordPositive" => styles.carapace.keyword_positive = style,
             "carapace.KeywordUnknown" => styles.carapace.keyword_unknown = style,
+            "carapace.LogLevelTrace" => styles.carapace.log_level_trace = style,
+            "carapace.LogLevelDebug" => styles.carapace.log_level_debug = style,
+            "carapace.LogLevelInfo" => styles.carapace.log_level_info = style,
+            "carapace.LogLevelWarning" => styles.carapace.log_level_warning = style,
+            "carapace.LogLevelError" => styles.carapace.log_level_error = style,
+            "carapace.LogLevelCritical" => styles.carapace.log_level_critical = style,
+            "carapace.LogLevelFatal" => styles.carapace.log_level_fatal = style,
+            other if other.starts_with("carapace.Highlight") => {
+                if let Some(level) = other.strip_prefix("carapace.Highlight") {
+                    if let Ok(index) = level.parse::<usize>() {
+                        if (1..=12).contains(&index) {
+                            styles.carapace.highlight[index - 1] = style;
+                        }
+                    }
+                }
+            }
             other => {
                 carapace_fields.insert(other.to_owned(), style);
             }
@@ -226,6 +280,21 @@ pub fn description_length() -> usize {
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(80)
+}
+
+/// The style for a log level name (Go `style.ForLogLevel`).
+pub fn for_log_level(level: &str) -> String {
+    let styles = styles().carapace;
+    match level.to_lowercase().as_str() {
+        "trace" => styles.log_level_trace,
+        "debug" | "vdebug" => styles.log_level_debug,
+        "info" => styles.log_level_info,
+        "warn" | "warning" => styles.log_level_warning,
+        "err" | "error" => styles.log_level_error,
+        "crit" | "critical" => styles.log_level_critical,
+        "fatal" | "panic" => styles.log_level_fatal,
+        _ => String::new(),
+    }
 }
 
 /// The style for a known keyword (Go `style.ForKeyword`): dash and

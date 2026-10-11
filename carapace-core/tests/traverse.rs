@@ -346,3 +346,71 @@ fn bool_flag_values_carry_keyword_styles() {
     assert_eq!(styles["--verbose=false"], "red");
     assert_eq!(styles["--verbose=true"], "green");
 }
+
+#[test]
+fn command_groups_style_and_tag() {
+    use carapace_core::model::Command as ModelCommand;
+    let cmd = ModelCommand::new("app")
+        .subcommand(
+            ModelCommand::new("alpha")
+                .description("first group")
+                .alias("al"),
+        )
+        .subcommand(ModelCommand::new("beta").group("admin"))
+        .subcommand(ModelCommand::new("gamma").group("admin"))
+        .subcommand(ModelCommand::new("delta").group("ops"))
+        .subcommand(ModelCommand::new("plain"));
+
+    let completion = traverse(&cmd, vec!["".to_string()]);
+    let invoked = completion.action.invoke(&completion.context);
+
+    let mut entries: Vec<(String, String, String)> = invoked
+        .values
+        .into_iter()
+        .map(|v| (v.value, v.tag, v.style))
+        .collect();
+    entries.sort();
+
+    let by_value: std::collections::HashMap<String, (String, String)> =
+        entries.into_iter().map(|(v, t, s)| (v, (t, s))).collect();
+
+    // ungrouped commands in a grouped tree are "other commands", unstyled
+    assert_eq!(
+        by_value["plain"],
+        ("other commands".to_owned(), String::new())
+    );
+    // the first group's position maps to Highlight1
+    assert_eq!(
+        by_value["beta"],
+        ("admin commands".to_owned(), "blue".to_owned())
+    );
+    assert_eq!(
+        by_value["gamma"],
+        ("admin commands".to_owned(), "blue".to_owned())
+    );
+    // the second group maps to Highlight2
+    assert_eq!(
+        by_value["delta"],
+        ("ops commands".to_owned(), "yellow".to_owned())
+    );
+    // aliases carry the same group
+    assert_eq!(by_value["al"], ("other commands".to_owned(), String::new()));
+}
+
+#[test]
+fn ungrouped_tree_tags_plain_commands() {
+    let completion = traverse(&app(), vec!["".to_string()]);
+    let invoked = completion.action.invoke(&completion.context);
+    // command candidates use the plain tag; positional candidates keep theirs
+    let commands: Vec<_> = invoked
+        .values
+        .iter()
+        .filter(|v| v.value == "build" || v.value == "test")
+        .collect();
+    assert!(
+        commands
+            .iter()
+            .all(|v| v.tag == "commands" && v.style.is_empty()),
+        "ungrouped tree uses the plain commands tag"
+    );
+}

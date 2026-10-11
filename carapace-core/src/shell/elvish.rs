@@ -47,6 +47,11 @@ struct ComplexCandidate {
 
 /// Format values for elvish as a JSON completion object.
 pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -> String {
+    // Go falls back to the configured styles; unparseable ones keep "default"
+    let carapace_styles = crate::config::styles().carapace;
+    let value_style = fallback_style(&carapace_styles.value);
+    let description_style = fallback_style(&carapace_styles.description);
+
     let candidates: Vec<ComplexCandidate> = values
         .iter()
         .map(|value| {
@@ -56,7 +61,7 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
                 " "
             };
             let style = if value.style.is_empty() {
-                "default".to_owned()
+                value_style.clone()
             } else {
                 value.style.clone()
             };
@@ -80,10 +85,20 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
     let completion = Completion {
         usage,
         messages: meta.messages.clone(),
-        description_style: "default".to_owned(),
+        description_style,
         candidates,
     };
     serde_json::to_string(&completion).expect("elvish serialization cannot fail")
+}
+
+/// A style string for display, defaulting to `"default"` when unset
+/// (Go's elvish `valueStyle`/`descriptionStyle` fallback).
+fn fallback_style(style: &str) -> String {
+    if style.is_empty() {
+        "default".to_owned()
+    } else {
+        style.to_owned()
+    }
 }
 
 /// Generate the elvish completion snippet (Go `elvish.SnippetSingle`).

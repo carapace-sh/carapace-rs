@@ -74,12 +74,9 @@ impl Action {
 
     /// Complete directories in the current (or context) directory.
     pub fn directories() -> Self {
-        Self::callback(|c| {
-            let action = complete_path(c, |path| path.is_dir());
-            match action {
-                Some(action) => action.style("carapace.Value=blue"),
-                None => Self::message("no matches"),
-            }
+        Self::callback(|c| match complete_path(c, |path| path.is_dir()) {
+            Some(action) => action,
+            None => Self::message("no matches"),
         })
     }
 
@@ -292,6 +289,8 @@ fn complete_path(context: &Context, filter: impl Fn(&Path) -> bool) -> Option<Ac
         if path.is_dir() {
             value = value.nospace(true);
         }
+        // LS_COLORS styling (Go ActionFiles' StyleF(style.ForPath))
+        value.style = crate::shell::for_path(context, &value.value);
         values.push(value);
     }
     Some(Action::raw(values))

@@ -4,6 +4,7 @@ pub mod bash;
 pub mod elvish;
 pub mod export;
 pub mod fish;
+pub mod lscolors;
 pub mod nushell;
 pub mod powershell;
 pub mod simple;
@@ -218,24 +219,135 @@ fn integrate_messages(mut values: RawValues, prefix: &str, messages: &[String]) 
     values
 }
 
-/// Map a carapace style name to an SGR sequence (subset used by formatters).
-pub(crate) fn sgr(style_name: &str) -> String {
-    let code = match style_name {
-        "bold" => "1",
-        "italic" => "3",
-        "underlined" => "4",
-        "default" | "fg-default" => "39",
-        "black" | "fg-black" => "30",
-        "red" | "fg-red" => "31",
-        "green" | "fg-green" => "32",
-        "yellow" | "fg-yellow" => "33",
-        "blue" | "fg-blue" => "34",
-        "magenta" | "fg-magenta" => "35",
-        "cyan" | "fg-cyan" => "36",
-        "white" | "fg-white" => "37",
-        _ => "39",
+/// The style for a path from `LS_COLORS` (Go `style.ForPath`).
+pub fn for_path(context: &crate::Context, path: &str) -> String {
+    let path = context.abs(path).unwrap_or_else(|_| path.to_owned());
+    let ls_colors = context.get_env("LS_COLORS");
+    let colorist = lscolors::colorist(&ls_colors);
+    from_sgr(&colorist.get_style(&path))
+}
+
+/// The style for a path by extension only (Go `style.ForPathExt`).
+pub fn for_path_ext(context: &crate::Context, path: &str) -> String {
+    let ls_colors = context.get_env("LS_COLORS");
+    let colorist = lscolors::colorist(&ls_colors);
+    from_sgr(&colorist.get_style_ext(path))
+}
+
+/// The style for an extension name (Go `style.ForExtension`).
+pub fn for_extension(context: &crate::Context, extension: &str) -> String {
+    for_path_ext(context, &format!(".{extension}"))
+}
+
+/// Convert an SGR sequence into a carapace style string (Go `style.fromSGR`).
+fn from_sgr(sgr: &str) -> String {
+    let style = style::style_from_sgr(sgr);
+    let mut result: Vec<String> = Vec::new();
+    if let Some(foreground) = &style.foreground {
+        result.push(foreground.clone());
+    }
+    if let Some(background) = &style.background {
+        result.push(format!("bg-{background}"));
+    }
+    if style.bold {
+        result.push("bold".to_owned());
+    }
+    if style.dim {
+        result.push("dim".to_owned());
+    }
+    if style.italic {
+        result.push("italic".to_owned());
+    }
+    if style.underlined {
+        result.push("underlined".to_owned());
+    }
+    if style.blink {
+        result.push("blink".to_owned());
+    }
+    if style.inverse {
+        result.push("inverse".to_owned());
+    }
+    result.join(" ")
+}
+
+/// Map a carapace style string to an SGR sequence (Go `style.SGR`).
+pub(crate) fn sgr(style_string: &str) -> String {
+    let style = style::Style::parse(style_string);
+    let mut codes: Vec<String> = Vec::new();
+    if style.bold {
+        codes.push("1".to_owned());
+    }
+    if style.dim {
+        codes.push("2".to_owned());
+    }
+    if style.italic {
+        codes.push("3".to_owned());
+    }
+    if style.underlined {
+        codes.push("4".to_owned());
+    }
+    if style.blink {
+        codes.push("5".to_owned());
+    }
+    if style.inverse {
+        codes.push("7".to_owned());
+    }
+    if let Some(foreground) = &style.foreground {
+        codes.push(color_sgr(foreground, false));
+    }
+    if let Some(background) = &style.background {
+        codes.push(color_sgr(background, true));
+    }
+    codes.join(";")
+}
+
+fn color_sgr(color: &str, background: bool) -> String {
+    let (default, base, bright_base, extended) = if background {
+        ("49", 40, 100, "48")
+    } else {
+        ("39", 30, 90, "38")
     };
-    code.to_owned()
+    match color {
+        "default" => default.to_owned(),
+        _ => {
+            if let Some(index) = [
+                "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+            ]
+            .iter()
+            .position(|name| *name == color)
+            {
+                (base + index).to_string()
+            } else if let Some(bright) = color.strip_prefix("bright-") {
+                match [
+                    "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+                ]
+                .iter()
+                .position(|name| *name == bright)
+                {
+                    Some(index) => (bright_base + index).to_string(),
+                    None => default.to_owned(),
+                }
+            } else if let Some(index) = color
+                .strip_prefix("color")
+                .and_then(|number| number.parse::<u16>().ok())
+                .filter(|number| *number <= 255)
+            {
+                format!("{extended};5;{index}")
+            } else if let Some(rgb) = color.strip_prefix('#').filter(|rgb| rgb.len() == 6) {
+                let channels: Vec<String> = rgb
+                    .as_bytes()
+                    .chunks(2)
+                    .map(|pair| String::from_utf8_lossy(pair).into_owned())
+                    .collect();
+                format!(
+                    "{extended};2;{};{};{}",
+                    channels[0], channels[1], channels[2]
+                )
+            } else {
+                default.to_owned()
+            }
+        }
+    }
 }
 
 /// Longest shared prefix of `a` and `b` (char-aligned).

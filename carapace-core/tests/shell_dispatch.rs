@@ -631,3 +631,46 @@ fn cmd_clink_patch_relexes_compline() {
     let words = carapace_core::shell::simple::cmd_clink::patch(vec!["cmd-clink".to_owned()]);
     assert_eq!(words, vec!["cmd-clink".to_owned()]);
 }
+
+#[test]
+fn files_carry_ls_colors_styles() {
+    // Go ActionFiles' StyleF(style.ForPath): colors from LS_COLORS
+    let _guard = env_lock();
+    clear_compline();
+
+    let base = std::env::temp_dir().join(format!("carapace-lsstyle-{}", std::process::id()));
+    std::fs::create_dir_all(base.join("subdir")).unwrap();
+    std::fs::write(base.join("readme.md"), "").unwrap();
+
+    let action = Action::files(Vec::<String>::new());
+    let context = Context::default()
+        .dir(base.clone())
+        .env("LS_COLORS", "di=01;35:*.md=01;32");
+    let mut values = action.invoke(&context).values;
+    values.sort_by(|a, b| a.value.cmp(&b.value));
+
+    let styles: std::collections::HashMap<String, String> =
+        values.into_iter().map(|v| (v.value, v.style)).collect();
+    assert_eq!(styles["readme.md"], "green bold");
+    assert_eq!(styles["subdir/"], "magenta bold");
+
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[test]
+fn for_path_ext_ignores_file_features() {
+    // Go style.ForPathExt: extension only, directory fallback
+    let context = Context::default().env("LS_COLORS", "di=01;34:*.md=01;31");
+    assert_eq!(
+        carapace_core::shell::for_path_ext(&context, "file.md"),
+        "red bold"
+    );
+    assert_eq!(
+        carapace_core::shell::for_path_ext(&context, "anything"),
+        "blue bold"
+    );
+    assert_eq!(
+        carapace_core::shell::for_extension(&context, "md"),
+        "red bold"
+    );
+}

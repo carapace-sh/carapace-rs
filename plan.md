@@ -45,10 +45,10 @@ The port is complete:
     lexer (regression test `cmd_clink_patch_relexes_compline`), and the
     formatter does no quoting in either implementation — clink quotes
     itself.
-- Publishing (decide once the port is complete): crates.io has
-  `carapace-rs` and `carapace-shlex` free; `carapace` is taken (dormant
-  unrelated crate). The repo currently documents git-dependency usage.
-  Requires an explicit release/publish decision.
+- Publishing: the `carapace-rs` crate name is reserved on crates.io.
+  Publishing is a separate, explicit decision — never publish, push, or
+  open PRs/releases without a direct user command (see CRUSH.md). The
+  repo currently documents git-dependency usage.
 
 ## Gotchas learned while porting the lexer (do not regress)
 

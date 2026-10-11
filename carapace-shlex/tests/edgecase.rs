@@ -3,7 +3,7 @@ mod common;
 use carapace_shlex::{
     Format, LexerState, TokenSliceExt, TokenType, WordbreakType, complete, quote_word, split,
 };
-use common::{pipeline_count, pipeline_words, split_words};
+use common::{pipeline_count, split_words};
 
 // Stop-parsing mode edge cases (PowerShell --%).
 

@@ -3,7 +3,7 @@ mod common;
 use carapace_shlex::{
     Format, LexerState, TokenSliceExt, TokenType, WordbreakType, complete, join, quote_word, split,
 };
-use common::{pipeline_count, pipeline_words, split_words};
+use common::{pipeline_count, split_words};
 
 fn words_of(input: &str) -> Vec<String> {
     split_words(input, Format::Hilbish)

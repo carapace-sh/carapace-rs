@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use carapace_shlex::{Format, TokenSliceExt, complete, split};
+use carapace_shlex::{Format, TokenSliceExt, split};
 
 /// `Split(...).Words().Strings()`
 pub fn split_words(s: &str, format: Format) -> Vec<String> {

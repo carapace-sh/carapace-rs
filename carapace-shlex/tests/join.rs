@@ -10,9 +10,11 @@ fn j(words: &[&str], format: Format) -> String {
 #[test]
 fn posix() {
     let tests: Vec<(&str, Vec<&str>)> = vec![
+        ("", vec![]),
         ("echo hello", vec!["echo", "hello"]),
         (r#"echo "hello world""#, vec!["echo", "hello world"]),
         (r#"echo "\$(ls)""#, vec!["echo", "$(ls)"]),
+        (r#"echo "'ls'""#, vec!["echo", "'ls'"]),
         (r#"echo "\"ls\"""#, vec!["echo", "\"ls\""]),
         (r#"echo "\`ls\`""#, vec!["echo", "`ls`"]),
         (

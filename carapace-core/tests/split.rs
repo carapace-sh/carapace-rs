@@ -54,7 +54,9 @@ fn split_completes_second_positional_after_space() {
 
     let invoked = split("pos1 ", Some(&dir));
     assert_eq!(values(&invoked), vec!["pos1 file1.txt ", "pos1 subdir/"]);
-    assert_eq!(invoked.meta.nospace, vec!['*']);
+    // the files action contributes '/' to the nospace matcher (Go's
+    // MultiParts("/")), merged with split's own '*'
+    assert_eq!(invoked.meta.nospace, vec!['*', '/']);
 
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -97,7 +99,7 @@ fn split_p_completes_files_for_redirect() {
     let invoked = inner_action().split_p(Format::default()).invoke(&context);
     // the redirect target completes files
     assert_eq!(values(&invoked), vec!["pos1 > file1.txt "]);
-    assert_eq!(invoked.meta.nospace, vec!['*']);
+    assert_eq!(invoked.meta.nospace, vec!['*', '/']);
 
     std::fs::remove_dir_all(&dir).ok();
 }

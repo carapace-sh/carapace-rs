@@ -278,6 +278,34 @@ fn chdir_scopes_files_completion() {
 }
 
 #[test]
+fn files_completion_marks_directories_nospace() {
+    // Go wraps ActionFiles/ActionDirectories in MultiParts("/"), which adds
+    // "/" to the nospace matcher; shells consulting only the meta (nushell,
+    // powershell, xonsh) rely on it to suppress the trailing space
+    let base = std::env::temp_dir().join(format!("carapace-nospace-{}", std::process::id()));
+    std::fs::create_dir_all(base.join("subdir")).unwrap();
+    std::fs::write(base.join("file1.txt"), "").unwrap();
+
+    let context = Context::default().dir(base.clone()).value("");
+    let invoked = Action::files(Vec::<String>::new()).invoke(&context);
+    assert!(invoked.meta.nospace.contains(&'/'));
+    let dir = invoked
+        .values
+        .iter()
+        .find(|value| value.value == "subdir/")
+        .unwrap();
+    assert_eq!(dir.nospace, Some(true));
+    let file = invoked
+        .values
+        .iter()
+        .find(|value| value.value == "file1.txt")
+        .unwrap();
+    assert_ne!(file.nospace, Some(true));
+
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[test]
 fn multiparts_prefixes_deep_segments() {
     // Go TestMultiPartsP: the full prefix is re-attached at every level
     let action = Action::multiparts("/", |c| match (c.parts.len(), c.value.as_str()) {

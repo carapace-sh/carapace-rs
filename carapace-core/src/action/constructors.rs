@@ -382,7 +382,10 @@ fn complete_path(context: &Context, filter: impl Fn(&Path) -> bool) -> Option<Ac
         value.style = crate::shell::for_path(context, &value.value);
         values.push(value);
     }
-    Some(Action::raw(values))
+    // Go's ActionFiles/ActionDirectories wrap in MultiParts("/"), which adds
+    // the divider to the nospace matcher; shells that only consult the meta
+    // (nushell, powershell, xonsh) rely on it.
+    Some(Action::raw(values).nospace(['/']))
 }
 
 fn dir_prefix(dir: &Path) -> String {

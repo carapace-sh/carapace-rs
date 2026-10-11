@@ -71,26 +71,116 @@ impl Context {
         self.lookup_env(key).unwrap_or_default().to_owned()
     }
 
-    /// Replace `${VAR}` placeholders using the context environment.
-    pub fn envsubst(&self, s: &str) -> String {
+    /// Replace `${VAR}` placeholders using the context environment
+    /// (Go `Context.Envsubst`, drone/envsubst subset).
+    ///
+    /// Supported forms: `${VAR}`, `${VAR:-default}`, `${VAR/old/new}`
+    /// (first occurrence), `${VAR//old/new}` (all occurrences), and
+    /// `${!VAR...}` which passes the unexpanded form through literally.
+    /// `\` escapes `/` and `\` inside replacement patterns.
+    pub fn envsubst(&self, s: &str) -> Result<String, String> {
         let mut result = String::with_capacity(s.len());
         let mut rest = s;
         while let Some(start) = rest.find("${") {
             result.push_str(&rest[..start]);
             rest = &rest[start + 2..];
-            match rest.find('}') {
-                Some(end) => {
-                    let var = &rest[..end];
-                    result.push_str(&self.get_env(var));
-                    rest = &rest[end + 1..];
-                }
-                None => {
-                    result.push_str("${");
-                }
+
+            // `${!...}`: the unexpanded form is passed through verbatim
+            if let Some(stripped) = rest.strip_prefix('!') {
+                let end = stripped.find('}').ok_or("bad substitution")?;
+                result.push_str("${");
+                result.push_str(&stripped[..end]);
+                result.push('}');
+                rest = &stripped[end + 1..];
+                continue;
             }
+
+            let name: String = rest
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                .collect();
+            if name.is_empty() {
+                return Err("bad substitution".to_owned());
+            }
+            rest = &rest[name.len()..];
+
+            if let Some(value_rest) = rest.strip_prefix('}') {
+                result.push_str(&self.get_env(&name));
+                rest = value_rest;
+                continue;
+            }
+
+            if let Some(default_rest) = rest.strip_prefix(":-") {
+                let end = default_rest.find('}').ok_or("bad substitution")?;
+                let value = self.get_env(&name);
+                result.push_str(if value.is_empty() {
+                    &default_rest[..end]
+                } else {
+                    &value
+                });
+                rest = &default_rest[end + 1..];
+                continue;
+            }
+
+            if let Some(replace_rest) = rest.strip_prefix('/') {
+                let all = replace_rest.starts_with('/');
+                let replace_rest = if all {
+                    &replace_rest[1..]
+                } else {
+                    replace_rest
+                };
+                let (old, replace_rest) = replace_rest.split_once('/').ok_or("bad substitution")?;
+                let end = replace_rest.find('}').ok_or("bad substitution")?;
+                let new = unescape_replacement(&replace_rest[..end]);
+                let value = self.get_env(&name);
+                result.push_str(&if all {
+                    value.replace(&unescape_replacement(old), &new)
+                } else {
+                    value.replacen(&unescape_replacement(old), &new, 1)
+                });
+                rest = &replace_rest[end + 1..];
+                continue;
+            }
+
+            return Err("bad substitution".to_owned());
         }
         result.push_str(rest);
-        result
+        Ok(result)
+    }
+
+    /// Absolute representation of a path (Go `Context.Abs`): relative paths
+    /// resolve against the context directory, `~` expands to the home
+    /// directory, and the result is cleaned with trailing slashes preserved.
+    pub fn abs(&self, path: &str) -> Result<String, String> {
+        let path = path.replace('\\', "/");
+        let path = if !path.starts_with('/') && !path.starts_with('~') && !has_volume_prefix(&path)
+        {
+            if self.dir.as_os_str().is_empty() {
+                format!("./{path}")
+            } else {
+                format!("{}/{path}", self.dir.to_string_lossy())
+            }
+        } else {
+            path
+        };
+
+        let path = expand_home(&path)?;
+
+        // a bare volume prefix must not join with the current directory
+        let path = if path.chars().count() == 2 && has_volume_prefix(&path) {
+            format!("{path}/")
+        } else {
+            path
+        };
+
+        let result = absolutize(&path);
+        if path.ends_with("/.") && !result.ends_with("/.") {
+            Ok(format!("{result}/."))
+        } else if path.ends_with('/') && !result.ends_with('/') {
+            Ok(format!("{result}/"))
+        } else {
+            Ok(result)
+        }
     }
 
     /// Execute a command with this context's environment and directory.
@@ -129,4 +219,90 @@ impl Context {
 
 fn current_env() -> HashMap<String, String> {
     std::env::vars().collect()
+}
+
+/// Windows-style drive prefix (`C:`), a no-op on other platforms
+/// (Go `util.HasVolumePrefix`).
+fn has_volume_prefix(s: &str) -> bool {
+    if !cfg!(windows) {
+        return false;
+    }
+    let bytes = s.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
+/// Expand a leading `~` to the home directory (Go `expandHome`, without
+/// zsh named directories).
+fn expand_home(path: &str) -> Result<String, String> {
+    if !path.starts_with('~') {
+        return Ok(path.to_owned());
+    }
+    let home = std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
+        .map_err(|_| "cannot expand user home directory".to_owned())?
+        .replace('\\', "/");
+    match path {
+        "~" => Ok(home),
+        _ => Ok(path.replacen("~/", &format!("{home}/"), 1)),
+    }
+}
+
+/// Make a slash path absolute and lexically clean (Go `filepath.Abs`).
+fn absolutize(path: &str) -> String {
+    let joined = if path.starts_with('/') || has_volume_prefix(path) {
+        path.to_owned()
+    } else {
+        let cwd = std::env::current_dir()
+            .map(|dir| dir.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        format!("{cwd}/{path}")
+    };
+    clean_path(&joined)
+}
+
+/// Lexically normalize a slash path (Go `filepath.Clean`).
+fn clean_path(path: &str) -> String {
+    let rooted = path.starts_with('/');
+    let mut parts: Vec<&str> = Vec::new();
+    for segment in path.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                if !parts.is_empty() && parts.last() != Some(&"..") {
+                    parts.pop();
+                } else if !rooted {
+                    parts.push("..");
+                }
+            }
+            other => parts.push(other),
+        }
+    }
+    if rooted {
+        format!("/{}", parts.join("/"))
+    } else if parts.is_empty() {
+        ".".to_owned()
+    } else {
+        parts.join("/")
+    }
+}
+
+/// Unescape `\/` and `\\` in replacement patterns
+/// (drone/envsubst `scanEscape`).
+fn unescape_replacement(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some(escaped @ ('/' | '\\')) => result.push(escaped),
+                Some(other) => {
+                    result.push('\\');
+                    result.push(other);
+                }
+                None => result.push('\\'),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }

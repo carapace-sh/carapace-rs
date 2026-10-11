@@ -203,6 +203,114 @@ fn invoked_merge_dedups() {
     assert_eq!(values(merged), vec!["a", "b", "c"]);
 }
 
+#[test]
+fn unique_dedups_by_value() {
+    // Go TestUnique: repeated values collapse
+    let action = Action::values(["one", "two", "one", "three"]).unique();
+    assert_eq!(
+        values(action.invoke(&Context::default())),
+        vec!["one", "two", "three"]
+    );
+}
+
+#[test]
+fn unique_keeps_distinct_uids() {
+    // deduplication is by (value, uid): same value with different uid
+    // survives, same value with no uid collapses
+    let action = Action::callback(|_| {
+        let mut invoked = Action::values(["a", "a"]).invoke(&Context::default());
+        invoked.values[0].uid = Some("u1".to_owned());
+        invoked.values[1].uid = Some("u2".to_owned());
+        invoked.to_action()
+    });
+    assert_eq!(
+        values(action.unique().invoke(&Context::default())),
+        vec!["a", "a"]
+    );
+}
+
+#[test]
+fn usage_sets_meta() {
+    let invoked = Action::values(["a"])
+        .usage("explicit usage")
+        .invoke(&Context::default());
+    assert_eq!(invoked.meta.usage.as_deref(), Some("explicit usage"));
+}
+
+#[test]
+fn chdir_changes_context_dir() {
+    // the resolved absolute directory is what the action sees, and the
+    // target must exist (Go Chdir stats the directory)
+    let base = std::env::temp_dir().join(format!("carapace-chdir-abs-{}", std::process::id()));
+    std::fs::create_dir_all(base.join("subdir")).unwrap();
+
+    let action = Action::callback(|c| Action::values([c.dir.display().to_string()]));
+    let context = Context::default().dir(base.clone());
+    let invoked = action.chdir("subdir").invoke(&context);
+    assert_eq!(
+        values(invoked),
+        vec![base.join("subdir").display().to_string()]
+    );
+
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[test]
+fn chdir_scopes_files_completion() {
+    // Go TestChdir: files complete relative to the chdir'ed directory
+    let base = std::env::temp_dir().join(format!("carapace-chdir-{}", std::process::id()));
+    std::fs::create_dir_all(base.join("subdir")).unwrap();
+    std::fs::write(base.join("subdir/file1.txt"), "").unwrap();
+
+    let action = Action::files(Vec::<String>::new()).chdir("subdir");
+    let context = Context::default().dir(base.clone());
+    assert_eq!(values(action.invoke(&context)), vec!["file1.txt"]);
+
+    // a non-directory target degrades to a message
+    std::fs::write(base.join("notadir"), "").unwrap();
+    let invoked = Action::files(Vec::<String>::new())
+        .chdir("notadir")
+        .invoke(&context);
+    assert!(invoked.values.is_empty());
+    assert!(!invoked.meta.messages.is_empty());
+
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[test]
+fn multiparts_prefixes_deep_segments() {
+    // Go TestMultiPartsP: the full prefix is re-attached at every level
+    let action = Action::multiparts("/", |c| match (c.parts.len(), c.value.as_str()) {
+        (0, "") => Action::values(["keys"]),
+        (1, "") => Action::values(["key1", "key2"]),
+        (2, "") => Action::values(["val1", "val2"]),
+        _ => Action::values(Vec::<String>::new()),
+    });
+    let invoked = action.invoke(&Context::default().value("keys/key1/"));
+    assert_eq!(values(invoked), vec!["keys/key1/val1", "keys/key1/val2"]);
+}
+
+#[test]
+fn invoked_modifiers_preserve_messages() {
+    // Go TestSkipCache: a merged message survives no-op modifiers and
+    // conversion back into a lazy action
+    let action = Action::callback(|c| {
+        Action::values(Vec::<String>::new())
+            .invoke(c)
+            .merge([Action::message("skipcache").invoke(c)])
+            .filter(std::iter::empty::<String>())
+            .prefix("")
+            .suffix("")
+            .to_action()
+    });
+    // the message only materializes on invocation (lazy two-phase API)
+    assert!(action.is_callback());
+    assert_eq!(
+        action.invoke(&Context::default()).meta.messages,
+        vec!["skipcache"]
+    );
+}
+
 fn values(invoked: carapace_core::InvokedAction) -> Vec<String> {
     invoked.values.into_iter().map(|v| v.value).collect()
 }

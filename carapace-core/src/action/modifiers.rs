@@ -436,13 +436,13 @@ impl Action {
     }
 
     /// Change the working directory for the invocation.
+    ///
+    /// Relative directories resolve against the context directory and the
+    /// target must be an existing directory (Go `Action.Chdir` via
+    /// `Context.Abs`).
     pub fn chdir(self, dir: impl Into<String>) -> Self {
         let dir = std::sync::Arc::new(dir.into());
-        Self::callback(move |c| {
-            let mut context = c.clone();
-            context.dir = (*dir).clone().into();
-            self.invoke(&context).to_action()
-        })
+        self.chdir_f(move |_| (*dir).clone())
     }
 
     /// Change the working directory for the invocation via a function.
@@ -451,9 +451,22 @@ impl Action {
         F: Fn(&Context) -> String + Send + Sync + 'static,
     {
         Self::callback(move |c| {
-            let mut context = c.clone();
-            context.dir = f(c).into();
-            self.invoke(&context).to_action()
+            let abs = match c.abs(&f(c)) {
+                Ok(abs) => abs,
+                Err(err) => return Self::message(err),
+            };
+            let path = std::path::PathBuf::from(&abs);
+            match std::fs::metadata(&path) {
+                Err(err) => Self::message(err.to_string()),
+                Ok(metadata) if !metadata.is_dir() => {
+                    Self::message(format!("not a directory: {abs}"))
+                }
+                Ok(_) => {
+                    let mut context = c.clone();
+                    context.dir = path;
+                    self.invoke(&context).to_action()
+                }
+            }
         })
     }
 

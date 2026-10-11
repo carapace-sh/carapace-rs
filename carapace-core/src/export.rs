@@ -83,7 +83,8 @@ fn query_string(query: &Query) -> String {
     let host = crate::uid::path_escape(&query.host);
     let path = crate::uid::path_escape(&query.path);
     let mut url = format!("{}://{}", query.scheme, host);
-    if !host.is_empty() && !path.starts_with('/') {
+    // an empty path renders without the separator (Go url.URL.String())
+    if !path.is_empty() && !path.starts_with('/') {
         url.push('/');
     }
     url.push_str(&path);

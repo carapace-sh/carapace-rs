@@ -342,3 +342,54 @@ fn invoked_modifiers_preserve_messages() {
 fn values(invoked: carapace_core::InvokedAction) -> Vec<String> {
     invoked.values.into_iter().map(|v| v.value).collect()
 }
+
+#[test]
+fn files_carry_file_uids_and_query() {
+    // Go ActionFiles attaches file:// uids and a "file" query annotation
+    let base = std::env::temp_dir().join(format!("carapace-fileuid-{}", std::process::id()));
+    std::fs::create_dir_all(base.join("subdir")).unwrap();
+    std::fs::write(base.join("file1.txt"), "").unwrap();
+
+    let context = Context::default().dir(base.clone()).value("f");
+    let invoked = Action::files(Vec::<String>::new()).invoke(&context);
+    let value = invoked
+        .values
+        .iter()
+        .find(|value| value.value == "file1.txt")
+        .unwrap();
+    let abs = context.abs("file1.txt").unwrap();
+    assert_eq!(
+        value.uid.as_deref(),
+        Some(format!("file://{}", carapace_core::uid::path_escape(&abs)).as_str())
+    );
+
+    // the query annotation records scheme/host, the context directory and
+    // the completed value (Go's C_DIR/C_VALUE opts)
+    let query = &invoked.meta.queries[0];
+    assert_eq!(query.scheme, "file");
+    assert_eq!(query.host, "files");
+    let c_dir = context.abs(&base.to_string_lossy()).unwrap();
+    let c_dir_index = query.opts.iter().position(|opt| opt == "C_DIR").unwrap();
+    assert_eq!(query.opts[c_dir_index + 1], c_dir);
+    assert!(query.opts.contains(&"C_VALUE".to_string()));
+    assert!(query.opts.contains(&"f".to_string()));
+
+    // directories use the "directories" host without a suffix opt
+    let context = Context::default().dir(base.clone()).value("s");
+    let invoked = Action::directories().invoke(&context);
+    let query = &invoked.meta.queries[0];
+    assert_eq!(query.host, "directories");
+    assert!(!query.opts.iter().any(|opt| opt == "suffix"));
+    let dir = invoked
+        .values
+        .iter()
+        .find(|value| value.value == "subdir/")
+        .unwrap();
+    let abs = context.abs("subdir/").unwrap();
+    assert_eq!(
+        dir.uid.as_deref(),
+        Some(format!("file://{}", carapace_core::uid::path_escape(&abs)).as_str())
+    );
+
+    std::fs::remove_dir_all(base).unwrap();
+}

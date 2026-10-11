@@ -62,38 +62,58 @@ pub(crate) fn query_unescape(value: &str) -> String {
     percent_unescape(&value.replace('+', " "))
 }
 
-/// UID of a command: `cmd://<root>/<subcommand-path>`.
-pub fn command(root: &str, path: &[&str]) -> String {
-    let mut url = format!(
-        "cmd://{}/{}",
-        path_escape(root),
-        path_escape(path.first().unwrap_or(&""))
-    );
-    for segment in path.iter().skip(1) {
-        url.push('/');
-        url.push_str(&path_escape(segment));
+/// UID of a command (Go `uid.Command`): `cmd://<root>/<subcommand-path>`;
+/// an empty path renders without the trailing separator.
+pub fn command(root: &str, path: &[impl AsRef<str>]) -> String {
+    let mut url = format!("cmd://{}", path_escape(root));
+    if !path.is_empty() {
+        let joined = path
+            .iter()
+            .map(|segment| path_escape(segment.as_ref()))
+            .collect::<Vec<_>>()
+            .join("/");
+        if !joined.is_empty() {
+            url.push('/');
+            url.push_str(&joined);
+        }
     }
     url
 }
 
-/// UID of a flag: `cmd://<root>/<subcommand-path>?flag=<name>`.
-pub fn flag(root: &str, path: &[&str], flag_name: &str) -> String {
-    format!("{}?flag={}", command(root, path), path_escape(flag_name))
+/// UID of a flag (Go `uid.Flag`): `cmd://<root>/<subcommand-path>?flag=<name>`.
+pub fn flag(root: &str, path: &[impl AsRef<str>], flag_name: &str) -> String {
+    format!("{}?flag={}", command(root, path), query_escape(flag_name))
 }
 
 /// Build a UID with alternating key-value opts (empty values skipped),
-/// mirroring Go `uid.UidF`.
+/// mirroring Go `uid.UidF`; query pairs are sorted by key like
+/// Go `url.Values.Encode`.
 pub fn with_opts(scheme: &str, host: &str, value: &str, opts: &[(&str, &str)]) -> String {
-    let mut url = format!("{scheme}://{}/{}", path_escape(host), path_escape(value));
-    let mut query = Vec::new();
-    for (key, opt_value) in opts {
-        if !opt_value.is_empty() {
-            query.push(format!("{}={}", path_escape(key), path_escape(opt_value)));
+    let mut url = format!("{scheme}://{}", path_escape(host));
+    let escaped = path_escape(value);
+    if !escaped.is_empty() {
+        if !escaped.starts_with('/') {
+            url.push('/');
         }
+        url.push_str(&escaped);
     }
+    let mut query: Vec<(&str, &str)> = opts
+        .iter()
+        .filter(|(_, opt_value)| !opt_value.is_empty())
+        .copied()
+        .collect();
     if !query.is_empty() {
+        query.sort_by(|a, b| a.0.cmp(b.0));
         url.push('?');
-        url.push_str(&query.join("&"));
+        url.push_str(
+            &query
+                .iter()
+                .map(|(key, opt_value)| {
+                    format!("{}={}", query_escape(key), query_escape(opt_value))
+                })
+                .collect::<Vec<_>>()
+                .join("&"),
+        );
     }
     url
 }

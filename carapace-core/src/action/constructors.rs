@@ -74,17 +74,19 @@ impl Action {
 
     /// Complete directories in the current (or context) directory.
     pub fn directories() -> Self {
-        Self::callback(|c| match complete_path(c, |path| path.is_dir()) {
-            Some(action) => action,
-            None => Self::message("no matches"),
-        })
+        Self::callback(
+            |c| match complete_path(c, "directories", &[], |path| path.is_dir()) {
+                Some(action) => action,
+                None => Self::message("no matches"),
+            },
+        )
     }
 
     /// Complete files, optionally filtered by suffix.
     pub fn files(suffixes: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let suffixes: Vec<String> = suffixes.into_iter().map(Into::into).collect();
         Self::callback(move |c| {
-            let action = complete_path(c, |path| {
+            let filter = |path: &std::path::Path| {
                 suffixes.is_empty()
                     || suffixes.iter().any(|suffix| {
                         let name = path
@@ -94,8 +96,8 @@ impl Action {
                         name.to_ascii_lowercase()
                             .ends_with(&suffix.to_ascii_lowercase())
                     })
-            });
-            match action {
+            };
+            match complete_path(c, "files", &suffixes, filter) {
                 Some(action) => action,
                 None => Self::message("no matches"),
             }
@@ -340,7 +342,12 @@ fn sort_executables(values: &mut [RawValue]) {
     values.sort_by(|a, b| a.value.cmp(&b.value));
 }
 
-fn complete_path(context: &Context, filter: impl Fn(&Path) -> bool) -> Option<Action> {
+fn complete_path(
+    context: &Context,
+    host: &str,
+    suffixes: &[String],
+    filter: impl Fn(&std::path::Path) -> bool,
+) -> Option<Action> {
     let value = &context.value;
     let (dir, prefix) = match value.rfind('/') {
         Some(index) => (value[..index].to_owned(), value[index + 1..].to_owned()),
@@ -380,12 +387,40 @@ fn complete_path(context: &Context, filter: impl Fn(&Path) -> bool) -> Option<Ac
         }
         // LS_COLORS styling (Go ActionFiles' StyleF(style.ForPath))
         value.style = crate::shell::for_path(context, &value.value);
+        // implicit file uid (Go ActionFiles' UidF: file:// + PathEscape of
+        // the absolute path, slashes preserved as separators)
+        if let Ok(abs) = context.abs(&value.value) {
+            value.uid = Some(format!("file://{}", crate::uid::path_escape(&abs)));
+        }
         values.push(value);
     }
     // Go's ActionFiles/ActionDirectories wrap in MultiParts("/"), which adds
     // the divider to the nospace matcher; shells that only consult the meta
     // (nushell, powershell, xonsh) rely on it.
-    Some(Action::raw(values).nospace(['/']))
+    // The file query (Go ActionFiles'/ActionDirectories' Query) annotates the
+    // completion for cache lookups: C_DIR, C_VALUE and the suffix filter.
+    let mut query = crate::meta::Query {
+        scheme: "file".to_owned(),
+        host: host.to_owned(),
+        path: String::new(),
+        opts: Vec::new(),
+    };
+    if let Ok(c_dir) = context.abs(&context.dir.to_string_lossy()) {
+        query.opts = vec!["C_DIR".to_owned(), c_dir];
+    }
+    if !context.value.is_empty() {
+        query.opts.push("C_VALUE".to_owned());
+        query.opts.push(context.value.clone());
+    }
+    if host == "files" {
+        query.opts.push("suffix".to_owned());
+        query.opts.push(suffixes.join(","));
+    }
+    Some(
+        Action::raw(values)
+            .nospace(['/'])
+            .with_meta(crate::meta::Meta::default().query(query)),
+    )
 }
 
 fn dir_prefix(dir: &Path) -> String {

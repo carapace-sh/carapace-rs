@@ -104,7 +104,8 @@ fn init_help_completion(model: &mut Command) {
     }
     let mut root = model.clone();
     root.subcommands.retain(|c| c.name != "help");
-    let commands = carapace_core::traverse::action_commands(&root);
+    let commands =
+        carapace_core::traverse::action_commands(&root, std::slice::from_ref(&root.name));
     if let Some(help) = model.subcommands.iter_mut().find(|c| c.name == "help") {
         help.positional_any = Some(commands);
     }

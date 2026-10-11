@@ -8,6 +8,12 @@ fn uid_command_and_flag() {
         "cmd://git/branch?flag=force"
     );
     assert_eq!(uid::command("app", &["sub", "deep"]), "cmd://app/sub/deep");
+    // an empty path renders without the trailing separator (Go url.URL)
+    assert_eq!(uid::command("app", &[] as &[&str]), "cmd://app");
+    assert_eq!(
+        uid::flag("app", &[] as &[&str], "force"),
+        "cmd://app?flag=force"
+    );
 }
 
 #[test]

@@ -414,3 +414,84 @@ fn ungrouped_tree_tags_plain_commands() {
         "ungrouped tree uses the plain commands tag"
     );
 }
+
+#[test]
+fn implicit_uids_on_flags_and_subcommands() {
+    use carapace_core::model::Command as ModelCommand;
+    let cmd = ModelCommand::new("app")
+        .flag(Flag {
+            id: "verbose".into(),
+            name: "verbose".into(),
+            shorthand: Some('v'),
+            ..Default::default()
+        })
+        .subcommand(ModelCommand::new("sub").alias("s").subcommand(
+            ModelCommand::new("deep").flag(Flag {
+                id: "force".into(),
+                name: "force".into(),
+                ..Default::default()
+            }),
+        ));
+
+    // flag candidates carry cmd://app?flag=<name>
+    let completion = traverse(&cmd, vec!["-".to_string()]);
+    let invoked = completion.action.invoke(&completion.context);
+    let uid_of = |value: &str| {
+        invoked
+            .values
+            .iter()
+            .find(|v| v.value == value)
+            .unwrap()
+            .uid
+            .clone()
+            .unwrap()
+    };
+    assert_eq!(uid_of("--verbose"), "cmd://app?flag=verbose");
+    assert_eq!(uid_of("-v"), "cmd://app?flag=verbose");
+
+    // subcommand candidates carry cmd://app/<name>; aliases resolve to the
+    // actual name (Go's cmd.Find in the UidF closure)
+    let completion = traverse(&cmd, vec!["".to_string()]);
+    let invoked = completion.action.invoke(&completion.context);
+    let uid_of = |value: &str| {
+        invoked
+            .values
+            .iter()
+            .find(|v| v.value == value)
+            .unwrap()
+            .uid
+            .clone()
+            .unwrap()
+    };
+    assert_eq!(uid_of("sub"), "cmd://app/sub");
+    assert_eq!(uid_of("s"), "cmd://app/sub");
+
+    // deeper nesting accumulates the path
+    let completion = traverse(&cmd, vec!["sub".to_string(), "".to_string()]);
+    let invoked = completion.action.invoke(&completion.context);
+    let deep = invoked
+        .values
+        .iter()
+        .find(|v| v.value == "deep")
+        .unwrap()
+        .uid
+        .clone()
+        .unwrap();
+    assert_eq!(deep, "cmd://app/sub/deep");
+
+    // flag uids inside a subcommand use the nested path
+    let completion = traverse(
+        &cmd,
+        vec!["sub".to_string(), "deep".to_string(), "-".to_string()],
+    );
+    let invoked = completion.action.invoke(&completion.context);
+    let force = invoked
+        .values
+        .iter()
+        .find(|v| v.value == "--force")
+        .unwrap()
+        .uid
+        .clone()
+        .unwrap();
+    assert_eq!(force, "cmd://app/sub/deep?flag=force");
+}

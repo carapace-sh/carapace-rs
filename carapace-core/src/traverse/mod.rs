@@ -24,10 +24,10 @@ pub struct Completion {
 /// Traverse the command line (everything after the binary name) and resolve
 /// the action completing the current value.
 pub fn traverse(root: &Command, args: Vec<String>) -> Completion {
-    traverse_command(root, args, Vec::new())
+    traverse_command(root, args, vec![root.name.clone()])
 }
 
-fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Completion {
+fn traverse_command(cmd: &Command, args: Vec<String>, path: Vec<String>) -> Completion {
     crate::log::log(&format!(
         "traverse called for {:?} with args {args:?}",
         cmd.name
@@ -79,8 +79,12 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
         if let Some(subcommand) = cmd.lookup_subcommand(&arg) {
             crate::log::log(&format!("arg {arg:?} is a subcommand"));
             // recurse with everything after the subcommand, including the
-            // value being completed as the last word (Go passes args[i+1:])
-            return traverse_command(subcommand, args[index + 1..].to_vec(), Vec::new());
+            // value being completed as the last word (Go passes args[i+1:]);
+            // the uid path uses the subcommand's actual name (Go
+            // `uid.Command` builds from `cmd.Name()`, not the typed alias)
+            let mut sub_path = path.clone();
+            sub_path.push(subcommand.name.clone());
+            return traverse_command(subcommand, args[index + 1..].to_vec(), sub_path);
         }
 
         crate::log::log(&format!("arg {arg:?} is a positional"));
@@ -169,7 +173,7 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
             }
         }
         return Completion {
-            action: action_flags(cmd),
+            action: action_flags(cmd, &path),
             context,
         };
     }
@@ -179,7 +183,7 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
     if !cmd.subcommands.is_empty() && context.args.is_empty() {
         let action = merge_all([
             positional.invoke(&context),
-            action_commands(cmd).invoke(&context),
+            action_commands(cmd, &path).invoke(&context),
         ]);
         return Completion {
             action: action.to_action(),
@@ -208,10 +212,15 @@ pub fn get_positional(cmd: &Command, index: usize) -> Action {
 }
 
 /// Completion of all visible flags of the command.
-pub fn action_flags(cmd: &Command) -> Action {
+///
+/// Each candidate carries the implicit flag uid `cmd://<root>/<path>?flag=<name>`
+/// (Go `actionFlags`' `UidF(uid.Flag(cmd, f))`).
+pub fn action_flags(cmd: &Command, path: &[String]) -> Action {
     let cmd = cmd.clone();
     let prefix = cmd.flag_prefix;
     let double_prefix: String = [prefix, prefix].iter().collect();
+    let root = path.first().map(String::as_str).unwrap_or("").to_owned();
+    let segments: Vec<String> = path.get(1..).unwrap_or(&[]).to_vec();
     Action::callback(move |c| {
         let value = &c.value;
         let is_shorthand_series =
@@ -253,6 +262,7 @@ pub fn action_flags(cmd: &Command) -> Action {
                 let mut value =
                     RawValue::styled_described(shorthand.to_string(), description, &style);
                 value.tag = "shorthand flags".to_owned();
+                value.uid = Some(crate::uid::flag(&root, &segments, &flag.name));
                 if flag.is_optarg() {
                     value = value.nospace(true);
                 }
@@ -264,6 +274,7 @@ pub fn action_flags(cmd: &Command) -> Action {
                     &style,
                 );
                 longhand.tag = "longhand flags".to_owned();
+                longhand.uid = Some(crate::uid::flag(&root, &segments, &flag.name));
                 values.push(longhand);
                 if let Some(shorthand) = flag.shorthand {
                     let mut short = RawValue::styled_described(
@@ -272,6 +283,7 @@ pub fn action_flags(cmd: &Command) -> Action {
                         &style,
                     );
                     short.tag = "shorthand flags".to_owned();
+                    short.uid = Some(crate::uid::flag(&root, &segments, &flag.name));
                     values.push(short);
                 }
             }
@@ -290,8 +302,10 @@ pub fn action_flags(cmd: &Command) -> Action {
 /// Commands carry their group's tag (`{id} commands`) and the Highlight
 /// style of the group's position (Go `common.Group`); the group order is
 /// the first-appearance order among the subcommands, matching how the
-/// spec registers groups.
-pub fn action_commands(cmd: &Command) -> Action {
+/// spec registers groups. Each candidate carries the implicit uid
+/// `cmd://<root>/<path>/<name>` with aliases resolved to the actual
+/// name (Go `ActionCommands`' `UidF`).
+pub fn action_commands(cmd: &Command, path: &[String]) -> Action {
     let include_hidden = crate::config::hidden() == crate::config::Hidden::IncludeCarapace;
 
     let mut group_order: Vec<String> = Vec::new();
@@ -325,10 +339,39 @@ pub fn action_commands(cmd: &Command) -> Action {
         .collect();
     let action = Action::values_described(values).tag("commands");
 
+    // aliases resolve to the actual command name in the uid path (Go's
+    // `cmd.Find` in the UidF closure)
+    let name_of: std::collections::HashMap<String, String> = cmd
+        .subcommands
+        .iter()
+        .flat_map(|subcommand| {
+            std::iter::once((subcommand.name.clone(), subcommand.name.clone())).chain(
+                subcommand
+                    .aliases
+                    .iter()
+                    .map(|alias| (alias.clone(), subcommand.name.clone())),
+            )
+        })
+        .collect();
+    let root = path.first().map(String::as_str).unwrap_or("").to_owned();
+    let segments: Vec<String> = path.get(1..).unwrap_or(&[]).to_vec();
+
     let carapace_styles = crate::config::styles().carapace;
     let group_for_tag = group_of.clone();
     let group_for_style = group_of;
     action
+        .uid_f(move |value| {
+            let actual = name_of
+                .get(value)
+                .cloned()
+                .unwrap_or_else(|| value.to_string());
+            let segments: Vec<&str> = segments
+                .iter()
+                .map(String::as_str)
+                .chain(std::iter::once(actual.as_str()))
+                .collect();
+            crate::uid::command(&root, &segments)
+        })
         .tag_f(
             move |value| match group_for_tag.get(&value.value).cloned().flatten() {
                 Some(group) if group.ends_with(" commands") => group,

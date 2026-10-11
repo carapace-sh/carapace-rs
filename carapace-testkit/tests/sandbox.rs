@@ -13,9 +13,11 @@ fn cli() -> Command {
 #[test]
 fn sandbox_completes_positionals() {
     let sandbox = Sandbox::new("positional");
-    sandbox
-        .run(cli, &[""])
-        .expect(Action::values_described([("build", "build things")]).tag("commands"));
+    sandbox.run(cli, &[""]).expect(
+        Action::values_described([("build", "build things")])
+            .tag("commands")
+            .uid_f(|value| carapace_core::uid::command("myapp", &[value])),
+    );
 }
 
 #[test]

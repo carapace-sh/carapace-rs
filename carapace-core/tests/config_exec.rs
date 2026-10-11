@@ -104,9 +104,42 @@ fn style_config_lists_entries() {
 
 #[test]
 fn styles_action_lists_known_names() {
-    let invoked = Action::styles().invoke(&Context::default());
+    let invoked = Action::styles(Vec::<String>::new()).invoke(&Context::default());
     assert!(invoked.values.iter().any(|v| v.value == "blue"));
     assert!(invoked.values.iter().any(|v| v.value == "underlined"));
+    assert!(invoked.values.iter().any(|v| v.value == "bg-magenta"));
+    // the 256-color ranges stay collapsed until the word starts with them
+    assert!(invoked.values.iter().any(|v| v.value == "color"));
+    assert!(!invoked.values.iter().any(|v| v.value == "color12"));
+}
+
+#[test]
+fn styles_action_expands_256_colors_contextually() {
+    let invoked = Action::styles(Vec::<String>::new()).invoke(&Context::default().value("color1"));
+    let values: Vec<String> = invoked.values.into_iter().map(|v| v.value).collect();
+    assert!(values.contains(&"color12".to_owned()));
+    assert!(!values.contains(&"color".to_owned()));
+    // the background half is unaffected by the foreground word
+    assert!(values.iter().any(|v| v == "bg-color"));
+}
+
+#[test]
+fn styles_action_combines_existing_styles() {
+    let invoked = Action::styles(["bold"]).invoke(&Context::default());
+    let blue = invoked
+        .values
+        .iter()
+        .find(|v| v.value == "blue")
+        .expect("blue candidate");
+    assert_eq!(blue.style, "bold blue");
+}
+
+#[test]
+fn styles_action_suppresses_taken_halves() {
+    let invoked = Action::styles(["blue"]).invoke(&Context::default());
+    let values: Vec<&str> = invoked.values.iter().map(|v| v.value.as_str()).collect();
+    assert!(!values.contains(&"red"), "foreground taken");
+    assert!(values.contains(&"bg-red"), "background still offered");
 }
 
 #[test]

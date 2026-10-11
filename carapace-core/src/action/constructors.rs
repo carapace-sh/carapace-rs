@@ -164,24 +164,59 @@ impl Action {
         })
     }
 
-    /// Complete known style names (for `style` configuration).
-    pub fn styles() -> Self {
-        Self::values([
-            "blue",
-            "cyan",
-            "magenta",
-            "white",
-            "red",
-            "green",
-            "yellow",
-            "black",
-            "default",
-            "bold",
-            "italic",
-            "underlined",
-            "dimmed",
-            "inverse",
-        ])
+    /// Complete style values (Go `ActionStyles`).
+    ///
+    /// The already-present styles are combined into each candidate and
+    /// suppress the foreground or background half of the catalog once
+    /// taken; the 256-color ranges expand contextually.
+    pub fn styles(existing: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let existing: Vec<String> = existing.into_iter().map(Into::into).collect();
+        Self::callback(move |c| {
+            let fg = existing.iter().any(|s| is_foreground_color(s));
+            let bg = existing.iter().any(|s| s.starts_with("bg-"));
+            let combined = |value: &str| {
+                let mut styles = existing.clone();
+                styles.push(value.to_owned());
+                styles.join(" ")
+            };
+
+            let mut values: Vec<RawValue> = Vec::new();
+            if !fg {
+                for color in FOREGROUND_COLORS {
+                    values.push(RawValue::styled(color.to_owned(), combined(color)));
+                }
+                if c.value.starts_with("color") {
+                    for index in 0..=255u16 {
+                        values.push(RawValue::styled(
+                            format!("color{index}"),
+                            combined(&format!("color{index}")),
+                        ));
+                    }
+                } else {
+                    values.push(RawValue::styled("color", combined("color")));
+                }
+            }
+            if !bg {
+                for color in FOREGROUND_COLORS {
+                    let name = format!("bg-{color}");
+                    values.push(RawValue::styled(&name, combined(&name)));
+                }
+                if c.value.starts_with("bg-color") {
+                    for index in 0..=255u16 {
+                        values.push(RawValue::styled(
+                            format!("bg-color{index}"),
+                            combined(&format!("bg-color{index}")),
+                        ));
+                    }
+                } else {
+                    values.push(RawValue::styled("bg-color", combined("bg-color")));
+                }
+            }
+            for attribute in ["bold", "dim", "italic", "underlined", "blink", "inverse"] {
+                values.push(RawValue::styled(attribute, combined(attribute)));
+            }
+            Action::raw(values).nospace(['r']).tag("styles")
+        })
     }
 
     /// Complete style configuration values (e.g. `carapace.Error=bold red`).
@@ -245,6 +280,32 @@ fn is_executable(path: &Path) -> bool {
     {
         path.extension().is_some_and(|ext| ext == "exe")
     }
+}
+
+const FOREGROUND_COLORS: [&str; 16] = [
+    "black",
+    "red",
+    "green",
+    "yellow",
+    "blue",
+    "magenta",
+    "cyan",
+    "white",
+    "bright-black",
+    "bright-red",
+    "bright-green",
+    "bright-yellow",
+    "bright-blue",
+    "bright-magenta",
+    "bright-cyan",
+    "bright-white",
+];
+
+fn is_foreground_color(style: &str) -> bool {
+    FOREGROUND_COLORS.contains(&style)
+        || style.starts_with('#')
+        || style.starts_with("color")
+        || style.starts_with("fg-")
 }
 
 fn sort_executables(values: &mut [RawValue]) {

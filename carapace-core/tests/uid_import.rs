@@ -12,8 +12,13 @@ fn uid_command_and_flag() {
 
 #[test]
 fn uid_path_escape() {
-    assert_eq!(uid::path_escape("users/admin"), "users-admin");
+    // slashes are preserved as separators (Go uid.PathEscape)
+    assert_eq!(uid::path_escape("users/admin"), "users/admin");
+    assert_eq!(uid::path_escape("/tmp"), "/tmp");
     assert_eq!(uid::path_escape("a b"), "a%20b");
+    // segment escaping keeps the reserved `: @ & = + $`, escapes `; , ?`
+    assert_eq!(uid::path_escape("a;b,c?d"), "a%3Bb%2Cc%3Fd");
+    assert_eq!(uid::path_escape("a@b&c=d+e$f"), "a@b&c=d+e$f");
 }
 
 #[test]
@@ -34,7 +39,7 @@ fn uid_modifier_sets_value_uids() {
     );
     assert_eq!(
         invoked.values[1].uid.as_deref(),
-        Some("cmd://app/b-c?flag=force")
+        Some("cmd://app/b/c?flag=force")
     );
 }
 

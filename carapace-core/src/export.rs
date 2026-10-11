@@ -44,13 +44,13 @@ pub struct ExportValue {
     pub value: String,
     #[serde(default)]
     pub display: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub style: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub tag: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub uid: String,
     /// Per-value nospace (Rust extension; Go consumers ignore unknown keys,
     /// Go-written exports default to None). Keeps cache round-trips faithful
@@ -78,20 +78,23 @@ fn matcher_chars(string: &str) -> Vec<char> {
 
 /// Query annotation as a uid-style URL string (Go `url.URL.String()`).
 fn query_string(query: &Query) -> String {
-    let mut url = format!(
-        "{}://{}/{}",
-        query.scheme,
-        crate::uid::path_escape(&query.host),
-        crate::uid::path_escape(&query.path),
-    );
+    // mirrors url.URL.String(): the path keeps its separators, an
+    // empty host collapses the authority (file:///tmp)
+    let host = crate::uid::path_escape(&query.host);
+    let path = crate::uid::path_escape(&query.path);
+    let mut url = format!("{}://{}", query.scheme, host);
+    if !host.is_empty() && !path.starts_with('/') {
+        url.push('/');
+    }
+    url.push_str(&path);
     let pairs: Vec<String> = query
         .opts
         .chunks(2)
         .filter_map(|pair| match pair {
             [key, value] if !value.is_empty() => Some(format!(
                 "{}={}",
-                crate::uid::path_escape(key),
-                crate::uid::path_escape(value)
+                crate::uid::query_escape(key),
+                crate::uid::query_escape(value)
             )),
             _ => None,
         })
@@ -112,7 +115,7 @@ fn parse_query(string: &str) -> Option<Query> {
         .split('&')
         .filter(|pair| !pair.is_empty())
         .flat_map(|pair| pair.splitn(2, '='))
-        .map(crate::uid::path_unescape)
+        .map(crate::uid::query_unescape)
         .collect();
     Some(Query {
         scheme: scheme.to_owned(),

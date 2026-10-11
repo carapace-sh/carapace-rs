@@ -3,20 +3,63 @@
 //! UIDs are URL strings: `cmd://root/sub?flag=name` for commands and flags,
 //! arbitrary schemes (e.g. `file://`) for values.
 
-/// Escape a value for use as a UID path segment: `/` becomes `-` before
-/// percent-encoding, since `/` is the path separator.
+/// Escape a value for use as a UID path: segments are escaped
+/// individually and slashes are preserved as separators (Go
+/// `uid.PathEscape`).
 pub fn path_escape(value: &str) -> String {
-    let replaced = value.replace('/', "-");
-    let mut result = String::with_capacity(replaced.len());
-    for byte in replaced.as_bytes() {
+    value
+        .split('/')
+        .map(segment_escape)
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+/// Escape a single path segment (Go `url.PathEscape`): unreserved
+/// characters and the reserved `: @ & = + $` stay, everything else
+/// percent-encodes.
+fn segment_escape(value: &str) -> String {
+    let mut result = String::with_capacity(value.len());
+    for byte in value.as_bytes() {
         match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                result.push(*byte as char)
-            }
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'~'
+            | b':'
+            | b'@'
+            | b'&'
+            | b'='
+            | b'+'
+            | b'$' => result.push(*byte as char),
             _ => result.push_str(&format!("%{byte:02X}")),
         }
     }
     result
+}
+
+/// Escape a query component (Go `url.QueryEscape` via `Values.Encode`):
+/// spaces become `+`, unreserved characters stay.
+pub(crate) fn query_escape(value: &str) -> String {
+    let mut result = String::with_capacity(value.len());
+    for byte in value.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                result.push(*byte as char)
+            }
+            b' ' => result.push('+'),
+            _ => result.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    result
+}
+
+/// Decode a query component: `+` becomes a space before percent-decoding
+/// (Go `url.QueryUnescape`).
+pub(crate) fn query_unescape(value: &str) -> String {
+    percent_unescape(&value.replace('+', " "))
 }
 
 /// UID of a command: `cmd://<root>/<subcommand-path>`.
@@ -57,6 +100,10 @@ pub fn with_opts(scheme: &str, host: &str, value: &str, opts: &[(&str, &str)]) -
 
 /// Inverse of [`path_escape`]: decode `%XX` percent-escapes.
 pub fn path_unescape(value: &str) -> String {
+    percent_unescape(value)
+}
+
+fn percent_unescape(value: &str) -> String {
     let bytes = value.as_bytes();
     let mut result = Vec::with_capacity(bytes.len());
     let mut index = 0;

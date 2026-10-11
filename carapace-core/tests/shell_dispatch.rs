@@ -674,3 +674,84 @@ fn for_path_ext_ignores_file_features() {
         "red bold"
     );
 }
+
+#[test]
+fn export_strips_uids_and_queries_unless_experimental() {
+    use carapace_core::meta::Query;
+
+    let _guard = env_lock();
+    clear_compline();
+    unsafe { std::env::remove_var("CARAPACE_EXPERIMENTAL") };
+
+    let mut value = RawValue::new("entry");
+    value.uid = Some("test://host/entry".to_owned());
+    let meta = Meta {
+        queries: vec![Query {
+            scheme: "file".to_owned(),
+            host: String::new(),
+            path: "/tmp".to_owned(),
+            opts: Vec::new(),
+        }],
+        ..Default::default()
+    };
+
+    let export = |meta: &Meta, values: &Vec<RawValue>| {
+        Shell::Export.value(
+            "",
+            meta,
+            values,
+            &carapace_core::shell::bash::Context::default(),
+        )
+    };
+
+    // default: uids and queries are stripped, empty fields omitted
+    let output = export(&meta, &vec![value.clone()]);
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert!(parsed["values"][0].get("uid").is_none(), "{output}");
+    assert!(parsed.get("queries").is_none(), "{output}");
+
+    // experimental flag without tabdance on PATH: still stripped
+    unsafe { std::env::set_var("CARAPACE_EXPERIMENTAL", "1") };
+    let empty_dir =
+        std::env::temp_dir().join(format!("carapace-empty-path-{}", std::process::id()));
+    std::fs::create_dir_all(&empty_dir).unwrap();
+    let saved_path = std::env::var("PATH").unwrap_or_default();
+    unsafe { std::env::set_var("PATH", &empty_dir) };
+    let output = export(&meta, &vec![value.clone()]);
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert!(parsed["values"][0].get("uid").is_none(), "{output}");
+
+    // experimental with tabdance available: kept
+    let fake = empty_dir.join("tabdance");
+    std::fs::write(&fake, "#!/bin/sh\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let output = export(&meta, &vec![value]);
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(parsed["values"][0]["uid"], "test://host/entry", "{output}");
+    assert_eq!(parsed["queries"][0], "file:///tmp", "{output}");
+
+    unsafe { std::env::remove_var("CARAPACE_EXPERIMENTAL") };
+    unsafe { std::env::set_var("PATH", saved_path) };
+    std::fs::remove_dir_all(empty_dir).unwrap();
+}
+
+#[test]
+fn export_omits_empty_value_fields() {
+    // Go's omitempty: description/style/tag/uid drop when empty
+    let output = carapace_core::shell::Shell::Export.value(
+        "",
+        &Meta::default(),
+        &vec![RawValue::new("plain")],
+        &carapace_core::shell::bash::Context::default(),
+    );
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(parsed["values"][0]["value"], "plain");
+    assert!(parsed["values"][0].get("description").is_none(), "{output}");
+    assert!(parsed["values"][0].get("style").is_none(), "{output}");
+    assert!(parsed["values"][0].get("tag").is_none(), "{output}");
+    assert!(parsed["values"][0].get("uid").is_none(), "{output}");
+}

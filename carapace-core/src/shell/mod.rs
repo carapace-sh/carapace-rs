@@ -170,25 +170,43 @@ impl Shell {
         }
 
         values.sort_by(by_display);
+
+        // experimental mode (CARAPACE_EXPERIMENTAL and tabdance on PATH)
+        // keeps uids and queries for tabdance; they are stripped otherwise
+        if experimental_with_tabdance() {
+            return self.format(current_word, &meta, &values, bash_context);
+        }
         for value in &mut values {
             value.uid = None;
         }
         unique(&mut values);
+        meta.queries.clear();
 
+        self.format(current_word, &meta, &values, bash_context)
+    }
+
+    /// The per-shell formatter dispatch (shared by both value paths).
+    fn format(
+        &self,
+        current_word: &str,
+        meta: &Meta,
+        values: &RawValues,
+        bash_context: &bash::Context,
+    ) -> String {
         match self {
-            Self::Bash => bash::action_raw_values(current_word, &meta, &values, bash_context),
-            Self::BashBle => simple::bash_ble::action_raw_values(current_word, &meta, &values),
-            Self::CmdClink => simple::cmd_clink::action_raw_values(current_word, &meta, &values),
-            Self::Ion => simple::ion::action_raw_values(current_word, &meta, &values),
-            Self::Oil => simple::oil::action_raw_values(current_word, &meta, &values),
-            Self::Tcsh => simple::tcsh::action_raw_values(current_word, &meta, &values),
-            Self::Elvish => elvish::action_raw_values(current_word, &meta, &values),
-            Self::Fish => fish::action_raw_values(&values),
-            Self::Nushell => nushell::action_raw_values(current_word, &meta, &values),
-            Self::PowerShell => powershell::action_raw_values(current_word, &meta, &values),
-            Self::Xonsh => xonsh::action_raw_values(current_word, &meta, &values),
-            Self::Zsh => zsh::action_raw_values(current_word, &meta, &values),
-            Self::Export => crate::export::Export::from_parts(&meta, &values).to_json(),
+            Self::Bash => bash::action_raw_values(current_word, meta, values, bash_context),
+            Self::BashBle => simple::bash_ble::action_raw_values(current_word, meta, values),
+            Self::CmdClink => simple::cmd_clink::action_raw_values(current_word, meta, values),
+            Self::Ion => simple::ion::action_raw_values(current_word, meta, values),
+            Self::Oil => simple::oil::action_raw_values(current_word, meta, values),
+            Self::Tcsh => simple::tcsh::action_raw_values(current_word, meta, values),
+            Self::Elvish => elvish::action_raw_values(current_word, meta, values),
+            Self::Fish => fish::action_raw_values(values),
+            Self::Nushell => nushell::action_raw_values(current_word, meta, values),
+            Self::PowerShell => powershell::action_raw_values(current_word, meta, values),
+            Self::Xonsh => xonsh::action_raw_values(current_word, meta, values),
+            Self::Zsh => zsh::action_raw_values(current_word, meta, values),
+            Self::Export => crate::export::Export::from_parts(meta, values).to_json(),
         }
     }
 
@@ -249,6 +267,28 @@ fn is_ble() -> bool {
     ]
     .iter()
     .any(|name| std::env::var_os(name).is_some())
+}
+
+/// Experimental mode (Go `env.Experimental` plus the tabdance lookup):
+/// uids and queries are only surfaced when both hold.
+fn experimental_with_tabdance() -> bool {
+    crate::config::flag("CARAPACE_EXPERIMENTAL") && look_path("tabdance").is_some()
+}
+
+/// Find an executable on `PATH` (Go `exec.LookPath`).
+fn look_path(program: &str) -> Option<std::path::PathBuf> {
+    let path = std::env::var("PATH").ok()?;
+    std::env::split_paths(&path).find_map(|dir| {
+        let candidate = dir.join(program);
+        let with_ext = if cfg!(windows) {
+            dir.join(format!("{program}.exe"))
+        } else {
+            candidate.clone()
+        };
+        [candidate, with_ext]
+            .into_iter()
+            .find(|path| path.is_file())
+    })
 }
 
 fn env_flag(name: &str) -> bool {

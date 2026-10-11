@@ -9,7 +9,7 @@ mod convert;
 mod entry;
 mod integration;
 
-pub use completer::{ArgCompleter, CommandCompleter, DashAnyCompleter};
+pub use completer::{ArgCompleter, CommandCompleter, DashAnyCompleter, DashPositionalCompleter};
 pub use convert::to_model;
 pub use entry::{complete, complete_output, execute_embedded, snippet};
 pub use integration::Carapace;
@@ -43,4 +43,20 @@ pub fn positional_completion(cmd: &mut clap::Command, index: usize, action: cara
     if let Some(id) = id {
         arg_completion(cmd, &id, action);
     }
+}
+
+/// Attach a completion action to the dash argument (`--`) at the given
+/// 1-based index (port of Go `DashCompletion`, addressed per index).
+pub fn positional_dash_completion(
+    cmd: &mut clap::Command,
+    index: usize,
+    action: carapace_core::Action,
+) {
+    let mut entries = cmd
+        .get::<DashPositionalCompleter>()
+        .map(|completer| completer.0.clone())
+        .unwrap_or_default();
+    entries.retain(|(existing, _)| *existing != index);
+    entries.push((index, action));
+    *cmd = std::mem::take(cmd).add(DashPositionalCompleter(entries));
 }

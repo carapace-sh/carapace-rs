@@ -3,7 +3,7 @@
 use carapace_core::Action;
 use carapace_core::model::{ArgumentStyle, Command, Flag, Nargs, Positional};
 
-use crate::completer::{ArgCompleter, CommandCompleter, DashAnyCompleter};
+use crate::completer::{ArgCompleter, CommandCompleter, DashAnyCompleter, DashPositionalCompleter};
 
 /// Convert a built clap command tree into the normalized model.
 ///
@@ -47,6 +47,18 @@ fn convert_command(cmd: &clap::Command) -> Command {
     }
     if let Some(completer) = cmd.get::<DashAnyCompleter>() {
         model.dash_any = Some(completer.0.clone());
+    }
+    if let Some(completer) = cmd.get::<DashPositionalCompleter>() {
+        let mut entries = completer.0.clone();
+        entries.sort_by_key(|(index, _)| *index);
+        model.dash_positionals = entries
+            .into_iter()
+            .map(|(index, action)| Positional {
+                name: format!("dash{index}"),
+                completion: Some(action),
+                ..Default::default()
+            })
+            .collect();
     }
     model.hidden = cmd.is_hide_set();
     init_help_completion(&mut model);

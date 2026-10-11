@@ -301,3 +301,46 @@ fn dash_any_completion() {
         .collect();
     assert_eq!(values, vec!["after-dash"]);
 }
+
+#[test]
+fn carapace_attaches_dash_completions() {
+    let cmd = Command::new("app")
+        .positional_dash_completion(1, Action::values(["dash1"]))
+        .positional_dash_any_completion(Action::values(["dash-rest"]));
+
+    let model = to_model(&mut cmd.clone());
+    assert_eq!(model.dash_positionals.len(), 1);
+    let invoked = model.dash_positionals[0]
+        .completion
+        .as_ref()
+        .unwrap()
+        .invoke(&Context::default());
+    assert_eq!(invoked.values[0].value, "dash1");
+    assert!(model.dash_any.is_some());
+}
+
+#[test]
+fn positional_dash_completion_replaces_same_index() {
+    let cmd = Command::new("app")
+        .positional_dash_completion(2, Action::values(["first"]))
+        .positional_dash_completion(1, Action::values(["a"]))
+        .positional_dash_completion(2, Action::values(["second"]));
+
+    let model = to_model(&mut cmd.clone());
+    let values: Vec<String> = model
+        .dash_positionals
+        .iter()
+        .map(|positional| {
+            positional
+                .completion
+                .as_ref()
+                .unwrap()
+                .invoke(&Context::default())
+                .values[0]
+                .value
+                .clone()
+        })
+        .collect();
+    // sorted by index, and the later call for index 2 won
+    assert_eq!(values, vec!["a".to_owned(), "second".to_owned()]);
+}

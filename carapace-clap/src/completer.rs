@@ -40,7 +40,7 @@ impl std::fmt::Debug for DashAnyCompleter {
 impl CommandExt for DashAnyCompleter {}
 
 /// Command-level completion (e.g. any-positional), stored as a command extension.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CommandCompleter(pub Action);
 
 impl CommandCompleter {
@@ -56,3 +56,11 @@ impl std::fmt::Debug for CommandCompleter {
 }
 
 impl CommandExt for CommandCompleter {}
+
+/// Per-index completion for positionals after `--`, stored as a command
+/// extension. Entries are (1-based dash-argument index, action); setting
+/// the same index again replaces the previous action.
+#[derive(Clone, Debug, Default)]
+pub struct DashPositionalCompleter(pub Vec<(usize, Action)>);
+
+impl CommandExt for DashPositionalCompleter {}

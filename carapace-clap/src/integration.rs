@@ -18,8 +18,6 @@ use carapace_core::Action;
 ///     .flag_completion([("profile", Action::values(["dev", "prod"]))]);
 /// ```
 pub trait Carapace {
-    /// Complete the value(s) of the arg with the given clap id.
-    fn arg_completion(self, id: &str, action: Action) -> Self;
     /// Complete the value(s) of the named flags: keys are flag long names,
     /// aliases or shorthands (Go's `FlagCompletion` ActionMap).
     fn flag_completion<K: Into<String>>(
@@ -39,12 +37,6 @@ pub trait Carapace {
 }
 
 impl Carapace for clap::Command {
-    fn arg_completion(mut self, id: &str, action: Action) -> Self {
-        self.build();
-        crate::arg_completion(&mut self, id, action);
-        self
-    }
-
     fn flag_completion<K: Into<String>>(
         mut self,
         actions: impl IntoIterator<Item = (K, Action)>,

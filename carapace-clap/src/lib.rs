@@ -17,12 +17,6 @@ pub use convert::to_model;
 pub use entry::{complete, complete_output, execute_embedded, snippet};
 pub use integration::Carapace;
 
-/// Attach a completion action to the value(s) of the flag or positional
-/// identified by its clap arg id.
-pub fn arg_completion(cmd: &mut clap::Command, id: &str, action: carapace_core::Action) {
-    *cmd = std::mem::take(cmd).mut_arg(id, |arg| arg.add(ArgCompleter::new(action)));
-}
-
 /// Define completion for flags by name (port of Go `FlagCompletion` with
 /// its `ActionMap`): keys are flag long names, aliases or shorthands.
 /// Later calls merge per key (a repeated key replaces that flag's action).

@@ -352,7 +352,9 @@ fn positional_completion_fills_unset_positionals_in_order() {
     let cmd = Command::new("app")
         .arg(Arg::new("first").index(1))
         .arg(Arg::new("second").index(2))
-        .arg_completion("second", Action::values(["own"]))
+        .mut_arg("second", |arg| {
+            arg.add(carapace_clap::ArgCompleter::new(Action::values(["own"])))
+        })
         .positional_completion([Action::values(["first-action"]), Action::values(["unused"])]);
 
     let model = to_model(&mut cmd.clone());

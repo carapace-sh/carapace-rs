@@ -6,9 +6,12 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
-carapace-core = { path = "../carapace-core" }
+carapace-core = { path = "../carapace-core", version = "0.1.0" }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 

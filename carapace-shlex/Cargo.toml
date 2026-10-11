@@ -6,6 +6,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+readme.workspace = true
+keywords = ["shell", "lexer", "tokenizer", "completion", "carapace"]
+categories.workspace = true
 
 [dependencies]
 shlex = "1"

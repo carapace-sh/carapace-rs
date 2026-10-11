@@ -56,6 +56,8 @@ cargo run -p carapace-clap --example demo -- _carapace spec
 ## Workspace Layout
 
 ```
+carapace-rs/      facade crate: re-exports the clap integration, Action API and macros;
+                  the name users depend on for publication (plain `carapace` is squatted)
 carapace-shlex/   the ported carapace-shlex completion core: per-format lexing
                   (12-state machine, quoting states, wordbreak/operator
                   classification, spans), Complete() context (words, current

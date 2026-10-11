@@ -6,6 +6,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+readme.workspace = true
+keywords = ["clap", "derive", "macros", "completion", "carapace"]
+categories.workspace = true
 
 [lib]
 proc-macro = true
@@ -15,7 +18,7 @@ proc-macro2 = "1"
 quote = "1"
 
 [dev-dependencies]
-carapace-clap = { path = "../carapace-clap" }
-carapace-core = { path = "../carapace-core" }
-carapace-testkit = { path = "../carapace-testkit" }
+carapace-clap = { path = "../carapace-clap", version = "0.1.0" }
+carapace-core = { path = "../carapace-core", version = "0.1.0" }
+carapace-testkit = { path = "../carapace-testkit", version = "0.1.0" }
 clap = { version = "4.6", features = ["derive"] }

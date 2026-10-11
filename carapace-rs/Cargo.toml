@@ -1,0 +1,20 @@
+[package]
+name = "carapace-rs"
+description = "carapace shell completion for Rust: clap integration, Action API and derive macros"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+carapace-clap = { path = "../carapace-clap", version = "0.1.0" }
+carapace-core = { path = "../carapace-core", version = "0.1.0" }
+carapace-macros = { path = "../carapace-macros", version = "0.1.0" }
+
+[dev-dependencies]
+clap = { version = "4.6", features = ["derive"] }
+carapace-testkit = { path = "../carapace-testkit", version = "0.1.0" }

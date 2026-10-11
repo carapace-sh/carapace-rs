@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["carapace-shlex", "carapace-core", "carapace-clap", "carapace-testkit", "carapace-spec", "carapace-bridge", "carapace-macros"]
+members = ["carapace-rs", "carapace-shlex", "carapace-core", "carapace-clap", "carapace-testkit", "carapace-spec", "carapace-bridge", "carapace-macros"]
 
 [workspace.package]
 version = "0.1.0"
@@ -8,3 +8,6 @@ edition = "2024"
 rust-version = "1.85"
 license = "Apache-2.0"
 repository = "https://github.com/carapace-sh/carapace-rs"
+readme = "README.md"
+keywords = ["completion", "shell", "carapace"]
+categories = ["command-line-utilities", "development-tools"]

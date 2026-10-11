@@ -152,6 +152,7 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
             .unwrap_or_else(|| arg.get_id().as_str())
             .to_owned(),
         shorthand: arg.get_short(),
+        shorthand_only: arg.get_long().is_none() && arg.get_short().is_some(),
         aliases,
         takes_value,
         nargs,

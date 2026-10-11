@@ -72,6 +72,49 @@ fn complete_dispatches_on_carapace_arg() {
 }
 
 #[test]
+fn complete_strips_command_name() {
+    // the shells' snippets pass the full compline: command name first,
+    // cursor word last (Go's complete() drops the command name)
+    let _guard = env_lock();
+    clear_comp_env();
+    let with_name = carapace_clap::complete(
+        factory,
+        &[
+            "_carapace".to_string(),
+            "export".to_string(),
+            "myapp".to_string(),
+            "".to_string(),
+        ],
+    )
+    .unwrap();
+    let without_name = carapace_clap::complete_output(factory, Shell::Export, &["".to_string()]);
+    assert_eq!(with_name, without_name, "command name must be dropped");
+
+    let subcommand = carapace_clap::complete(
+        factory,
+        &[
+            "_carapace".to_string(),
+            "export".to_string(),
+            "myapp".to_string(),
+            "--".to_string(),
+        ],
+    )
+    .unwrap();
+    let parsed = carapace_core::export::Export::from_json(&subcommand).unwrap();
+    assert_eq!(parsed.values[1].value, "--profile");
+}
+
+#[test]
+fn export_snippet_is_command_structure() {
+    let output = carapace_clap::snippet(factory, Shell::Export);
+    let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(parsed["Name"], "myapp");
+    assert_eq!(parsed["LocalFlags"][0]["Longhand"], "profile");
+    assert_eq!(parsed["LocalFlags"][0]["Type"], "string");
+    assert!(parsed.get("Commands").is_none());
+}
+
+#[test]
 fn snippet_contains_registration() {
     let snippet = carapace_clap::snippet(factory, Shell::Bash);
     assert!(snippet.starts_with("#!/bin/bash"), "{snippet}");

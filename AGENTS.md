@@ -16,7 +16,7 @@ live next to this one and should be consulted when porting or verifying behavior
 |---|---|
 | `../carapace` | core library: `action.go`, `traverse.go`, `complete.go`, `internal/shell/*`, `internal/pflagfork`, `pkg/*` |
 | `../carapace-bridge` | bridge reference: `pkg/actions/bridge/*.go` |
-| `../carapace-shlex` | shell lexing reference: `completion.go`, `shlex.go`, `quote.go`, `format_*.go` — the completion core is ported as the `carapace-shlex` crate; the verify-*_test real-shell corpora are not ported yet |
+| `../carapace-shlex` | shell lexing reference: `completion.go`, `shlex.go`, `quote.go`, `format_*.go` — the completion core is ported as the `carapace-shlex` crate (format tests 1:1; `verify_*.go` source-crosscheck corpora are ported in `src/verify.rs`, fish/zsh/xonsh/powershell sections condensed) |
 | `../carapace-spec` | YAML spec format and core macros |
 
 ## Repository Naming Taxonomy
@@ -49,7 +49,7 @@ cargo clippy --workspace      # must be warning-free
 Run the demo binary to try completions end to end:
 
 ```bash
-cargo run -p carapace-clap --example demo -- _carapace bash --profile ""
+cargo run -p carapace-clap --example demo -- _carapace bash demo --profile ""
 cargo run -p carapace-clap --example demo -- _carapace spec
 ```
 

@@ -64,9 +64,13 @@ demo _carapace fish | source           # fish
 A runnable demo lives in `carapace-clap/examples/demo.rs`:
 
 ```bash
-cargo run -p carapace-clap --example demo -- _carapace bash --profile ""
-cargo run -p carapace-clap --example demo -- _carapace export -- ""
+cargo run -p carapace-clap --example demo -- _carapace bash demo --profile ""
+cargo run -p carapace-clap --example demo -- _carapace export demo ""
 ```
+
+The word list after the shell mirrors the generated snippets: the command
+name first, the word being completed last (it is dropped before traversal,
+matching Go's `complete()`).
 
 ## How it works
 

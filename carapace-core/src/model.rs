@@ -67,6 +67,10 @@ pub struct Flag {
     pub name: String,
     /// Shorthand character, if any.
     pub shorthand: Option<char>,
+    /// Whether the flag was defined with a shorthand but no long name
+    /// (pflagfork `ShorthandOnly`; the command-structure export omits the
+    /// longhand for these).
+    pub shorthand_only: bool,
     /// Long aliases.
     pub aliases: Vec<String>,
     /// Whether the flag takes a value (`false` for booleans and counters).

@@ -1,4 +1,7 @@
-//! Demo CLI: `cargo run -p carapace-clap --example demo -- _carapace bash ...`
+//! Demo CLI: `cargo run -p carapace-clap --example demo -- _carapace bash demo ...`
+//!
+//! The word list after the shell mirrors the generated snippets: command
+//! name first, cursor word last.
 //!
 //! Register completions with (bash): `source <(cargo run ... -- _carapace bash)`.
 

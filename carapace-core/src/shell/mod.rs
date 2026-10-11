@@ -2,6 +2,7 @@
 
 pub mod bash;
 pub mod elvish;
+pub mod export;
 pub mod fish;
 pub mod nushell;
 pub mod powershell;

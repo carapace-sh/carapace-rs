@@ -7,8 +7,9 @@ use carapace_core::shell::{Shell, bash};
 /// Handle a `_carapace` invocation.
 ///
 /// Returns the formatted completion output when `args` is a completion
-/// request (`["_carapace", "<shell>", ...words]`), or `None` when the
-/// program should run normally.
+/// request (`["_carapace", "<shell>", "<command name>", ...words]`, the
+/// command name included as the shells' snippets send it), or `None` when
+/// the program should run normally.
 pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<String> {
     if args.first().map(String::as_str) != Some("_carapace") {
         return None;
@@ -34,10 +35,12 @@ pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<
         1 => Shell::detect().map(|shell| snippet(factory, shell)),
         // named shell: print its snippet
         2 => Shell::parse(&args[1]).map(|shell| snippet(factory, shell)),
-        // completion request
+        // completion request: the first word after the shell is the command
+        // name as the shell handed it over (Go's complete() drops it before
+        // traversing, mirroring the snippets which pass the full compline)
         _ => {
             let shell = Shell::parse(&args[1])?;
-            Some(complete_output(factory, shell, &args[2..]))
+            Some(complete_output(factory, shell, &args[3..]))
         }
     }
 }
@@ -163,7 +166,15 @@ fn style_set(name: &str, style: &str) {
 }
 
 /// Generate the shell integration snippet for the command.
+///
+/// The `export` shell has no integration script; it serializes the command
+/// tree as JSON instead (Go `internal/shell/export.Snippet`).
 pub fn snippet(factory: impl Fn() -> clap::Command, shell: Shell) -> String {
+    if shell == Shell::Export {
+        let mut cmd = factory();
+        let model = crate::to_model(&mut cmd);
+        return carapace_core::shell::export::snippet(&model);
+    }
     let cmd = factory();
     shell.snippet(cmd.get_name())
 }

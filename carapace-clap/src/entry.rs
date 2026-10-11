@@ -17,6 +17,7 @@ pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<
     carapace_core::log::log(&"-".repeat(80));
     carapace_core::log::log(&format!("{args:?}"));
     // _carapace spec: dump the command tree as YAML spec
+    #[cfg(feature = "spec")]
     if args.get(1).map(String::as_str) == Some("spec") {
         let mut cmd = factory();
         let model = crate::to_model(&mut cmd);

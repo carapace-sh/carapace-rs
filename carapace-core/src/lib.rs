@@ -5,16 +5,24 @@
 //! their own crates and produce the [`model::Command`] tree consumed here.
 
 pub mod action;
+// Internal machinery (Go's `internal/` packages): reachable for adapters and
+// the test harness, but not part of the stable API.
+#[doc(hidden)]
 pub mod cache;
+#[doc(hidden)]
 pub mod config;
 pub mod context;
 pub mod export;
+#[doc(hidden)]
 pub mod log;
+#[doc(hidden)]
 pub mod meta;
+#[doc(hidden)]
 pub mod mock;
 pub mod model;
 pub mod shell;
 pub mod traverse;
+#[doc(hidden)]
 pub mod uid;
 pub mod value;
 

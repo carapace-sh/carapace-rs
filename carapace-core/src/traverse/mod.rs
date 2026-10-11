@@ -28,6 +28,10 @@ pub fn traverse(root: &Command, args: Vec<String>) -> Completion {
 }
 
 fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Completion {
+    crate::log::log(&format!(
+        "traverse called for {:?} with args {args:?}",
+        cmd.name
+    ));
     let mut context = Context::new(args.clone());
 
     let mut in_args: Vec<String> = Vec::new();
@@ -38,6 +42,7 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
     for (index, arg) in context.args.clone().into_iter().enumerate() {
         if let Some(flag) = in_flag.as_ref() {
             if flag.consumes(&arg) {
+                crate::log::log(&format!("arg {arg:?} is a flag argument"));
                 in_args.push(arg.clone());
                 let flag = in_flag.as_mut().unwrap();
                 flag.args.push(arg);
@@ -50,6 +55,7 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
 
         let double_prefix: String = [cmd.flag_prefix, cmd.flag_prefix].iter().collect();
         if arg == double_prefix {
+            crate::log::log(&format!("arg {arg:?} is dash"));
             in_args.extend(context.args[index..].to_vec());
             dash = true;
             break;
@@ -60,22 +66,30 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
             && starts_with_prefix
             && (cmd.interspersed || in_positionals.is_empty())
         {
+            crate::log::log(&format!("arg {arg:?} is a flag"));
+            let matched = lookup::lookup_arg(cmd, &arg);
+            if matched.is_none() {
+                crate::log::log(&format!("flag {arg:?} is unknown"));
+            }
             in_args.push(arg.clone());
-            in_flag = lookup::lookup_arg(cmd, &arg);
+            in_flag = matched;
             continue;
         }
 
         if let Some(subcommand) = cmd.lookup_subcommand(&arg) {
+            crate::log::log(&format!("arg {arg:?} is a subcommand"));
             // recurse with everything after the subcommand, including the
             // value being completed as the last word (Go passes args[i+1:])
             return traverse_command(subcommand, args[index + 1..].to_vec(), Vec::new());
         }
 
+        crate::log::log(&format!("arg {arg:?} is a positional"));
         in_args.push(arg.clone());
         in_positionals.push(arg);
     }
 
     let parsed = if cmd.disable_flag_parsing {
+        crate::log::log(&format!("flag parsing disabled for {:?}", cmd.name));
         if dash {
             // everything after the dash belongs to the parent's args
         } else {

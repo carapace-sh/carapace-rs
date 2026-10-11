@@ -16,14 +16,17 @@ fn sanitize(value: &str) -> String {
 ///
 /// see https://www.nushell.sh/book/working_with_strings.html
 pub fn patch(args: Vec<String>) -> Vec<String> {
-    args.into_iter()
+    let patched: Vec<String> = args
+        .into_iter()
         .map(|arg| match arg.chars().next() {
             Some(quote @ ('"' | '\'' | '`')) if arg.ends_with(quote) && arg.len() > 1 => {
                 carapace_shlex::complete(&arg, carapace_shlex::Format::Nushell).current_word
             }
             _ => arg,
         })
-        .collect()
+        .collect();
+    crate::log::log(&format!("patching args to {patched:?}"));
+    patched
 }
 
 fn escape(value: &str) -> String {

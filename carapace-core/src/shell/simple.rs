@@ -167,6 +167,7 @@ pub mod cmd_clink {
         if !words.is_empty() {
             words.remove(0); // the binary name
         }
+        crate::log::log(&format!("patching args to {words:?}"));
         words
     }
 

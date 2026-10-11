@@ -212,6 +212,18 @@ pub enum Patch {
 /// Only meaningful when the shell exported `COMP_LINE`; otherwise the
 /// original arguments are passed through untouched.
 pub fn patch(args: Vec<String>) -> Patch {
+    crate::log::log(&format!(
+        "COMP_LINE is {:?}",
+        std::env::var("COMP_LINE").unwrap_or_default()
+    ));
+    crate::log::log(&format!(
+        "COMP_POINT is {:?}",
+        std::env::var("COMP_POINT").unwrap_or_default()
+    ));
+    crate::log::log(&format!(
+        "COMP_WORDBREAKS is {:?}",
+        std::env::var("COMP_WORDBREAKS").unwrap_or_default()
+    ));
     let Ok(compline) = std::env::var("COMP_LINE") else {
         return Patch::Patched {
             args,
@@ -240,6 +252,7 @@ pub fn patch(args: Vec<String>) -> Patch {
     if !cleaned.is_empty() {
         cleaned.remove(0);
     }
+    crate::log::log(&format!("patching args to {cleaned:?}"));
     Patch::Patched {
         args: cleaned,
         wordbreak_prefix: context.prefix,

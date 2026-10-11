@@ -66,6 +66,25 @@ impl Shell {
         })
     }
 
+    /// The shell's name (Go's shell identifier).
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Bash => "bash",
+            Self::BashBle => "bash-ble",
+            Self::CmdClink => "cmd-clink",
+            Self::Elvish => "elvish",
+            Self::Fish => "fish",
+            Self::Ion => "ion",
+            Self::Nushell => "nushell",
+            Self::Oil => "oil",
+            Self::PowerShell => "powershell",
+            Self::Tcsh => "tcsh",
+            Self::Xonsh => "xonsh",
+            Self::Zsh => "zsh",
+            Self::Export => "export",
+        }
+    }
+
     /// Shells with native message support (messages are not integrated as values).
     fn native_messages(&self) -> bool {
         matches!(self, Self::Elvish | Self::Zsh | Self::Export)

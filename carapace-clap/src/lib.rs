@@ -47,11 +47,7 @@ pub fn positional_completion(cmd: &mut clap::Command, index: usize, action: cara
 
 /// Attach a completion action to the dash argument (`--`) at the given
 /// 1-based index (port of Go `DashCompletion`, addressed per index).
-pub fn positional_dash_completion(
-    cmd: &mut clap::Command,
-    index: usize,
-    action: carapace_core::Action,
-) {
+pub fn dash_completion(cmd: &mut clap::Command, index: usize, action: carapace_core::Action) {
     let mut entries = cmd
         .get::<DashPositionalCompleter>()
         .map(|completer| completer.0.clone())

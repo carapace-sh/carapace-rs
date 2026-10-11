@@ -287,7 +287,7 @@ fn dash_any_completion() {
     let mut cmd = Command::new("app")
         .arg(Arg::new("target").index(1))
         .arg(Arg::new("rest").num_args(0..).index(2))
-        .positional_dash_any_completion(Action::values(["after-dash"]));
+        .dash_any_completion(Action::values(["after-dash"]));
 
     let model = to_model(&mut cmd);
     assert!(model.dash_any.is_some());
@@ -305,8 +305,8 @@ fn dash_any_completion() {
 #[test]
 fn carapace_attaches_dash_completions() {
     let cmd = Command::new("app")
-        .positional_dash_completion(1, Action::values(["dash1"]))
-        .positional_dash_any_completion(Action::values(["dash-rest"]));
+        .dash_completion(1, Action::values(["dash1"]))
+        .dash_any_completion(Action::values(["dash-rest"]));
 
     let model = to_model(&mut cmd.clone());
     assert_eq!(model.dash_positionals.len(), 1);
@@ -320,11 +320,11 @@ fn carapace_attaches_dash_completions() {
 }
 
 #[test]
-fn positional_dash_completion_replaces_same_index() {
+fn dash_completion_replaces_same_index() {
     let cmd = Command::new("app")
-        .positional_dash_completion(2, Action::values(["first"]))
-        .positional_dash_completion(1, Action::values(["a"]))
-        .positional_dash_completion(2, Action::values(["second"]));
+        .dash_completion(2, Action::values(["first"]))
+        .dash_completion(1, Action::values(["a"]))
+        .dash_completion(2, Action::values(["second"]));
 
     let model = to_model(&mut cmd.clone());
     let values: Vec<String> = model

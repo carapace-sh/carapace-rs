@@ -27,9 +27,9 @@ pub trait Carapace {
     /// Complete any positional beyond the defined ones.
     fn positional_any_completion(self, action: Action) -> Self;
     /// Complete the dash argument (`--`) at the given 1-based index.
-    fn positional_dash_completion(self, index: usize, action: Action) -> Self;
+    fn dash_completion(self, index: usize, action: Action) -> Self;
     /// Complete any positional after `--`.
-    fn positional_dash_any_completion(self, action: Action) -> Self;
+    fn dash_any_completion(self, action: Action) -> Self;
 }
 
 impl Carapace for clap::Command {
@@ -57,13 +57,13 @@ impl Carapace for clap::Command {
         self
     }
 
-    fn positional_dash_completion(mut self, index: usize, action: Action) -> Self {
+    fn dash_completion(mut self, index: usize, action: Action) -> Self {
         self.build();
-        crate::positional_dash_completion(&mut self, index, action);
+        crate::dash_completion(&mut self, index, action);
         self
     }
 
-    fn positional_dash_any_completion(mut self, action: Action) -> Self {
+    fn dash_any_completion(mut self, action: Action) -> Self {
         self.build();
         self = self.add(DashAnyCompleter::new(action));
         self

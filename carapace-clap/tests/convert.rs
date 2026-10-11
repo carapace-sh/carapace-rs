@@ -182,6 +182,41 @@ fn carapace_attaches_completions() {
 }
 
 #[test]
+fn positional_completion_maps_by_argument_index() {
+    // Go completes the Nth argument: a variadic positional spans all
+    // remaining indices, so each provided action completes one argument
+    let cmd = Command::new("app")
+        .arg(Arg::new("target").index(1))
+        .arg(Arg::new("rest").num_args(0..).index(2));
+
+    let cmd = cmd.positional_completion([
+        Action::values(["first"]),
+        Action::values(["second"]),
+        Action::values(["third"]),
+    ]);
+
+    let model = to_model(&mut cmd.clone());
+    let value_at = |index: usize| {
+        model.positionals[index]
+            .completion
+            .as_ref()
+            .unwrap()
+            .invoke(&Context::default())
+            .values[0]
+            .value
+            .clone()
+    };
+    assert_eq!(value_at(0), "first");
+    assert_eq!(value_at(1), "second");
+    assert_eq!(value_at(2), "third");
+    // beyond the provided actions the variadic tail leaves the slot to
+    // positional_any
+    let tail = model.positionals.last().unwrap();
+    assert!(tail.repeatable);
+    assert!(tail.completion.is_none());
+}
+
+#[test]
 fn carapace_attaches_to_subcommands() {
     let cmd = Command::new("app").subcommand(
         Command::new("build").arg(Arg::new("jobs").long("jobs").action(ArgAction::Set)),

@@ -67,7 +67,38 @@ fn convert_command(cmd: &clap::Command) -> Command {
         }
     }
     if let Some(completer) = cmd.get::<PositionalCompleter>() {
-        for (index, action) in completer.0.iter().enumerate() {
+        let actions: Vec<Action> = completer.0.clone();
+        // Completions map by argument index (Go completes the Nth argument,
+        // not the Nth positional definition): a variadic positional spans
+        // all remaining indices, so it expands into one slot per provided
+        // action plus a repeatable tail for the indices beyond.
+        let max_values_of = |positional: &Positional| -> usize {
+            cmd.get_positionals()
+                .find(|arg| arg.get_id().as_str() == positional.name)
+                .and_then(|arg| arg.get_num_args())
+                .map(|range| range.max_values())
+                .unwrap_or(1)
+        };
+        let mut expanded: Vec<Positional> = Vec::new();
+        for positional in std::mem::take(&mut model.positionals) {
+            if positional.repeatable {
+                let max = max_values_of(&positional);
+                let remaining = actions.len().saturating_sub(expanded.len()).max(1);
+                let slots = if max == usize::MAX { remaining } else { max };
+                for _ in 0..slots {
+                    let mut slot = positional.clone();
+                    slot.repeatable = false;
+                    expanded.push(slot);
+                }
+                if max == usize::MAX {
+                    expanded.push(positional);
+                }
+            } else {
+                expanded.push(positional);
+            }
+        }
+        model.positionals = expanded;
+        for (index, action) in actions.iter().enumerate() {
             if let Some(positional) = model.positionals.get_mut(index) {
                 if positional.completion.is_none() {
                     positional.completion = Some(action.clone());

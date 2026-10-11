@@ -41,7 +41,7 @@ test, either the port or the test is wrong — check the Go source first.
 ## Build & Test Commands
 
 ```bash
-cargo test --workspace        # 690 tests across 22 suites; must pass
+cargo test --workspace        # 822 tests across 47 suites; must pass
 cargo fmt                     # format; cargo fmt --check must be clean
 cargo clippy --workspace      # must be warning-free
 ```
@@ -141,6 +141,20 @@ These are settled; don't relitigate without cause, and preserve them when refact
 15. **`PATH` splitting is platform-aware** via `std::env::split_paths` (`:` on
     unix, `;` on Windows); likewise executables check the unix permission bits
     or the `.exe` extension.
+16. **Per-crate licensing follows upstream provenance.** Crates porting
+    Apache-2.0 upstreams (`carapace-shlex`, `carapace-core`) stay Apache-2.0;
+    crates porting MIT upstreams (`carapace-spec`, `carapace-bridge`) and
+    original work (`carapace-clap`, `carapace-testkit`) are MIT. `carapace-core`
+    carries the upstream `LICENSE.appendix` reserving `Uid`, `Query`, `Trace`
+    for Tabdance™. Do not flatten back to one workspace-wide license.
+17. **Core internals are published but not API.** `cache`, `config`, `log`,
+    `meta`, `mock`, `uid` mirror Go's `internal/` packages and are
+    `#[doc(hidden)]`; they stay reachable for adapters and the test harness but
+    are not semver commitments. Do not move stable API into them.
+18. **The `_carapace spec` dump is feature-gated.** `carapace-clap` has a
+    default-on `spec` feature; without it the YAML machinery (serde_yaml) is
+    not compiled and `_carapace spec` behaves like an unknown shell (returns
+    `None`). Keep the feature default-on for Go parity.
 
 ## Action surface notes
 
@@ -201,5 +215,5 @@ names aligned with Go so specs/macros port mechanically.
   mechanism `completer!`/`command_completer!` build on; they are `macro_rules!`
   exported from carapace-clap, so that one dependency covers derive usage.
 - `_carapace` entry handles: snippet output (0/1 args), completion (2+ args), `style
-  set`, and `spec` (YAML dump). Unknown shells return `None` so the program runs
-  normally.
+  set`, and `spec` (YAML dump, behind the default-on `spec` feature). Unknown
+  shells return `None` so the program runs normally.

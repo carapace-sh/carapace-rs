@@ -1310,8 +1310,8 @@ fn powershell_escape_flags() {
     assert!(super::formats::PowershellFormat.non_escaping_quote_escapes());
     assert!(!super::formats::PowershellFormat.non_escaping_quote_backslash_escapes());
     assert!(!super::formats::PowershellFormat.escape_not_in_escaping_quote());
-    assert!(super::formats::PowershellFormat.triple_quote_support() == false);
-    assert!(super::formats::PowershellFormat.raw_prefix_support() == false);
+    assert!(!super::formats::PowershellFormat.triple_quote_support());
+    assert!(!super::formats::PowershellFormat.raw_prefix_support());
     assert!(
         super::formats::PowershellFormat
             .keyword_operators()

@@ -244,7 +244,7 @@ fn hidden_subcommands_are_excluded() {
     assert!(secret.hidden);
 
     let values: Vec<String> =
-        carapace_core::traverse::action_commands(&model, &[model.name.clone()])
+        carapace_core::traverse::action_commands(&model, std::slice::from_ref(&model.name))
             .invoke(&Context::default())
             .values
             .into_iter()
@@ -254,7 +254,7 @@ fn hidden_subcommands_are_excluded() {
 
     unsafe { std::env::set_var("CARAPACE_HIDDEN", "2") };
     let values: Vec<String> =
-        carapace_core::traverse::action_commands(&model, &[model.name.clone()])
+        carapace_core::traverse::action_commands(&model, std::slice::from_ref(&model.name))
             .invoke(&Context::default())
             .values
             .into_iter()
@@ -276,12 +276,13 @@ fn hidden_flags_respect_hidden_env() {
     let model = to_model(&mut cmd);
 
     unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
-    let values: Vec<String> = carapace_core::traverse::action_flags(&model, &[model.name.clone()])
-        .invoke(&Context::default().value("--"))
-        .values
-        .into_iter()
-        .map(|v| v.value)
-        .collect();
+    let values: Vec<String> =
+        carapace_core::traverse::action_flags(&model, std::slice::from_ref(&model.name))
+            .invoke(&Context::default().value("--"))
+            .values
+            .into_iter()
+            .map(|v| v.value)
+            .collect();
     assert_eq!(
         values,
         vec!["--help", "-h"],
@@ -289,12 +290,13 @@ fn hidden_flags_respect_hidden_env() {
     );
 
     unsafe { std::env::set_var("CARAPACE_HIDDEN", "2") };
-    let values: Vec<String> = carapace_core::traverse::action_flags(&model, &[model.name.clone()])
-        .invoke(&Context::default().value("--"))
-        .values
-        .into_iter()
-        .map(|v| v.value)
-        .collect();
+    let values: Vec<String> =
+        carapace_core::traverse::action_flags(&model, std::slice::from_ref(&model.name))
+            .invoke(&Context::default().value("--"))
+            .values
+            .into_iter()
+            .map(|v| v.value)
+            .collect();
     unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
     assert!(values.contains(&"--secret".to_string()));
 }

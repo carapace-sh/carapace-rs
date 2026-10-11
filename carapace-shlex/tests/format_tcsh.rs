@@ -11,8 +11,7 @@ fn wordbreak_of(input: &str, raw: &str) -> (TokenType, WordbreakType) {
     let tokens = split(input, Format::Tcsh).unwrap();
     let found = tokens
         .iter()
-        .filter(|t| t.raw_value == raw)
-        .last()
+        .rfind(|t| t.raw_value == raw)
         .unwrap_or_else(|| panic!("{input}: no {raw} token"));
     (found.kind, found.wordbreak_type)
 }

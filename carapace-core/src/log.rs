@@ -65,8 +65,3 @@ fn timestamp() -> String {
         now.subsec_micros()
     )
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-}

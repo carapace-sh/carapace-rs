@@ -26,8 +26,8 @@ fn cli() -> Command {
         .arg(Arg::new("profile").long("profile").action(ArgAction::Set))
         .arg(Arg::new("target").index(1))
         .subcommand(Command::new("build").about("build things"))
-        .flag_completion("profile", Action::values(["dev", "staging", "prod"]))
-        .positional_completion(1, Action::values(["x86", "arm", "wasm"]))
+        .flag_completion([("profile", Action::values(["dev", "staging", "prod"]))])
+        .positional_completion([Action::values(["x86", "arm", "wasm"])])
         .positional_any_completion(Action::files(Vec::<String>::new()))
 }
 
@@ -87,7 +87,7 @@ See `AGENTS.md` for architecture, design decisions, and contribution guidance.
 ## Development
 
 ```bash
-cargo test          # 161 tests across 15 suites
+cargo test          # 822 tests across 47 suites
 cargo clippy        # clean
 ```
 
@@ -96,7 +96,8 @@ Layout:
 ```
 carapace-shlex/   shell lexing: tokenizing, partial tokens, insertion quoting
 carapace-core/    engine: model, action, traverse, shell formatters, cache, uid, export
-carapace-clap/    clap adapter: Carapace extension trait, extension slots, _carapace entry
+carapace-clap/    clap adapter: Carapace extension trait, extension slots, _carapace entry,
+                  completer!/command_completer! derive macros
 carapace-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions
 carapace-spec/    YAML user specs: flag suffixes, macros ($files, $directories, $executables), parsing modes, spec dump
 carapace-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin, clap, cobra, inshellisense
@@ -123,18 +124,7 @@ Command::new("outer").positional_any_completion(
 );
 ```
 
+
 ## Licensing
 
-Licensing follows the upstream provenance of each crate:
-
-| Crate | Upstream source | License |
-|---|---|---|
-| `carapace-shlex` | [carapace-shlex](https://github.com/carapace-sh/carapace-shlex) | Apache-2.0 |
-| `carapace-core` | [carapace](https://github.com/carapace-sh/carapace) | Apache-2.0 (+ appendix) |
-| `carapace-spec` | [carapace-spec](https://github.com/carapace-sh/carapace-spec) | MIT |
-| `carapace-bridge` | [carapace-bridge](https://github.com/carapace-sh/carapace-bridge) | MIT |
-| `carapace-clap` | original work | MIT |
-| `carapace-testkit` | original work | MIT |
-
-`carapace-core` carries the upstream `LICENSE.appendix`: the features `Uid`,
-`Query`, and `Trace` are reserved for Tabdance™.
+Licensing follows each crate's upstream provenance.

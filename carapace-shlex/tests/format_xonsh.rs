@@ -42,7 +42,7 @@ fn pipe() {
 fn background() {
     // Xonsh uses & for background (POSIX-like)
     let tokens = split("echo foo &", Format::Xonsh).unwrap();
-    let amp = tokens.iter().filter(|t| t.raw_value == "&").last().unwrap();
+    let amp = tokens.iter().rfind(|t| t.raw_value == "&").unwrap();
     assert_eq!(amp.kind, TokenType::Wordbreak);
     assert_eq!(amp.wordbreak_type, WordbreakType::ListAsync);
 }
@@ -83,8 +83,7 @@ fn wordbreak_type_of(input: &str, raw: &str) -> WordbreakType {
     let tokens = split(input, Format::Xonsh).unwrap();
     let found = tokens
         .iter()
-        .filter(|t| t.kind == TokenType::Wordbreak && t.raw_value == raw)
-        .last();
+        .rfind(|t| t.kind == TokenType::Wordbreak && t.raw_value == raw);
     assert!(found.is_some(), "{input}: no {raw} wordbreak token found");
     found.unwrap().wordbreak_type
 }
@@ -399,8 +398,7 @@ fn append_pipe_channel() {
     let tokens = split("echo foo e>>p bar", Format::Xonsh).unwrap();
     let found = tokens
         .iter()
-        .filter(|t| t.kind == TokenType::Wordbreak && t.raw_value == "e>>p")
-        .last();
+        .rfind(|t| t.kind == TokenType::Wordbreak && t.raw_value == "e>>p");
     assert!(found.is_some(), "no e>>p wordbreak token found");
     assert!(found.unwrap().wordbreak_type.is_redirect());
 }
@@ -411,8 +409,7 @@ fn long_form_pipe_channel() {
     let tokens = split("echo foo err>p bar", Format::Xonsh).unwrap();
     let found = tokens
         .iter()
-        .filter(|t| t.kind == TokenType::Wordbreak && t.raw_value == "err>p")
-        .last();
+        .rfind(|t| t.kind == TokenType::Wordbreak && t.raw_value == "err>p");
     assert!(found.is_some(), "no err>p wordbreak token found");
     assert!(found.unwrap().wordbreak_type.is_redirect());
 }

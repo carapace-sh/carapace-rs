@@ -575,3 +575,59 @@ fn zsh_noprefix_flag_in_output() {
     let sections: Vec<&str> = output.split('\u{1}').collect();
     assert_eq!(sections[2], "false", "unset no-prefix never matches");
 }
+
+#[test]
+fn zsh_raw_current_word_keeps_quoted_spaces() {
+    // The raw current word comes from the shlex re-lex of CARAPACE_COMPLINE:
+    // a quoted word containing a space stays whole ('a b' → Quoting state
+    // with the full raw token), where a naive whitespace split would see 'a.
+    let _guard = env_lock();
+    unsafe { std::env::set_var("CARAPACE_COMPLINE", "cmd 'a b") };
+
+    let output = zsh::action_raw_values("a b", &carapace_core::Meta::default(), &values());
+    let sections: Vec<&str> = output.split('\u{1}').collect();
+    // values end with the closing quote (Quoting state)
+    assert!(
+        sections[3].contains("apple'"),
+        "quoted word must close the quote: {sections:?}"
+    );
+
+    unsafe { std::env::remove_var("CARAPACE_COMPLINE") };
+
+    // without compline the state is default (no quote suffix)
+    let output = zsh::action_raw_values("a", &carapace_core::Meta::default(), &values());
+    let sections: Vec<&str> = output.split('\u{1}').collect();
+    assert!(
+        !sections[3].contains("apple'"),
+        "default state must not add a quote: {sections:?}"
+    );
+}
+
+#[test]
+fn cmd_clink_patch_relexes_compline() {
+    // Port of Go cmd_clink TestPatch: CARAPACE_COMPLINE is re-lexed with
+    // cmd.exe rules (^ escaping, " quoting, literal ') and the binary name
+    // is dropped; the remaining words feed the traversal (Go's args[2:]).
+    let _guard = env_lock();
+    unsafe {
+        std::env::set_var(
+            "CARAPACE_COMPLINE",
+            r#"example C:\path\to "a b" a^b 'single'"#,
+        )
+    };
+    let words = carapace_core::shell::simple::cmd_clink::patch(vec!["cmd-clink".to_owned()]);
+    unsafe { std::env::remove_var("CARAPACE_COMPLINE") };
+    assert_eq!(
+        words,
+        vec![
+            r"C:\path\to".to_owned(),
+            "a b".to_owned(),
+            "ab".to_owned(),
+            "'single'".to_owned()
+        ]
+    );
+
+    // without the env var the args pass through unchanged
+    let words = carapace_core::shell::simple::cmd_clink::patch(vec!["cmd-clink".to_owned()]);
+    assert_eq!(words, vec!["cmd-clink".to_owned()]);
+}

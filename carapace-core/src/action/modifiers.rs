@@ -6,6 +6,7 @@ use crate::action::{Action, InvokedAction};
 use crate::context::Context;
 use crate::meta::Meta;
 use crate::value::RawValue;
+use carapace_shlex::TokenSliceExt;
 
 impl Action {
     /// Remove given values.
@@ -181,6 +182,18 @@ impl Action {
     /// is re-attached. A `$`-prefixed current word completes environment
     /// variable names instead.
     pub fn split(self, format: crate::Format) -> Self {
+        self.split_impl(format, false)
+    }
+
+    /// Like [`split`](Self::split) but supports pipelines (port of Go
+    /// `Action.SplitP`): the wrapped action's context is the current
+    /// pipeline's words with redirects filtered, and the cursor completing
+    /// a redirect target completes files instead.
+    pub fn split_p(self, format: crate::Format) -> Self {
+        self.split_impl(format, true)
+    }
+
+    fn split_impl(self, format: crate::Format, pipelines: bool) -> Self {
         let inner = self;
         Self::callback(move |c| {
             let completion = carapace_shlex::complete(&c.value, format);
@@ -193,14 +206,24 @@ impl Action {
                     .unwrap_or(c.value.len())
             };
 
+            // Go: context = NewContext(words...) — Value is the last word,
+            // Args everything before it. Split uses the words of ALL tokens
+            // (redirects included); SplitP the current pipeline's filtered
+            // words.
+            let mut words = if pipelines {
+                completion.words.clone()
+            } else {
+                completion.tokens.words().strings()
+            };
+            if words.is_empty() {
+                words.push(String::new());
+            }
+            let current_word = words.pop().unwrap();
+
             let mut context = c.clone();
             context.parts = Vec::new();
-            context.value = completion.current_word.clone();
-            context.args = completion
-                .words
-                .get(..completion.words.len().saturating_sub(1))
-                .unwrap_or_default()
-                .to_vec();
+            context.value = current_word;
+            context.args = words;
 
             // `$name` completes environment variable names (the reference's
             // replaced region is the variable's span, e.g. the naive
@@ -227,8 +250,18 @@ impl Action {
                 .nospace([]);
             }
 
+            // SplitP completes files for a redirect target: the filtered
+            // words lost the empty target word, so the value is reset to
+            // the completion's current word (as in Go)
+            let action = if pipelines && completion.is_redirect {
+                context.value = completion.current_word.clone();
+                Self::files(Vec::<String>::new())
+            } else {
+                inner.clone()
+            };
+
             let prefix = c.value[..byte_offset(completion.span.start)].to_owned();
-            let invoked = inner.invoke(&context);
+            let invoked = action.invoke(&context);
             let values = invoked
                 .values
                 .into_iter()

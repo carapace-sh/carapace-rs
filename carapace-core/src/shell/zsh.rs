@@ -118,17 +118,15 @@ fn quoting_state(current_word: &str) -> State {
     }
 }
 
-/// The raw current word as zsh passes it: last token of `CARAPACE_COMPLINE`.
-///
-/// A full shlex re-lex replaces this approximation; zsh does not split on
-/// `:` or `=` so the raw token preserves quoting characters.
+/// The raw current word as zsh passes it: the last raw token of
+/// `CARAPACE_COMPLINE` (Go derives it through `shlex.Complete`, so quoted
+/// words with spaces survive; the naive whitespace split would truncate
+/// `'a b'` to `'a`).
 fn raw_current_word(current_word: &str) -> String {
     match std::env::var("CARAPACE_COMPLINE") {
-        Ok(compline) if !compline.is_empty() => compline
-            .split_whitespace()
-            .last()
-            .unwrap_or(current_word)
-            .to_owned(),
+        Ok(compline) if !compline.is_empty() => {
+            carapace_shlex::complete(&compline, carapace_shlex::Format::Zsh).raw_current_word
+        }
         _ => current_word.to_owned(),
     }
 }

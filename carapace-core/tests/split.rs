@@ -85,3 +85,36 @@ fn split_completes_environment_variables() {
     assert_eq!(values(&invoked), vec!["echo café | grep $HOME"]);
     assert_eq!(invoked.meta.nospace, vec!['*']);
 }
+
+#[test]
+fn split_p_completes_files_for_redirect() {
+    let dir = std::env::temp_dir().join(format!("carapace-splitp-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("file1.txt"), "").unwrap();
+
+    let mut context = Context::default().value("pos1 > ");
+    context.dir = dir.clone();
+    let invoked = inner_action().split_p(Format::default()).invoke(&context);
+    // the redirect target completes files
+    assert_eq!(values(&invoked), vec!["pos1 > file1.txt "]);
+    assert_eq!(invoked.meta.nospace, vec!['*']);
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn split_p_restarts_args_at_pipeline_delimiter() {
+    // After the pipe the current pipeline restarts: args are empty, so the
+    // first positional completes again (Split would pass the earlier
+    // pipeline's words plus the delimiter as args).
+    let invoked = split_p("pos1 | ");
+    assert_eq!(
+        values(&invoked),
+        vec!["pos1 | pos1 ", "pos1 | positional1 "]
+    );
+}
+
+fn split_p(value: &str) -> carapace_core::InvokedAction {
+    let context = Context::default().value(value);
+    inner_action().split_p(Format::default()).invoke(&context)
+}

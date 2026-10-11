@@ -31,24 +31,24 @@ The port is complete:
   xonsh's any-char double-quote escapes, fish's own quoting table
   (backtick is a regular character), and PowerShell's backtick insertion
   quoting / stop-parsing token state.
-- Consumers migrated: `bash::patch`, `Action::split`, bridges (`join`).
+- Consumers migrated: `bash::patch`, `Action::split`/`split_p` (context
+  rewrite, span-based prefixes, `variable.insert`, per-state `quote()`;
+  SplitP completes files for redirect targets), bridges (`join`), and the
+  zsh formatter (raw current word derived through
+  `carapace_shlex::complete(compline, Zsh)`, matching the Go reference).
 
 ## Remaining (optional / deferred)
 
-- `SplitP` (pipelines: redirect → ActionFiles) — port when a user needs
-  it; the plumbing is `Action::split_p`. The AGENTS.md "unported" note
-  for `${...}` brace forms was stale and is fixed; per-format lexing is
-  ported.
 - Migration opportunities (same pattern as before, do when touched):
-  - The zsh formatter's CARAPACE_COMPLINE 5-state machine could derive
-    its state from `carapace_shlex::complete(compline, Zsh)` instead of
-    its own scanner — verify identical results first.
-  - cmd-clink's clink-specific compline handling (CARAPACE_COMPLINE with
-    the Cmd format) is ported; double-check the clink quoting output
-    against the cmd lexer states.
+  - cmd-clink's clink-specific compline handling is verified against the
+    Go reference: the patch re-lexes CARAPACE_COMPLINE with the ported cmd
+    lexer (regression test `cmd_clink_patch_relexes_compline`), and the
+    formatter does no quoting in either implementation — clink quotes
+    itself.
 - Publishing (decide once the port is complete): crates.io has
   `carapace-rs` and `carapace-shlex` free; `carapace` is taken (dormant
   unrelated crate). The repo currently documents git-dependency usage.
+  Requires an explicit release/publish decision.
 
 ## Gotchas learned while porting the lexer (do not regress)
 

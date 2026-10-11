@@ -149,8 +149,9 @@ These are settled; don't relitigate without cause, and preserve them when refact
   preceding words as args, and candidates are requoted (open quotes closed
   via the context's `quote()`), spaced unless the inner action claims nospace,
   and the raw prefix re-attached. A `$name`/`${name` current word completes
-  environment variable names instead. **Unported:** `SplitP` pipelines
-  (redirect → files).
+  environment variable names instead. `split_p` supports pipelines: the
+  context is the current pipeline's words with redirects filtered, and a
+  redirect target completes files.
 - `Action::execute` forwards the outer context (env, dir, mock) into the
   embedded traversal; embedded trees are not separate processes.
 - Shell patches at the entry point: bash re-lexes `COMP_LINE` (redirect

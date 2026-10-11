@@ -333,12 +333,12 @@ impl Tokenizer {
                     match next_rune_type {
                         RuneClass::Wordbreak => {
                             // extend the operator; a new operator starts when
-                            // the extended raw value is no longer known
-                            let mut extended = token.raw_value.clone();
-                            if let Some(r) = next_rune {
-                                extended.push(r);
-                            }
-                            if self.format.classify_operator(&extended) == WordbreakType::Unknown {
+                            // the extended raw value is no longer known. The
+                            // raw value already includes the rune (appended
+                            // at the top of the loop).
+                            if self.format.classify_operator(&token.raw_value)
+                                == WordbreakType::Unknown
+                            {
                                 token.remove_last_raw();
                                 self.index -= 1;
                                 return Some(token);
@@ -433,6 +433,9 @@ impl Tokenizer {
                         _ => {
                             if let Some(r) = next_rune {
                                 if self.format.is_line_continuation(r) {
+                                    if r == '\r' && self.peek() == Some('\n') {
+                                        self.index += 1; // consume \n after \r
+                                    }
                                     token.raw_value.pop();
                                     token.raw_value.pop(); // newline + escape char
                                     self.state = if !token.value.is_empty() {
@@ -455,20 +458,27 @@ impl Tokenizer {
                     _ => {
                         if let Some(r) = next_rune {
                             if self.format.is_line_continuation(r) {
+                                if r == '\r' && self.peek() == Some('\n') {
+                                    self.index += 1; // consume \n after \r
+                                }
                                 token.raw_value.pop();
-                                token.raw_value.pop();
+                                token.raw_value.pop(); // newline + escape char
                                 self.state = LexerState::QuotingEscaping;
                                 continue;
                             }
-                        }
-                        self.state = LexerState::QuotingEscaping;
-                        if let Some(replacement) =
-                            self.format.escaping_quote_unescape(next_rune.unwrap())
-                        {
-                            token.value.push_str(&replacement);
-                        } else {
-                            token.add('\\');
-                            token.add(next_rune.unwrap());
+                            self.state = LexerState::QuotingEscaping;
+                            if let Some(replacement) = self.format.escaping_quote_unescape(r) {
+                                token.value.push_str(&replacement);
+                            } else if self
+                                .format
+                                .escaping_quote_escape_chars()
+                                .contains(&r)
+                            {
+                                token.add(r);
+                            } else {
+                                token.add('\\');
+                                token.add(r);
+                            }
                         }
                     }
                 },

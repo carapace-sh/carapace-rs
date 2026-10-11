@@ -4,11 +4,25 @@
 use super::wordbreak::WordbreakType;
 use crate::token::{LexerState, Token, TokenType};
 
-/// Helpers over a token slice.
-pub(crate) trait TokenSliceExt {
+/// Helpers over a token slice (port of the `TokenSlice` methods in
+/// `tokenslice.go`).
+pub trait TokenSliceExt {
     /// The tokens of the last (current) pipeline: pipeline delimiters split
     /// pipelines; substitution scopes protect their content.
     fn current_pipeline(&self) -> Vec<Token>;
+
+    /// The pipelines of the token slice: pipeline delimiters split
+    /// pipelines; substitution scopes protect their content.
+    fn pipelines(&self) -> Vec<Vec<Token>>;
+
+    /// Merge tokens into words: adjoining tokens concatenate.
+    fn words(&self) -> Vec<Token>;
+
+    /// The word values of the slice.
+    fn strings(&self) -> Vec<String>;
+
+    /// The last word of the slice.
+    fn current_token(&self) -> Option<Token>;
 
     /// Remove redirect operators and their targets.
     fn filter_redirects(&self) -> Vec<Token>;
@@ -23,7 +37,7 @@ pub(crate) trait TokenSliceExt {
 }
 
 impl TokenSliceExt for [Token] {
-    fn current_pipeline(&self) -> Vec<Token> {
+    fn pipelines(&self) -> Vec<Vec<Token>> {
         let mut pipelines: Vec<Vec<Token>> = Vec::new();
         let mut pipeline: Vec<Token> = Vec::new();
         let mut depth: usize = 0;
@@ -45,7 +59,38 @@ impl TokenSliceExt for [Token] {
             }
         }
         pipelines.push(pipeline);
+        pipelines
+    }
+
+    fn current_pipeline(&self) -> Vec<Token> {
+        let mut pipelines = self.pipelines();
         pipelines.pop().unwrap_or_default()
+    }
+
+    fn words(&self) -> Vec<Token> {
+        let mut words: Vec<Token> = Vec::new();
+        for (index, token) in self.iter().enumerate() {
+            if index == 0 {
+                words.push(token.clone());
+            } else if self[index - 1].adjoins(token) {
+                let last = words.last_mut().unwrap();
+                last.value.push_str(&token.value);
+                last.raw_value.push_str(&token.raw_value);
+                last.span.end = token.span.end;
+                last.state = token.state;
+            } else {
+                words.push(token.clone());
+            }
+        }
+        words
+    }
+
+    fn strings(&self) -> Vec<String> {
+        self.iter().map(|t| t.value.clone()).collect()
+    }
+
+    fn current_token(&self) -> Option<Token> {
+        self.last().cloned()
     }
 
     fn filter_redirects(&self) -> Vec<Token> {
@@ -200,8 +245,20 @@ impl TokenSliceExt for [Token] {
 }
 
 impl TokenSliceExt for Vec<Token> {
+    fn pipelines(&self) -> Vec<Vec<Token>> {
+        self.as_slice().pipelines()
+    }
     fn current_pipeline(&self) -> Vec<Token> {
         self.as_slice().current_pipeline()
+    }
+    fn words(&self) -> Vec<Token> {
+        self.as_slice().words()
+    }
+    fn strings(&self) -> Vec<String> {
+        self.as_slice().strings()
+    }
+    fn current_token(&self) -> Option<Token> {
+        self.as_slice().current_token()
     }
     fn filter_redirects(&self) -> Vec<Token> {
         self.as_slice().filter_redirects()

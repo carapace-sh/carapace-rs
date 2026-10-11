@@ -20,6 +20,7 @@ mod wordbreak;
 
 pub use completion::{CompletionContext, complete};
 pub use token::{LexerState, Span, Token, TokenType};
+pub use tokenslice::TokenSliceExt;
 pub use wordbreak::WordbreakType;
 
 /// The bash COMP_WORDBREAKS default.

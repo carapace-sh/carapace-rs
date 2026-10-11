@@ -10,7 +10,8 @@ mod entry;
 mod integration;
 
 pub use completer::{
-    ArgCompleter, CommandCompleter, DashAnyCompleter, DashCompleter, PositionalCompleter,
+    ArgCompleter, CommandCompleter, DashAnyCompleter, DashCompleter, FlagCompleter,
+    PositionalCompleter,
 };
 pub use convert::to_model;
 pub use entry::{complete, complete_output, execute_embedded, snippet};
@@ -22,18 +23,23 @@ pub fn arg_completion(cmd: &mut clap::Command, id: &str, action: carapace_core::
     *cmd = std::mem::take(cmd).mut_arg(id, |arg| arg.add(ArgCompleter::new(action)));
 }
 
-/// Attach a completion action to the arg with the given long name or shorthand.
-pub fn flag_completion(cmd: &mut clap::Command, name: &str, action: carapace_core::Action) {
-    let id = cmd
-        .get_arguments()
-        .find(|arg| {
-            arg.get_long() == Some(name)
-                || arg.get_short().map(|c| c.to_string()).as_deref() == Some(name)
-        })
-        .map(|arg| arg.get_id().as_str().to_owned());
-    if let Some(id) = id {
-        arg_completion(cmd, &id, action);
-    }
+/// Define completion for flags by name (port of Go `FlagCompletion` with
+/// its `ActionMap`): keys are flag long names, aliases or shorthands.
+/// Later calls merge per key (a repeated key replaces that flag's action).
+pub fn flag_completion<K: Into<String>>(
+    cmd: &mut clap::Command,
+    actions: impl IntoIterator<Item = (K, carapace_core::Action)>,
+) {
+    let mut entries = cmd
+        .get::<FlagCompleter>()
+        .map(|completer| completer.0.clone())
+        .unwrap_or_default();
+    entries.extend(
+        actions
+            .into_iter()
+            .map(|(key, action)| (key.into(), action)),
+    );
+    *cmd = std::mem::take(cmd).add(FlagCompleter(entries));
 }
 
 /// Define completion for the defined positionals, in order (port of Go

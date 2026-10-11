@@ -42,7 +42,7 @@ fn cli() -> Command {
         )
         .subcommand(Command::new("test").about("run tests"));
 
-    cmd.flag_completion("profile", Action::values(["dev", "staging", "prod"]))
+    cmd.flag_completion([("profile", Action::values(["dev", "staging", "prod"]))])
         .positional_completion([Action::values(["x86", "arm", "wasm"])])
         .positional_any_completion(Action::files(Vec::<String>::new()))
 }

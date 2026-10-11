@@ -66,6 +66,16 @@ pub struct PositionalCompleter(pub Vec<Action>);
 
 impl CommandExt for PositionalCompleter {}
 
+/// Completion for flags by name (port of Go's command-level `flag`
+/// ActionMap storage): keys are flag long names, aliases or shorthands.
+/// Stored as a command extension and resolved at conversion time, so flags
+/// may be defined after the call; a flag's own [`ArgCompleter`] slot (e.g.
+/// from the macros) takes precedence, and a later call merges per key.
+#[derive(Clone, Debug, Default)]
+pub struct FlagCompleter(pub Vec<(String, Action)>);
+
+impl CommandExt for FlagCompleter {}
+
 /// Completion for the positional arguments after `--`, in order (port of
 /// Go's command-level `dash` storage): the Nth action completes the Nth
 /// dash argument. Stored as a command extension; entries beyond the

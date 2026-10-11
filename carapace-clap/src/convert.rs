@@ -4,7 +4,8 @@ use carapace_core::Action;
 use carapace_core::model::{ArgumentStyle, Command, Flag, Nargs, Positional};
 
 use crate::completer::{
-    ArgCompleter, CommandCompleter, DashAnyCompleter, DashCompleter, PositionalCompleter,
+    ArgCompleter, CommandCompleter, DashAnyCompleter, DashCompleter, FlagCompleter,
+    PositionalCompleter,
 };
 
 /// Convert a built clap command tree into the normalized model.
@@ -49,6 +50,22 @@ fn convert_command(cmd: &clap::Command) -> Command {
     }
     // the command-level positional list fills positionals without their own
     // completion slot (the Nth action completes the Nth positional)
+    // the flag map fills flags without their own completion slot; entries
+    // are applied in reverse so a repeated key keeps its last action
+    if let Some(completer) = cmd.get::<FlagCompleter>() {
+        for (name, action) in completer.0.iter().rev() {
+            let matches = |flag: &Flag| {
+                flag.name == *name
+                    || flag.aliases.iter().any(|alias| alias == name)
+                    || (name.chars().count() == 1 && flag.shorthand == name.chars().next())
+            };
+            if let Some(flag) = model.flags.iter_mut().find(|flag| matches(flag)) {
+                if flag.completion.is_none() {
+                    flag.completion = Some(action.clone());
+                }
+            }
+        }
+    }
     if let Some(completer) = cmd.get::<PositionalCompleter>() {
         for (index, action) in completer.0.iter().enumerate() {
             if let Some(positional) = model.positionals.get_mut(index) {

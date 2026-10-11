@@ -323,7 +323,7 @@ fn bash_trims_wordbreak_prefix_from_values() {
         || {
             let cmd = Command::new("myapp")
                 .arg(Arg::new("profile").long("profile").action(ArgAction::Set));
-            cmd.flag_completion("profile", Action::values(["dev"]))
+            cmd.flag_completion([("profile", Action::values(["dev"]))])
         },
         Shell::Bash,
         &["--profile=de".to_string()],

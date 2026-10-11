@@ -181,7 +181,7 @@ fn cobra_bridge_reattaches_flag_prefix() {
         || {
             Command::new("outer")
                 .arg(Arg::new("branch").long("branch").action(ArgAction::Set))
-                .flag_completion("branch", bridge::cobra::action(&["git"]))
+                .flag_completion([("branch", bridge::cobra::action(&["git"]))])
         },
         &["--branch="],
     );

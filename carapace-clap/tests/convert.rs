@@ -162,7 +162,7 @@ fn carapace_attaches_completions() {
         .arg(Arg::new("rest").num_args(0..).index(2));
 
     let cmd = cmd
-        .flag_completion("profile", Action::values(["dev", "prod"]))
+        .flag_completion([("profile", Action::values(["dev", "prod"]))])
         .positional_completion([Action::values(["x86", "arm"])])
         .positional_any_completion(Action::values(["anything"]));
 
@@ -188,7 +188,7 @@ fn carapace_attaches_to_subcommands() {
     );
 
     let configured = cmd.mut_subcommand("build", |build| {
-        build.flag_completion("jobs", Action::values(["1", "2"]))
+        build.flag_completion([("jobs", Action::values(["1", "2"]))])
     });
 
     let model = to_model(&mut configured.clone());
@@ -368,4 +368,47 @@ fn positional_completion_fills_unset_positionals_in_order() {
         .unwrap()
         .invoke(&Context::default());
     assert_eq!(second.values[0].value, "own");
+}
+
+#[test]
+fn flag_completion_merges_per_key_and_matches_names() {
+    // Go ActionMap semantics: repeated calls merge per key (a repeated key
+    // keeps its last action); keys may be long names, aliases or shorthands.
+    let cmd = Command::new("app")
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .alias("loud")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(Arg::new("profile").long("profile").action(ArgAction::Set))
+        .flag_completion([("profile", Action::values(["dev"]))])
+        .flag_completion([
+            ("v", Action::values(["verbose-shorthand"])),
+            ("loud", Action::values(["verbose-alias"])),
+            ("profile", Action::values(["dev", "prod"])),
+        ]);
+
+    let model = to_model(&mut cmd.clone());
+    let values = |flag: &carapace_core::model::Flag| {
+        flag.completion
+            .as_ref()
+            .unwrap()
+            .invoke(&Context::default())
+            .values
+            .iter()
+            .map(|value| value.value.clone())
+            .collect::<Vec<_>>()
+    };
+    // shorthand and alias keys resolve to the same flag; the repeated
+    // profile key keeps its last action
+    assert_eq!(
+        values(model.lookup_long("profile").unwrap()),
+        vec!["dev", "prod"]
+    );
+    assert_eq!(
+        values(model.lookup_short('v').unwrap()),
+        vec!["verbose-alias"]
+    );
 }

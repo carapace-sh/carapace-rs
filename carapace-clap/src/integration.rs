@@ -15,13 +15,17 @@ use carapace_core::Action;
 /// use clap::Command;
 ///
 /// let cmd = Command::new("myapp")
-///     .flag_completion("profile", Action::values(["dev", "prod"]));
+///     .flag_completion([("profile", Action::values(["dev", "prod"]))]);
 /// ```
 pub trait Carapace {
     /// Complete the value(s) of the arg with the given clap id.
     fn arg_completion(self, id: &str, action: Action) -> Self;
-    /// Complete the value(s) of the named flag (long name or shorthand).
-    fn flag_completion(self, name: &str, action: Action) -> Self;
+    /// Complete the value(s) of the named flags: keys are flag long names,
+    /// aliases or shorthands (Go's `FlagCompletion` ActionMap).
+    fn flag_completion<K: Into<String>>(
+        self,
+        actions: impl IntoIterator<Item = (K, Action)>,
+    ) -> Self;
     /// Complete the defined positionals, in order: the Nth action completes
     /// the Nth positional (unless it has its own completion slot).
     fn positional_completion(self, actions: impl IntoIterator<Item = Action>) -> Self;
@@ -41,9 +45,12 @@ impl Carapace for clap::Command {
         self
     }
 
-    fn flag_completion(mut self, name: &str, action: Action) -> Self {
+    fn flag_completion<K: Into<String>>(
+        mut self,
+        actions: impl IntoIterator<Item = (K, Action)>,
+    ) -> Self {
         self.build();
-        crate::flag_completion(&mut self, name, action);
+        crate::flag_completion(&mut self, actions);
         self
     }
 

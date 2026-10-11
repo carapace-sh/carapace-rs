@@ -3,7 +3,9 @@
 use carapace_core::Action;
 use carapace_core::model::{ArgumentStyle, Command, Flag, Nargs, Positional};
 
-use crate::completer::{ArgCompleter, CommandCompleter, DashAnyCompleter, DashPositionalCompleter};
+use crate::completer::{
+    ArgCompleter, CommandCompleter, DashAnyCompleter, DashCompleter, PositionalCompleter,
+};
 
 /// Convert a built clap command tree into the normalized model.
 ///
@@ -45,17 +47,28 @@ fn convert_command(cmd: &clap::Command) -> Command {
     if let Some(completer) = cmd.get::<CommandCompleter>() {
         model.positional_any = Some(completer.0.clone());
     }
+    // the command-level positional list fills positionals without their own
+    // completion slot (the Nth action completes the Nth positional)
+    if let Some(completer) = cmd.get::<PositionalCompleter>() {
+        for (index, action) in completer.0.iter().enumerate() {
+            if let Some(positional) = model.positionals.get_mut(index) {
+                if positional.completion.is_none() {
+                    positional.completion = Some(action.clone());
+                }
+            }
+        }
+    }
     if let Some(completer) = cmd.get::<DashAnyCompleter>() {
         model.dash_any = Some(completer.0.clone());
     }
-    if let Some(completer) = cmd.get::<DashPositionalCompleter>() {
-        let mut entries = completer.0.clone();
-        entries.sort_by_key(|(index, _)| *index);
-        model.dash_positionals = entries
-            .into_iter()
+    if let Some(completer) = cmd.get::<DashCompleter>() {
+        model.dash_positionals = completer
+            .0
+            .iter()
+            .enumerate()
             .map(|(index, action)| Positional {
-                name: format!("dash{index}"),
-                completion: Some(action),
+                name: format!("dash{}", index + 1),
+                completion: Some(action.clone()),
                 ..Default::default()
             })
             .collect();

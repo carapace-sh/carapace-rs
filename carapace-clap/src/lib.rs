@@ -9,7 +9,9 @@ mod convert;
 mod entry;
 mod integration;
 
-pub use completer::{ArgCompleter, CommandCompleter, DashAnyCompleter, DashPositionalCompleter};
+pub use completer::{
+    ArgCompleter, CommandCompleter, DashAnyCompleter, DashCompleter, PositionalCompleter,
+};
 pub use convert::to_model;
 pub use entry::{complete, complete_output, execute_embedded, snippet};
 pub use integration::Carapace;
@@ -34,25 +36,26 @@ pub fn flag_completion(cmd: &mut clap::Command, name: &str, action: carapace_cor
     }
 }
 
-/// Attach a completion action to the positional at the given index (1-based).
-pub fn positional_completion(cmd: &mut clap::Command, index: usize, action: carapace_core::Action) {
-    let id = cmd
-        .get_positionals()
-        .find(|arg| arg.get_index() == Some(index))
-        .map(|arg| arg.get_id().as_str().to_owned());
-    if let Some(id) = id {
-        arg_completion(cmd, &id, action);
-    }
+/// Define completion for the defined positionals, in order (port of Go
+/// `PositionalCompletion`): the Nth action completes the Nth positional,
+/// as long as that positional has no own completion slot. A later call
+/// replaces the whole list (Go assignment semantics).
+pub fn positional_completion(
+    cmd: &mut clap::Command,
+    actions: impl IntoIterator<Item = carapace_core::Action>,
+) {
+    let actions: Vec<_> = actions.into_iter().collect();
+    *cmd = std::mem::take(cmd).add(PositionalCompleter(actions));
 }
 
-/// Attach a completion action to the dash argument (`--`) at the given
-/// 1-based index (port of Go `DashCompletion`, addressed per index).
-pub fn dash_completion(cmd: &mut clap::Command, index: usize, action: carapace_core::Action) {
-    let mut entries = cmd
-        .get::<DashPositionalCompleter>()
-        .map(|completer| completer.0.clone())
-        .unwrap_or_default();
-    entries.retain(|(existing, _)| *existing != index);
-    entries.push((index, action));
-    *cmd = std::mem::take(cmd).add(DashPositionalCompleter(entries));
+/// Define completion for the positional arguments after `--`, in order
+/// (port of Go `DashCompletion`): the Nth action completes the Nth dash
+/// argument, entries beyond the defined ones fall back to
+/// [`dash_any_completion`]. A later call replaces the whole list.
+pub fn dash_completion(
+    cmd: &mut clap::Command,
+    actions: impl IntoIterator<Item = carapace_core::Action>,
+) {
+    let actions: Vec<_> = actions.into_iter().collect();
+    *cmd = std::mem::take(cmd).add(DashCompleter(actions));
 }

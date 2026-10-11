@@ -60,9 +60,10 @@ fn sandbox_replies_mock_commands() {
         .run(
             || {
                 let cmd = Command::new("myapp").arg(Arg::new("branch").index(1));
-                cmd.positional_completion(
-                    1,
-                    Action::exec_command("git", &["branch", "--list"], |stdout| {
+                cmd.positional_completion([Action::exec_command(
+                    "git",
+                    &["branch", "--list"],
+                    |stdout| {
                         let output = String::from_utf8_lossy(stdout).into_owned();
                         let branches: Vec<String> = output
                             .lines()
@@ -70,8 +71,8 @@ fn sandbox_replies_mock_commands() {
                             .map(String::from)
                             .collect();
                         Action::values(branches)
-                    }),
-                )
+                    },
+                )])
             },
             &[""],
         )
@@ -87,12 +88,9 @@ fn sandbox_env_reaches_actions() {
         .run(
             || {
                 let cmd = Command::new("myapp").arg(Arg::new("value").index(1));
-                cmd.positional_completion(
-                    1,
-                    Action::callback(|context| {
-                        Action::values([context.get_env("SANDBOX_ENV_TEST")])
-                    }),
-                )
+                cmd.positional_completion([Action::callback(|context| {
+                    Action::values([context.get_env("SANDBOX_ENV_TEST")])
+                })])
             },
             &[""],
         )
@@ -107,14 +105,11 @@ fn sandbox_cache_persists_across_runs() {
     fn cached_cmd(calls: &Arc<AtomicUsize>) -> Command {
         let calls = calls.clone();
         let cmd = Command::new("myapp").arg(Arg::new("value").index(1));
-        cmd.positional_completion(
-            1,
-            Action::callback(move |_| {
-                calls.fetch_add(1, Ordering::SeqCst);
-                Action::values(["cached"])
-            })
-            .cache("sandbox-cache-site", 60, vec!["k".into()]),
-        )
+        cmd.positional_completion([Action::callback(move |_| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            Action::values(["cached"])
+        })
+        .cache("sandbox-cache-site", 60, vec!["k".into()])])
     }
 
     let calls = Arc::new(AtomicUsize::new(0));

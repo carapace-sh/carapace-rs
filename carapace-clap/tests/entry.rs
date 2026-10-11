@@ -228,7 +228,7 @@ fn execute_embedded_completes_nested_tree() {
     // with completers attached on the embedded command
     let embedded = Command::new("inner")
         .arg(Arg::new("mode").index(1))
-        .positional_completion(1, Action::values(["fast", "slow"]));
+        .positional_completion([Action::values(["fast", "slow"])]);
 
     let outer = Command::new("myapp")
         .arg(Arg::new("rest").num_args(0..).index(1))
@@ -272,10 +272,10 @@ fn bash_list_mode_renders_display_with_description() {
         || {
             Command::new("myapp")
                 .arg(Arg::new("target").index(1))
-                .positional_completion(
-                    1,
-                    Action::values_described([("alpha", "first"), ("beta", "second")]),
-                )
+                .positional_completion([Action::values_described([
+                    ("alpha", "first"),
+                    ("beta", "second"),
+                ])])
         },
         Shell::Bash,
         &["".to_string()],
@@ -300,7 +300,7 @@ fn bash_quotes_values_containing_wordbreak_chars() {
     let output = carapace_clap::complete_output(
         || {
             let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
-            cmd.positional_completion(1, Action::values(["a:b"]))
+            cmd.positional_completion([Action::values(["a:b"])])
         },
         Shell::Bash,
         &["".to_string()],
@@ -347,7 +347,7 @@ fn bash_completes_inside_open_quote() {
     let output = carapace_clap::complete_output(
         || {
             let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
-            cmd.positional_completion(1, Action::values(["abc", "abd"]))
+            cmd.positional_completion([Action::values(["abc", "abd"])])
         },
         Shell::Bash,
         &["\"ab".to_string()],
@@ -368,7 +368,7 @@ fn bash_completes_after_trailing_escape() {
     let output = carapace_clap::complete_output(
         || {
             let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
-            cmd.positional_completion(1, Action::values(["a1", "a2"]))
+            cmd.positional_completion([Action::values(["a1", "a2"])])
         },
         Shell::Bash,
         &["a\\".to_string()],
@@ -390,7 +390,7 @@ fn bash_completes_inside_quoted_whitespace() {
     let output = carapace_clap::complete_output(
         || {
             let cmd = Command::new("myapp").arg(Arg::new("target").index(1));
-            cmd.positional_completion(1, Action::values(["ab c1", "other"]))
+            cmd.positional_completion([Action::values(["ab c1", "other"])])
         },
         Shell::Bash,
         &["'ab c".to_string()],

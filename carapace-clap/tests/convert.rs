@@ -163,7 +163,7 @@ fn carapace_attaches_completions() {
 
     let cmd = cmd
         .flag_completion("profile", Action::values(["dev", "prod"]))
-        .positional_completion(1, Action::values(["x86", "arm"]))
+        .positional_completion([Action::values(["x86", "arm"])])
         .positional_any_completion(Action::values(["anything"]));
 
     let model = to_model(&mut cmd.clone());
@@ -305,7 +305,7 @@ fn dash_any_completion() {
 #[test]
 fn carapace_attaches_dash_completions() {
     let cmd = Command::new("app")
-        .dash_completion(1, Action::values(["dash1"]))
+        .dash_completion([Action::values(["dash1"])])
         .dash_any_completion(Action::values(["dash-rest"]));
 
     let model = to_model(&mut cmd.clone());
@@ -320,11 +320,12 @@ fn carapace_attaches_dash_completions() {
 }
 
 #[test]
-fn dash_completion_replaces_same_index() {
+fn dash_completion_replaces_list_and_maps_in_order() {
+    // Go assignment semantics: a later call replaces the whole list; the
+    // Nth action completes the Nth dash argument.
     let cmd = Command::new("app")
-        .dash_completion(2, Action::values(["first"]))
-        .dash_completion(1, Action::values(["a"]))
-        .dash_completion(2, Action::values(["second"]));
+        .dash_completion([Action::values(["first"]), Action::values(["stale"])])
+        .dash_completion([Action::values(["a"]), Action::values(["b"])]);
 
     let model = to_model(&mut cmd.clone());
     let values: Vec<String> = model
@@ -341,6 +342,30 @@ fn dash_completion_replaces_same_index() {
                 .clone()
         })
         .collect();
-    // sorted by index, and the later call for index 2 won
-    assert_eq!(values, vec!["a".to_owned(), "second".to_owned()]);
+    assert_eq!(values, vec!["a".to_owned(), "b".to_owned()]);
+}
+
+#[test]
+fn positional_completion_fills_unset_positionals_in_order() {
+    // The Nth action completes the Nth positional; a positional with its
+    // own completion slot (e.g. from the macros) keeps it.
+    let cmd = Command::new("app")
+        .arg(Arg::new("first").index(1))
+        .arg(Arg::new("second").index(2))
+        .arg_completion("second", Action::values(["own"]))
+        .positional_completion([Action::values(["first-action"]), Action::values(["unused"])]);
+
+    let model = to_model(&mut cmd.clone());
+    let first = model.positionals[0]
+        .completion
+        .as_ref()
+        .unwrap()
+        .invoke(&Context::default());
+    assert_eq!(first.values[0].value, "first-action");
+    let second = model.positionals[1]
+        .completion
+        .as_ref()
+        .unwrap()
+        .invoke(&Context::default());
+    assert_eq!(second.values[0].value, "own");
 }

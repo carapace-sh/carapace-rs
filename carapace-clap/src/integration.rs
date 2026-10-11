@@ -22,12 +22,14 @@ pub trait Carapace {
     fn arg_completion(self, id: &str, action: Action) -> Self;
     /// Complete the value(s) of the named flag (long name or shorthand).
     fn flag_completion(self, name: &str, action: Action) -> Self;
-    /// Complete the positional at the given index (1-based).
-    fn positional_completion(self, index: usize, action: Action) -> Self;
+    /// Complete the defined positionals, in order: the Nth action completes
+    /// the Nth positional (unless it has its own completion slot).
+    fn positional_completion(self, actions: impl IntoIterator<Item = Action>) -> Self;
     /// Complete any positional beyond the defined ones.
     fn positional_any_completion(self, action: Action) -> Self;
-    /// Complete the dash argument (`--`) at the given 1-based index.
-    fn dash_completion(self, index: usize, action: Action) -> Self;
+    /// Complete the positional arguments after `--`, in order; entries
+    /// beyond the defined ones fall back to [`Carapace::dash_any_completion`].
+    fn dash_completion(self, actions: impl IntoIterator<Item = Action>) -> Self;
     /// Complete any positional after `--`.
     fn dash_any_completion(self, action: Action) -> Self;
 }
@@ -45,9 +47,9 @@ impl Carapace for clap::Command {
         self
     }
 
-    fn positional_completion(mut self, index: usize, action: Action) -> Self {
+    fn positional_completion(mut self, actions: impl IntoIterator<Item = Action>) -> Self {
         self.build();
-        crate::positional_completion(&mut self, index, action);
+        crate::positional_completion(&mut self, actions);
         self
     }
 
@@ -57,9 +59,9 @@ impl Carapace for clap::Command {
         self
     }
 
-    fn dash_completion(mut self, index: usize, action: Action) -> Self {
+    fn dash_completion(mut self, actions: impl IntoIterator<Item = Action>) -> Self {
         self.build();
-        crate::dash_completion(&mut self, index, action);
+        crate::dash_completion(&mut self, actions);
         self
     }
 

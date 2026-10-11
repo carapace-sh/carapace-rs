@@ -40,7 +40,7 @@ impl std::fmt::Debug for DashAnyCompleter {
 impl CommandExt for DashAnyCompleter {}
 
 /// Command-level completion (e.g. any-positional), stored as a command extension.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct CommandCompleter(pub Action);
 
 impl CommandCompleter {
@@ -57,10 +57,20 @@ impl std::fmt::Debug for CommandCompleter {
 
 impl CommandExt for CommandCompleter {}
 
-/// Per-index completion for positionals after `--`, stored as a command
-/// extension. Entries are (1-based dash-argument index, action); setting
-/// the same index again replaces the previous action.
+/// Completion for the defined positionals, in order (port of Go's
+/// command-level `positional` storage): the Nth action completes the Nth
+/// positional. Stored as a command extension; a positional's own
+/// [`ArgCompleter`] slot (e.g. from the macros) takes precedence.
 #[derive(Clone, Debug, Default)]
-pub struct DashPositionalCompleter(pub Vec<(usize, Action)>);
+pub struct PositionalCompleter(pub Vec<Action>);
 
-impl CommandExt for DashPositionalCompleter {}
+impl CommandExt for PositionalCompleter {}
+
+/// Completion for the positional arguments after `--`, in order (port of
+/// Go's command-level `dash` storage): the Nth action completes the Nth
+/// dash argument. Stored as a command extension; entries beyond the
+/// defined ones fall back to [`DashAnyCompleter`].
+#[derive(Clone, Debug, Default)]
+pub struct DashCompleter(pub Vec<Action>);
+
+impl CommandExt for DashCompleter {}

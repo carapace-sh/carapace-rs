@@ -41,7 +41,7 @@ test, either the port or the test is wrong — check the Go source first.
 ## Build & Test Commands
 
 ```bash
-cargo test --workspace        # 194 tests across 17 suites; must pass
+cargo test --workspace        # 690 tests across 22 suites; must pass
 cargo fmt                     # format; cargo fmt --check must be clean
 cargo clippy --workspace      # must be warning-free
 ```
@@ -147,11 +147,10 @@ These are settled; don't relitigate without cause, and preserve them when refact
 - `Action::split(format)` completes a value that is itself a shell-parsed
   command line: the value is re-lexed, the inner action runs with the
   preceding words as args, and candidates are requoted (open quotes closed
-  via `lex::quote_insertion`), spaced unless the inner action claims nospace,
-  and the raw prefix re-attached. A `$name` current word completes
+  via the context's `quote()`), spaced unless the inner action claims nospace,
+  and the raw prefix re-attached. A `$name`/`${name` current word completes
   environment variable names instead. **Unported:** `SplitP` pipelines
-  (redirect → files), `${...}` brace forms and non-POSIX lexing formats
-  (fish/zsh/... quote machines) — Default and Bash share POSIX lexing.
+  (redirect → files).
 - `Action::execute` forwards the outer context (env, dir, mock) into the
   embedded traversal; embedded trees are not separate processes.
 - Shell patches at the entry point: bash re-lexes `COMP_LINE` (redirect

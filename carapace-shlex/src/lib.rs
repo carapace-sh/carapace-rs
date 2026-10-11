@@ -18,6 +18,9 @@ mod tokenslice;
 mod variable;
 mod wordbreak;
 
+#[cfg(test)]
+mod verify;
+
 pub use completion::{CompletionContext, complete};
 pub use token::{LexerState, Span, Token, TokenType};
 pub use tokenslice::TokenSliceExt;

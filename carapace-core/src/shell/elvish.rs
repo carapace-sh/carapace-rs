@@ -86,17 +86,25 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
     serde_json::to_string(&completion).expect("elvish serialization cannot fail")
 }
 
-/// Generate the elvish completion snippet for a binary.
+/// Generate the elvish completion snippet (Go `elvish.SnippetSingle`).
 pub fn snippet(binary: &str) -> String {
-    let mut snippet = String::new();
-    snippet.push_str("set edit:completion:arg-completer[");
-    snippet.push_str(binary);
-    snippet.push_str("] = [@words]{\n");
-    snippet.push_str("  var arg = [(all $@words[1:-1] $words[-1])]\n");
-    snippet.push_str("  var result = (");
-    snippet.push_str(binary);
-    snippet.push_str(" _carapace elvish (all $arg) | from-json)\n");
-    snippet.push_str("  put $result[Candidates]\n");
-    snippet.push_str("}\n");
-    snippet
+    format!(
+        r##"set edit:completion:arg-completer[{binary}] = {{|@arg|
+    {binary} _carapace elvish (all $arg) | from-json | each {{|completion|
+		put $completion[Messages] | all (one) | each {{|m|
+			edit:notify (styled "error: " red)$m
+		}}
+		if (not-eq $completion[Usage] "") {{
+			edit:notify (styled "usage: " $completion[DescriptionStyle])$completion[Usage]
+		}}
+		put $completion[Candidates] | all (one) | peach {{|c|
+			if (eq $c[Description] "") {{
+		    	edit:complex-candidate $c[Value] &display=(styled $c[Display] $c[Style]) &code-suffix=$c[CodeSuffix]
+			}} else {{
+		    	edit:complex-candidate $c[Value] &display=(styled $c[Display] $c[Style])(styled " " $completion[DescriptionStyle]" bg-default")(styled "("$c[Description]")" $completion[DescriptionStyle]) &code-suffix=$c[CodeSuffix]
+			}}
+		}}
+    }}
+}}"##
+    )
 }

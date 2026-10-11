@@ -38,9 +38,23 @@ pub mod oil {
             .join("\n")
     }
 
+    /// Generate the oil completion snippet (Go `oil.SnippetSingle`).
     pub fn snippet(binary: &str) -> String {
         format!(
-            "complete -F _{binary}_completion {binary}\n\n_{binary}_completion() {{\n  local IFS=$'\\n'\n  local response\n  response=$(eval \"echo \"${{COMP_LINE:0:${{COMP_POINT}}}}\"''\" | xargs {binary} _carapace oil 2>/dev/null)\n  echo $response\n}}\n"
+            r#"#!/bin/osh
+_{binary}_completion() {{
+  local compline="${{COMP_LINE:0:${{COMP_POINT}}}}"
+  local IFS=$'\n'
+  mapfile -t COMPREPLY < <(echo "$compline" | sed -e "s/ \$/ ''/" -e 's/"/\"/g' | xargs {binary} _carapace oil)
+  [[ "${{COMPREPLY[@]}}" == "" ]] && COMPREPLY=() # fix for mapfile creating a non-empty array from empty command output
+  [[ ${{COMPREPLY[0]}} == *[/=@:.,$'\001'] ]] && compopt -o nospace
+  # TODO use mapfile
+  # shellcheck disable=SC2206
+  [[ ${{#COMPREPLY[@]}} -eq 1 ]] && COMPREPLY=(${{COMPREPLY[@]%%$'\001'}})
+}}
+
+complete -F _{binary}_completion {binary}
+"#
         )
     }
 }
@@ -122,8 +136,12 @@ pub mod tcsh {
             .join("\n")
     }
 
+    /// Generate the tcsh completion snippet (Go `tcsh.SnippetSingle`).
     pub fn snippet(binary: &str) -> String {
-        format!("complete {binary} 'C@*,p@{binary} `echo $COMMAND_LINE[:]` _carapace tcsh@'\n")
+        // TODO initial version - needs to handle open quotes
+        format!(
+            "complete \"{binary}\" 'p@*@`echo \"$COMMAND_LINE'\"''\"'\" | xargs {binary} _carapace tcsh `@@' ;"
+        )
     }
 }
 
@@ -174,15 +192,45 @@ pub mod cmd_clink {
             .join("\n")
     }
 
+    /// Generate the cmd-clink lua snippet (Go `cmd_clink.Snippet`).
     pub fn snippet(binary: &str) -> String {
+        let sanitized = binary.replace('-', "__");
         format!(
-            r#"local clink = require('clink')
-clink.argmatcher('{binary}')
-:addarg({{ function(word) {{
-    local compline = os.getenv('CARAPACE_COMPLINE') or ''
-    local data = io.popen('{binary} _carapace cmd-clink ' .. compline):read('*a')
-    return {{}}
-end }} }})
+            r#"local function {sanitized}_completion(word, word_index, line_state, match_builder)
+    match_builder:setnosort()
+    match_builder:setvolatile()
+    os.setenv('CARAPACE_COMPLINE', line_state:getline():sub(1, line_state:getcursor()))
+
+    local file, pclose = io.popenyield('{binary} _carapace cmd-clink {binary}')
+
+    if not file then
+        return false
+    end
+
+    for line in file:lines() do
+        local matches = string.explode(line, '\t')
+
+        if matches[1] then
+            match_builder:addmatch({{
+                match       = matches[1],
+                display     = matches[2],
+                description = matches[3],
+                type        = 'word',
+                appendchar  = matches[4] or ''
+            }})
+        end
+    end
+
+    if pclose then
+        pclose()
+    else
+        file:close()
+    end
+
+    return not match_builder:isempty()
+end
+
+clink.argmatcher(50, '{binary}', '{binary}.exe'):addarg({{nowordbreakchars="'`=+;,", {sanitized}_completion}}):loop(1)
 "#
         )
     }
@@ -249,9 +297,39 @@ pub mod bash_ble {
             .join("\n")
     }
 
+    /// Generate the bash-ble completion snippet (Go `bash_ble.SnippetSingle`).
+    ///
+    /// Wraps the bash snippet: Go strips the registration line with a
+    /// `complete -F` regex that does not match the `complete -o noquote -F`
+    /// form, so the bash body passes through unchanged.
     pub fn snippet(binary: &str) -> String {
+        let bash_snippet = crate::shell::bash::snippet(binary);
         format!(
-            "complete -F _{binary}_completion {binary}\n\n_{binary}_completion() {{\n  local IFS=$'\\n'\n  local response\n  response=$(echo \"${{COMP_LINE:0:${{COMP_POINT}}}}''\" | xargs {binary} _carapace bash-ble 2>/dev/null)\n  ble/complete/cand/yield -S file ${{response//$'\\x1c'/\\x1c}}\n}}\n"
+            r#"{bash_snippet}
+_{binary}_completion_ble() {{
+  if [[ ${{BLE_ATTACHED-}} ]]; then
+    [[ :$comp_type: == *:auto:* ]] && return
+
+    compopt -o ble/no-default
+    bleopt complete_menu_style=desc
+
+    local compline="${{COMP_LINE:0:${{COMP_POINT}}}}"
+    local IFS=$'\n'
+    local c
+    mapfile -t c < <(echo "$compline" | sed -e "s/ \$/ ''/" -e 's/"/\"/g' | xargs {binary} _carapace bash-ble)
+    [[ "${{c[*]}}" == "" ]] && c=() # fix for mapfile creating a non-empty array from empty command output
+
+    local cand
+    for cand in "${{c[@]}}"; do
+      [ ! -z "$cand" ] && ble/complete/cand/yield mandb "${{cand%%$'\t'*}}" "${{cand##*$'\t'}}"
+    done
+  else
+    complete -F _{binary}_completion {binary}
+  fi
+}}
+
+complete -F _{binary}_completion_ble {binary}
+"#
         )
     }
 }

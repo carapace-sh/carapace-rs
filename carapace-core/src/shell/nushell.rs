@@ -117,16 +117,18 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
     serde_json::to_string(&records).expect("nushell serialization cannot fail")
 }
 
-/// Generate the nushell completion snippet for a binary.
+/// Generate the nushell completion snippet (Go `nushell.SnippetSingle`).
+///
+/// Standalone mode generates only the completer function; the config
+/// wiring is the caller's responsibility (Go keeps it for the multi
+/// completer variant only).
 pub fn snippet(binary: &str) -> String {
+    let sanitized = binary.replace('-', "__");
     format!(
-        r#"let {binary}_completer = {{|spans|
-  {binary} _carapace nushell ...$spans | from json
-}}
-$env.config = ($env.config? | default {{}})
-$env.config.completions = ($env.config.completions? | default {{ external: {{}} }})
-$env.config.completions.external = ($env.config.completions.external? | default {{}})
-$env.config.completions.external.completer = ($env.config.completions.external.completer? | default {{}} | merge {{ "{binary}": ${binary}_completer }})
-"#
+        r#"let {sanitized}_completer = {{|place|
+    # backwards compatible workaround for positional completer input, see nushell #18791
+    let spans = (if ($place | describe) =~ "record" {{ $place.command }} else {{ $place }})
+    {binary} _carapace nushell ...$spans | from json
+}}"#
     )
 }

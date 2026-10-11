@@ -287,19 +287,20 @@ function _{binary}_completion {{
   local lines
 
   # shellcheck disable=SC2086,SC2154,SC2155
-  lines="$(echo "${{compline}}''" | CARAPACE_COMPLINE="${{compline}}" xargs {binary} _carapace zsh 2>/dev/null)"
+  lines="$(echo "${{compline}}''" | CARAPACE_COMPLINE="${{compline}}" CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs {binary} _carapace zsh 2>/dev/null)"
   if [ $? -eq 1 ]; then
-    lines="$(echo "${{compline}}'" | CARAPACE_COMPLINE="${{compline}}" xargs {binary} _carapace zsh 2>/dev/null)"
+    lines="$(echo "${{compline}}'" | CARAPACE_COMPLINE="${{compline}}" CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs {binary} _carapace zsh 2>/dev/null)"
     if [ $? -eq 1 ]; then
-      lines="$(echo "${{compline}}\"" | CARAPACE_COMPLINE="${{compline}}" xargs {binary} _carapace zsh 2>/dev/null)"
+      lines="$(echo "${{compline}}\"" | CARAPACE_COMPLINE="${{compline}}" CARAPACE_ZSH_HASH_DIRS="$(hash -d)" xargs {binary} _carapace zsh 2>/dev/null)"
     fi
   fi
 
-  local zstyle message data
-  IFS=$'\001' read -r -d '' zstyle message data <<<"${{lines}}"
+  local zstyle message noprefix data
+  IFS=$'\001' read -r -d '' zstyle message noprefix data <<<"${{lines}}"
   zstyle ":completion:${{curcontext}}:*" list-colors "${{zstyle}}"
   zstyle ":completion:${{curcontext}}:*" group-name ''
   [ -z "$message" ] || _message -r "${{message}}"
+  [[ "${{noprefix}}" = "true" ]] && compstate[insert]=menu
 
   local block tag displays values displaysArr valuesArr
   while IFS=$'\002' read -r -d $'\002' block; do

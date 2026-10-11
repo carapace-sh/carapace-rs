@@ -80,12 +80,37 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
 }
 
 /// Generate the xonsh completion snippet for a binary.
+/// Generate the xonsh completion snippet (Go `xonsh.SnippetSingle`).
 pub fn snippet(binary: &str) -> String {
+    let function_name = binary.replace('-', "__");
     format!(
-        r#"from xonsh.completers._aliases import _add_one_completer
-__xsh_data = $(echo "" | {binary} _carapace xonsh)
-_add_one_completer({{}}["{binary}"], __xsh_data, "readline", "")
-del __xsh_data
+        r#"from xonsh.completers.completer import add_one_completer
+from xonsh.completers.tools import contextual_command_completer
+
+@contextual_command_completer
+def _{function_name}_completer(context):
+    """carapace completer for {binary}"""
+    if context.completing_command('{binary}'):
+        from json import loads
+        from xonsh.completers.tools import sub_proc_get_output, RichCompletion
+
+        def fix_prefix(s):
+            """quick fix for partially quoted prefix completion ('prefix',<TAB>)"""
+            return s.translate(str.maketrans('', '', '\'"'))
+
+        output, _ = sub_proc_get_output(
+            '{binary}', '_carapace', 'xonsh', *[a.value for a in context.args], fix_prefix(context.prefix)
+        )
+
+        try:
+            result = {{RichCompletion(c["Value"], display=c["Display"], description=c["Description"], prefix_len=len(context.raw_prefix), append_closing_quote=False, style=c["Style"]) for c in loads(output)}}
+        except:
+            result = {{}}
+        if len(result) == 0:
+            result = {{RichCompletion(context.prefix, display=context.prefix, description='', prefix_len=len(context.raw_prefix), append_closing_quote=False)}}
+        return result
+
+add_one_completer('{binary}', _{function_name}_completer, 'start')
 "#
     )
 }

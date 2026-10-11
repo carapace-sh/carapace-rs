@@ -184,6 +184,9 @@ names aligned with Go so specs/macros port mechanically.
 
 ## Gotchas
 
+- Snippets invoke `{binary} _carapace <shell>` with the command name, not
+  Go's `uid.Executable()` absolute path (which has no Rust equivalent in
+  the snippets; PATH lookup covers registration).
 - The bridges delegate word joining/quoting to `carapace_shlex::join` (Go's
   `shlex.Join`); quoting is only applied when the shell needs it, and an empty
   word renders as `""` (the inshellisense workaround strips it).

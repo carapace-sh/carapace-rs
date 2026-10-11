@@ -45,3 +45,35 @@ fn batch_is_lazy() {
     let _ = action.invoke(&Context::default());
     assert_eq!(counter.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+fn batch_single() {
+    let invoked = batch(vec![Action::values(["A", "B"])]).invoke(&Context::default());
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    assert_eq!(values, vec!["A", "B"]);
+}
+
+#[test]
+fn batch_none() {
+    let invoked = batch(Vec::<Action>::new()).invoke(&Context::default());
+    assert!(invoked.values.is_empty());
+    assert!(invoked.meta.messages.is_empty());
+}
+
+#[test]
+fn batch_to_action_roundtrip() {
+    // Go TestBatchToA: converting the batch back to a lazy action and
+    // invoking later yields the same merged result
+    let action = batch(vec![
+        Action::values(["A", "B"]),
+        Action::values(["B", "C"]),
+        Action::values(["C", "D"]),
+    ]);
+    let values: Vec<String> = action
+        .invoke(&Context::default())
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    assert_eq!(values, vec!["A", "B", "C", "D"]);
+}

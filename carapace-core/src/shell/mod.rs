@@ -287,7 +287,7 @@ pub(crate) fn matches_nospace(meta: &Meta, value: &RawValue) -> bool {
 }
 
 /// Description trimmed per `CARAPACE_DESCRIPTION_LENGTH` (default 80).
-pub(crate) fn trimmed_description(description: &str) -> String {
+pub fn trimmed_description(description: &str) -> String {
     let max_length = crate::config::description_length();
     let first_line = description.split('\n').next().unwrap_or_default();
     let trimmed = first_line.trim();

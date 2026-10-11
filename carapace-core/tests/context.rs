@@ -1,6 +1,15 @@
-//! Port of Go `context_test.go`: `TestContextAbs`, `TestEnv`, `TestEnvsubst`.
+//! Port of Go `context_test.go` and the `internal/common` value tests.
 
 use carapace_core::Context;
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+/// Serializes tests that touch CARAPACE_* environment variables.
+fn env_lock() -> MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 fn wd() -> String {
     std::env::current_dir()
@@ -110,4 +119,40 @@ fn envsubst() {
     // malformed substitutions error
     assert!(context.envsubst("BEFORE${}AFTER").is_err());
     assert!(context.envsubst("BEFORE${REPLACE").is_err());
+}
+
+#[test]
+fn trimmed_description() {
+    use carapace_core::shell::trimmed_description;
+
+    let _guard = env_lock();
+    unsafe { std::env::remove_var("CARAPACE_DESCRIPTION_LENGTH") };
+
+    // default: 80 characters plus an ellipsis
+    let long = "123456789012345678901234567890123456789012345678901234567890123456789012345678901";
+    let expected = format!("{}...", &long[..77]);
+    assert_eq!(trimmed_description(long), expected);
+
+    unsafe { std::env::set_var("CARAPACE_DESCRIPTION_LENGTH", "20") };
+    assert_eq!(
+        trimmed_description("1234567890123456789012345"),
+        "12345678901234567..."
+    );
+
+    unsafe { std::env::set_var("CARAPACE_DESCRIPTION_LENGTH", "invalid") };
+    assert_eq!(trimmed_description(long), expected);
+
+    // short lengths do not exceed the configured length
+    unsafe { std::env::set_var("CARAPACE_DESCRIPTION_LENGTH", "3") };
+    assert_eq!(trimmed_description("1234567890"), "123");
+
+    unsafe { std::env::remove_var("CARAPACE_DESCRIPTION_LENGTH") };
+}
+
+#[test]
+fn trimmed_description_takes_first_line() {
+    use carapace_core::shell::trimmed_description;
+    let _guard = env_lock();
+    unsafe { std::env::remove_var("CARAPACE_DESCRIPTION_LENGTH") };
+    assert_eq!(trimmed_description("first\nsecond  "), "first");
 }

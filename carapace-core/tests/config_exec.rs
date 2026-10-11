@@ -143,3 +143,13 @@ fn messages_dedup_on_merge() {
     meta.merge(&carapace_core::Meta::default().message("same"));
     assert_eq!(meta.messages, vec!["same"]);
 }
+
+#[test]
+fn exec_passes_context_env_not_process_env() {
+    // Go TestActionExecCommandEnv: context-set variables reach the child
+    let action = Action::exec_command("sh", &["-c", "echo $carapace_exec_env_test"], |stdout| {
+        Action::values([value_of(&String::from_utf8_lossy(stdout))])
+    });
+    let invoked = action.invoke(&Context::default().env("carapace_exec_env_test", "test"));
+    assert_eq!(invoked.values[0].value, "test");
+}

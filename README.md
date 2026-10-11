@@ -122,3 +122,19 @@ Command::new("outer").positional_any_completion(
     bridge::action("fish", &["myapp"]),   // or bash/zsh/carapace/carapace-bin/clap/cobra/inshellisense
 );
 ```
+
+## Licensing
+
+Licensing follows the upstream provenance of each crate:
+
+| Crate | Upstream source | License |
+|---|---|---|
+| `carapace-shlex` | [carapace-shlex](https://github.com/carapace-sh/carapace-shlex) | Apache-2.0 |
+| `carapace-core` | [carapace](https://github.com/carapace-sh/carapace) | Apache-2.0 (+ appendix) |
+| `carapace-spec` | [carapace-spec](https://github.com/carapace-sh/carapace-spec) | MIT |
+| `carapace-bridge` | [carapace-bridge](https://github.com/carapace-sh/carapace-bridge) | MIT |
+| `carapace-clap` | original work | MIT |
+| `carapace-testkit` | original work | MIT |
+
+`carapace-core` carries the upstream `LICENSE.appendix`: the features `Uid`,
+`Query`, and `Trace` are reserved for Tabdance™.

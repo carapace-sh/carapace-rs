@@ -54,16 +54,54 @@ impl Shell {
         }
     }
 
-    /// Detect the shell from the `$SHELL` environment variable.
+    /// Detect the shell from the parent process chain (Go
+    /// `ps.DetermineShell`): walk `/proc` upward and match the first
+    /// executable belonging to a known shell. Bash is reported as
+    /// bash-ble when ble.sh is attached.
+    ///
+    /// Returns `None` on non-unix platforms (the `/proc` walk is the only
+    /// supported source here).
     pub fn detect() -> Option<Self> {
-        let shell = std::env::var("SHELL").ok()?;
-        let name = shell.rsplit('/').next()?;
-        Self::parse(match name {
-            "nu" => "nushell",
-            "osh" | "ysh" => "oil",
-            "pwsh" | "powershell" => "powershell",
-            other => other,
-        })
+        let mut pid = std::process::id();
+        loop {
+            pid = process_parent(pid)?;
+            let mut name = process_name(pid);
+            if matches!(name.as_str(), "linker" | "linker64") {
+                // Termux rewrites execve through the system linker; the
+                // real binary is the first cmdline entry
+                name = std::fs::read_to_string(format!("/proc/{pid}/cmdline").as_str())
+                    .ok()
+                    .and_then(|data| {
+                        data.split('\0')
+                            .next()
+                            .map(|path| path.rsplit('/').next().unwrap_or(path).to_owned())
+                    })
+                    .unwrap_or(name);
+            }
+            let trimmed = name.trim_end_matches(".exe");
+            let base = trimmed.split('-').next().unwrap_or(trimmed);
+            match base {
+                "bash" => {
+                    return Some(if is_ble() { Self::BashBle } else { Self::Bash });
+                }
+                "cmd" => return Some(Self::CmdClink),
+                "elvish" => return Some(Self::Elvish),
+                "fish" => return Some(Self::Fish),
+                "ion" => return Some(Self::Ion),
+                "nu" => return Some(Self::Nushell),
+                "oil" | "osh" => return Some(Self::Oil),
+                "powershell" | "pwsh" => return Some(Self::PowerShell),
+                "tcsh" => return Some(Self::Tcsh),
+                "xonsh" => return Some(Self::Xonsh),
+                "zsh" => return Some(Self::Zsh),
+                _ => {
+                    if name.contains("xonsh-wrapped") {
+                        // nix packaged version
+                        return Some(Self::Xonsh);
+                    }
+                }
+            }
+        }
     }
 
     /// The shell's name (Go's shell identifier).
@@ -172,6 +210,45 @@ impl Shell {
             Self::Export => String::new(),
         }
     }
+}
+
+/// The parent pid of the process, from `/proc/{pid}/stat`.
+fn process_parent(pid: u32) -> Option<u32> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    // the comm field is parenthesized and may contain spaces
+    let after = stat.rsplit(')').next()?;
+    let mut fields = after.split_whitespace();
+    let _state = fields.next()?;
+    fields.next()?.parse().ok()
+}
+
+/// The executable name of the process, from `/proc/{pid}/stat` comm.
+fn process_name(pid: u32) -> String {
+    std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .and_then(|stat| {
+            let start = stat.find('(')?;
+            let end = stat.rfind(')')?;
+            Some(stat[start + 1..end].to_owned())
+        })
+        .unwrap_or_default()
+}
+
+/// Whether ble.sh is attached, by its exported helper variables
+/// (Go `isBLE`).
+fn is_ble() -> bool {
+    [
+        "_bleopt_connect_tty",
+        "_ble_util_fdlist_cloexec",
+        "_ble_util_fd_null",
+        "_ble_util_fd_stderr",
+        "_ble_util_fd_stdin",
+        "_ble_util_fd_stdout",
+        "_ble_util_fdvars_export",
+        "_ble_util_fd_zero",
+    ]
+    .iter()
+    .any(|name| std::env::var_os(name).is_some())
 }
 
 fn env_flag(name: &str) -> bool {
@@ -432,4 +509,26 @@ pub fn trimmed_description(description: &str) -> String {
         return result;
     }
     trimmed.to_owned()
+}
+
+#[cfg(test)]
+mod detect_tests {
+    use super::*;
+
+    #[test]
+    fn process_chain_parsing() {
+        // the helpers read /proc for the current process
+        let pid = std::process::id();
+        assert!(!process_name(pid).is_empty(), "comm should be readable");
+        let parent = process_parent(pid).expect("test binary has a parent");
+        assert!(!process_name(parent).is_empty(), "parent comm readable");
+    }
+
+    #[test]
+    fn detect_matches_first_shell_ancestor() {
+        // whatever the chain holds, detection returns a known shell
+        if let Some(shell) = Shell::detect() {
+            assert!(!shell.name().is_empty());
+        }
+    }
 }

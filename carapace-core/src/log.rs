@@ -45,53 +45,28 @@ pub fn log(message: &str) {
     }
 }
 
-/// `YYYY/MM/DD HH:MM:SS.microseconds` in UTC (Go's `log.Lmicroseconds`).
+/// `YYYY/MM/DD HH:MM:SS.microseconds` in the local timezone
+/// (Go's `log.Lmicroseconds`).
 fn timestamp() -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
-    let seconds = now.as_secs();
-    let micros = now.subsec_micros();
-
-    let days = seconds / 86_400;
-    let seconds_of_day = seconds % 86_400;
-    let (year, month, day) = civil_from_days(days as i64);
+    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+    let seconds = now.as_secs() as libc::time_t;
+    unsafe { libc::localtime_r(&seconds, &mut tm) };
     format!(
         "{:04}/{:02}/{:02} {:02}:{:02}:{:02}.{:06}",
-        year,
-        month,
-        day,
-        seconds_of_day / 3600,
-        (seconds_of_day % 3600) / 60,
-        seconds_of_day % 60,
-        micros
+        tm.tm_year + 1900,
+        tm.tm_mon + 1,
+        tm.tm_mday,
+        tm.tm_hour,
+        tm.tm_min,
+        tm.tm_sec,
+        now.subsec_micros()
     )
-}
-
-/// Days since the unix epoch to the civil date (Howard Hinnant's algorithm).
-fn civil_from_days(days: i64) -> (i64, u32, u32) {
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
-    let year = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    (if month <= 2 { year + 1 } else { year }, month, day)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn civil_dates() {
-        // day 0 = 1970-01-01
-        assert_eq!(civil_from_days(0), (1970, 1, 1));
-        assert_eq!(civil_from_days(59), (1970, 3, 1)); // non-leap year
-        assert_eq!(civil_from_days(365), (1971, 1, 1));
-        assert_eq!(civil_from_days(19_723), (2024, 1, 1));
-    }
 }

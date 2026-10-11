@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["carapace-rs", "carapace-shlex", "carapace-core", "carapace-clap", "carapace-testkit", "carapace-spec", "carapace-bridge", "carapace-macros"]
+members = ["carapace-rs", "carapace-shlex", "carapace-core", "carapace-clap", "carapace-testkit", "carapace-spec", "carapace-bridge"]
 
 [workspace.package]
 version = "0.1.0"

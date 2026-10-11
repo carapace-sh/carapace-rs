@@ -17,6 +17,33 @@ pub use convert::to_model;
 pub use entry::{complete, complete_output, execute_embedded, snippet};
 pub use integration::Carapace;
 
+/// Wrap an action expression in an [`ArgCompleter`] for use in clap derive's
+/// `add = <expr>` escape hatch.
+///
+/// ```
+/// # use clap::Parser;
+/// #[derive(Parser)]
+/// struct Cli {
+///     #[arg(long, add = carapace_clap::completer!(carapace_core::Action::values(["dev", "prod"])))]
+///     profile: Option<String>,
+/// }
+/// ```
+#[macro_export]
+macro_rules! completer {
+    ($action:expr) => {
+        $crate::ArgCompleter::new($action)
+    };
+}
+
+/// Wrap an action expression in a [`CommandCompleter`] for use in clap
+/// derive's `add = <expr>` escape hatch.
+#[macro_export]
+macro_rules! command_completer {
+    ($action:expr) => {
+        $crate::CommandCompleter::new($action)
+    };
+}
+
 /// Define completion for flags by name (port of Go `FlagCompletion` with
 /// its `ActionMap`): keys are flag long names, aliases or shorthands.
 /// Later calls merge per key (a repeated key replaces that flag's action).

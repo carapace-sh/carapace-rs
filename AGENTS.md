@@ -65,8 +65,8 @@ carapace-shlex/   the ported carapace-shlex completion core: per-format lexing
                   detection), Quote/Join per format
 carapace-core/    framework-independent engine: model, action, traverse, shell formatters,
                   cache, uid, export, mock
-carapace-clap/    clap adapter: Carapace extension trait, extension completers, _carapace entry point
-carapace-macros/  completer!/command_completer! expression wrappers for clap derive
+carapace-clap/    clap adapter: Carapace extension trait, extension completers, _carapace entry point,
+                  completer!/command_completer! macro_rules! wrappers for clap derive
 carapace-spec/    YAML specs: from_yaml parsing, to_yaml dump, $-macro resolution
 carapace-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin,
                   clap, cobra, inshellisense
@@ -200,8 +200,8 @@ names aligned with Go so specs/macros port mechanically.
 - fish `set __fish_config_dir` fails on fish ≥ 4 (read-only); the bridge sources the
   custom `config.fish` directly instead.
 - clap derive's `add = <expr>` escape hatch forwards to builder methods — the
-  mechanism `carapace-macros` builds on; the generated code references
-  `carapace_clap::` directly, so users need that dependency too.
+  mechanism `completer!`/`command_completer!` build on; they are `macro_rules!`
+  exported from carapace-clap, so that one dependency covers derive usage.
 - `_carapace` entry handles: snippet output (0/1 args), completion (2+ args), `style
   set`, and `spec` (YAML dump). Unknown shells return `None` so the program runs
   normally.

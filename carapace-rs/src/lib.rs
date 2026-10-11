@@ -1,13 +1,12 @@
 //! carapace shell completion for Rust CLIs.
 //!
 //! This crate is a facade over the workspace components: the framework-independent
-//! engine ([`carapace-core`]), the [clap](https://github.com/clap-rs/clap) adapter
-//! ([`carapace-clap`]) and the derive macros ([`carapace-macros`]). Depend on it
-//! alone for the common case; the component crates remain available for direct use.
+//! engine ([`carapace-core`]) and the [clap](https://github.com/clap-rs/clap) adapter
+//! ([`carapace-clap`], including the derive macros). Depend on it alone for the
+//! common case; the component crates remain available for direct use.
 //!
 //! [`carapace-core`]: https://docs.rs/carapace-core
 //! [`carapace-clap`]: https://docs.rs/carapace-clap
-//! [`carapace-macros`]: https://docs.rs/carapace-macros
 //!
 //! # Example
 //!
@@ -31,5 +30,5 @@ pub use carapace_clap::{
     PositionalCompleter, complete, complete_output, dash_completion, execute_embedded,
     flag_completion, positional_completion, snippet, to_model,
 };
+pub use carapace_clap::{command_completer, completer};
 pub use carapace_core::{Action, Context, InvokedAction};
-pub use carapace_macros::{command_completer, completer};

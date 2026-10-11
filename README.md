@@ -42,12 +42,12 @@ fn main() {
 }
 ```
 
-With clap derive, `carapace_macros::completer!` attaches completers inline:
+With clap derive, `carapace_clap::completer!` attaches completers inline:
 
 ```rust,ignore
 #[derive(Parser)]
 struct Cli {
-    #[arg(long, add = carapace_macros::completer!(Action::values(["dev", "prod"])))]
+    #[arg(long, add = carapace_clap::completer!(Action::values(["dev", "prod"])))]
     profile: Option<String>,
 }
 ```
@@ -100,7 +100,6 @@ carapace-clap/    clap adapter: Carapace extension trait, extension slots, _cara
 carapace-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions
 carapace-spec/    YAML user specs: flag suffixes, macros ($files, $directories, $executables), parsing modes, spec dump
 carapace-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin, clap, cobra, inshellisense
-carapace-macros/  expression wrappers (`completer!`) for clap derive wiring
 ```
 
 Testing completions:

@@ -19,28 +19,6 @@ live next to this one and should be consulted when porting or verifying behavior
 | `../carapace-shlex` | shell lexing reference: `completion.go`, `shlex.go`, `quote.go`, `format_*.go` — the completion core is ported as the `carapace-shlex` crate (format tests 1:1; `verify_*.go` source-crosscheck corpora are ported in `src/verify.rs`, fish/zsh/xonsh/powershell sections condensed) |
 | `../carapace-spec` | YAML spec format and core macros |
 
-## Naming & Publication
-
-`carapace-rs` (this repo) is the Rust port. Keep name tokens atomic behind the
-`-` delimiter, and don't squat tokens that belong to other carapace-* names
-(language codes like `rs`/`py`, spec adapters like `carapace-spec-clap`).
-
-### crates.io namespace reality
-
-crates.io has no namespaces — crate names are globally unique and cannot be
-reserved without publishing. Consequences settled for this workspace:
-
-- `carapace` is taken by an unrelated crate; never target it.
-- `carapace-rs` is held by a 0.0.0 placeholder (this org), matching the repo
-  name. It is not a real crate; users depend on the component crates, not on
-  `carapace-rs`. The workspace publishes one crate per component: `carapace-shlex`,
-  `carapace-core`, `carapace-clap`, `carapace-testkit`, `carapace-spec`,
-  `carapace-bridge`, leaf-first (shlex → core → clap/spec/testkit → bridge),
-  versions locked via `[workspace.package]`.
-- Claim any future crate name early with a 0.0.0 placeholder — there is no
-  reservation mechanism, and component names like `carapace-core` are
-  first-come-first-served like everything else.
-
 Rule of thumb: port behavior 1:1 in spirit (same semantics, same edge cases, same wire
 format), adapt the *shape* to idiomatic Rust. When Go and Rust behavior diverge in a
 test, either the port or the test is wrong — check the Go source first.

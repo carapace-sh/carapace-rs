@@ -123,7 +123,10 @@ fn parse_query(string: &str) -> Option<Query> {
 }
 
 impl Export {
-    pub const VERSION: &'static str = "0.1.0";
+    /// Library version with an `rs-` prefix (Go reports its module version;
+    /// the prefix distinguishes the Rust port and leaves semver prerelease
+    /// suffixes unambiguous).
+    pub const VERSION: &'static str = concat!("rs-", env!("CARGO_PKG_VERSION"));
 
     /// Serialize an invoked action into the export JSON format.
     ///

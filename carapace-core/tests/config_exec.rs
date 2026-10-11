@@ -153,3 +153,35 @@ fn exec_passes_context_env_not_process_env() {
     let invoked = action.invoke(&Context::default().env("carapace_exec_env_test", "test"));
     assert_eq!(invoked.values[0].value, "test");
 }
+
+#[test]
+fn keyword_styles_follow_go_table() {
+    use carapace_core::config::keyword_style;
+    assert_eq!(keyword_style("true"), "green");
+    assert_eq!(keyword_style("FALSE"), "red");
+    assert_eq!(keyword_style("auto"), "yellow");
+    assert_eq!(keyword_style("unknown"), "dim white");
+    // dashes and underscores are ignored, matching is case-insensitive
+    assert_eq!(keyword_style("In-Progress"), "yellow");
+    assert_eq!(keyword_style("NOT_EXISTS"), "red");
+    assert_eq!(keyword_style("whatever"), "");
+}
+
+#[test]
+fn style_config_lists_carapace_entries() {
+    let action = Action::style_config();
+    let values: Vec<String> = action
+        .invoke(&Context::default())
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    assert!(values.iter().any(|v| v == "carapace.FlagArg=blue"));
+    assert!(values.iter().any(|v| v == "carapace.FlagOptArg=yellow"));
+    assert!(values.iter().any(|v| v == "carapace.FlagMultiArg=magenta"));
+    assert!(
+        values
+            .iter()
+            .any(|v| v.starts_with("carapace.KeywordPositive="))
+    );
+}

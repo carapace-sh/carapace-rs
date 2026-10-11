@@ -7,15 +7,31 @@ pub struct CarapaceStyles {
     pub description: String,
     pub error: String,
     pub usage: String,
+    pub keyword_ambiguous: String,
+    pub keyword_negative: String,
+    pub keyword_positive: String,
+    pub keyword_unknown: String,
+    pub flag_arg: String,
+    pub flag_multi_arg: String,
+    pub flag_no_arg: String,
+    pub flag_opt_arg: String,
 }
 
 impl Default for CarapaceStyles {
     fn default() -> Self {
         Self {
             value: String::new(),
-            description: String::new(),
-            error: "underlined".to_owned(),
-            usage: "italic".to_owned(),
+            description: "dim".to_owned(),
+            error: "bold red".to_owned(),
+            usage: "dim".to_owned(),
+            keyword_ambiguous: "yellow".to_owned(),
+            keyword_negative: "red".to_owned(),
+            keyword_positive: "green".to_owned(),
+            keyword_unknown: "dim white".to_owned(),
+            flag_arg: "blue".to_owned(),
+            flag_multi_arg: "magenta".to_owned(),
+            flag_no_arg: String::new(),
+            flag_opt_arg: "yellow".to_owned(),
         }
     }
 }
@@ -81,6 +97,14 @@ fn load_styles() -> Styles {
             "carapace.Description" => styles.carapace.description = style,
             "carapace.Error" => styles.carapace.error = style,
             "carapace.Usage" => styles.carapace.usage = style,
+            "carapace.FlagArg" => styles.carapace.flag_arg = style,
+            "carapace.FlagMultiArg" => styles.carapace.flag_multi_arg = style,
+            "carapace.FlagNoArg" => styles.carapace.flag_no_arg = style,
+            "carapace.FlagOptArg" => styles.carapace.flag_opt_arg = style,
+            "carapace.KeywordAmbiguous" => styles.carapace.keyword_ambiguous = style,
+            "carapace.KeywordNegative" => styles.carapace.keyword_negative = style,
+            "carapace.KeywordPositive" => styles.carapace.keyword_positive = style,
+            "carapace.KeywordUnknown" => styles.carapace.keyword_unknown = style,
             other => {
                 carapace_fields.insert(other.to_owned(), style);
             }
@@ -202,4 +226,42 @@ pub fn description_length() -> usize {
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(80)
+}
+
+/// The style for a known keyword (Go `style.ForKeyword`): dash and
+/// underscore are ignored and matching is case-insensitive.
+pub fn keyword_style(value: &str) -> String {
+    let normalized: String = value
+        .to_lowercase()
+        .chars()
+        .filter(|c| *c != '-' && *c != '_')
+        .collect();
+    let styles = styles().carapace;
+    let (positive, negative, ambiguous, unknown) = (
+        &styles.keyword_positive,
+        &styles.keyword_negative,
+        &styles.keyword_ambiguous,
+        &styles.keyword_unknown,
+    );
+    match normalized.as_str() {
+        "1" | "y" | "yes" | "true" | "on" | "enable" | "enabled" | "all" | "full" | "loose"
+        | "public" | "internal" | "asc" | "ascending" | "up" | "open" | "opened" | "always"
+        | "start" | "started" | "starting" | "run" | "running" | "create" | "created"
+        | "onsuccess" | "success" | "active" | "healthy" | "resolved" | "connected" | "present"
+        | "exists" | "completed" | "merged" | "keep" | "continue" | "allow" | "visible"
+        | "tracked" => positive.clone(),
+        "0" | "n" | "no" | "false" | "off" | "disable" | "disabled" | "none" | "empty"
+        | "strict" | "private" | "external" | "desc" | "descending" | "down" | "close"
+        | "closed" | "never" | "remove" | "removed" | "removing" | "stop" | "stopped"
+        | "stopping" | "exit" | "exited" | "exiting" | "dead" | "delete" | "deleted"
+        | "onfailure" | "onerror" | "error" | "failed" | "failure" | "fatal" | "block" | "deny"
+        | "hidden" | "dirty" | "inactive" | "unhealthy" | "unresolved" | "disconnected"
+        | "absent" | "notexists" | "canceled" | "cancelled" => negative.clone(),
+        "some" | "auto" | "inprogress" | "pause" | "paused" | "pausing" | "restart"
+        | "restarted" | "restarting" | "warn" | "nonblock" | "ondemand" | "pending" | "idle"
+        | "ask" | "untracked" | "default" | "quiet" | "manual" | "only" | "silent"
+        | "scheduled" | "skipped" => ambiguous.clone(),
+        "unknown" | "backoff" => unknown.clone(),
+        _ => String::new(),
+    }
 }

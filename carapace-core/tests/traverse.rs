@@ -306,3 +306,43 @@ fn completes_attached_flag_value_with_partial_value() {
     );
     assert_eq!(complete(&["-o=fi"]), vec!["-o=file1", "-o=file2"]);
 }
+
+#[test]
+fn flag_names_carry_kind_styles() {
+    // Go Flag.Style(): FlagNoArg, FlagArg, FlagMultiArg, FlagOptArg
+    let completion = traverse(&app(), vec!["--".to_string()]);
+    let mut values: Vec<(String, String)> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .into_iter()
+        .map(|v| (v.value, v.style))
+        .collect();
+    values.sort();
+
+    let styles: std::collections::HashMap<String, String> = values.into_iter().collect();
+    assert_eq!(styles["--verbose"], ""); // no argument (style.Default)
+    assert_eq!(styles["--output"], "blue"); // single argument
+    assert_eq!(styles["--include"], "magenta"); // multiple arguments
+    assert_eq!(styles["--define"], "yellow"); // optional argument
+    assert_eq!(styles["-v"], "");
+    assert_eq!(styles["-o"], "blue");
+}
+
+#[test]
+fn bool_flag_values_carry_keyword_styles() {
+    // Go StyleF(style.ForKeyword): true is positive, false negative
+    let completion = traverse(&app(), vec!["--verbose=".to_string()]);
+    let mut values: Vec<(String, String)> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .into_iter()
+        .map(|v| (v.value, v.style))
+        .collect();
+    values.sort();
+
+    let styles: std::collections::HashMap<String, String> = values.into_iter().collect();
+    assert_eq!(styles["--verbose=false"], "red");
+    assert_eq!(styles["--verbose=true"], "green");
+}

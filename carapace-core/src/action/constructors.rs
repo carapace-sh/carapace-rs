@@ -187,14 +187,23 @@ impl Action {
         ])
     }
 
-    /// Complete style configuration values (e.g. `carapace.Error=underlined`).
+    /// Complete style configuration values (e.g. `carapace.Error=bold red`).
     pub fn style_config() -> Self {
         let config = crate::config::styles();
+        let carapace = &config.carapace;
         let mut values = vec![
-            format!("carapace.Value={}", config.carapace.value),
-            format!("carapace.Description={}", config.carapace.description),
-            format!("carapace.Error={}", config.carapace.error),
-            format!("carapace.Usage={}", config.carapace.usage),
+            format!("carapace.Value={}", carapace.value),
+            format!("carapace.Description={}", carapace.description),
+            format!("carapace.Error={}", carapace.error),
+            format!("carapace.Usage={}", carapace.usage),
+            format!("carapace.KeywordAmbiguous={}", carapace.keyword_ambiguous),
+            format!("carapace.KeywordNegative={}", carapace.keyword_negative),
+            format!("carapace.KeywordPositive={}", carapace.keyword_positive),
+            format!("carapace.KeywordUnknown={}", carapace.keyword_unknown),
+            format!("carapace.FlagArg={}", carapace.flag_arg),
+            format!("carapace.FlagMultiArg={}", carapace.flag_multi_arg),
+            format!("carapace.FlagNoArg={}", carapace.flag_no_arg),
+            format!("carapace.FlagOptArg={}", carapace.flag_opt_arg),
         ];
         for (name, style) in &config.custom {
             values.push(format!("{name}={style}"));

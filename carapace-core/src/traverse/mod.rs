@@ -8,7 +8,7 @@ pub mod parse;
 
 use crate::action::merge_all;
 use crate::context::Context;
-use crate::model::Command;
+use crate::model::{Command, Nargs};
 use crate::value::RawValue;
 use crate::{Action, RawValues};
 
@@ -129,7 +129,10 @@ fn traverse_command(cmd: &Command, args: Vec<String>, _path: Vec<String>) -> Com
             if !flag.args.is_empty() {
                 if !flag.flag.takes_value {
                     return Completion {
-                        action: Action::values(["true", "false"]).prefix(&flag.arg_prefix),
+                        // Go styles bool values as keywords
+                        action: Action::values(["true", "false"])
+                            .style_f(|value| crate::config::keyword_style(&value.value))
+                            .prefix(&flag.arg_prefix),
                         context,
                     };
                 }
@@ -200,12 +203,25 @@ pub fn action_flags(cmd: &Command) -> Action {
         let is_shorthand_series =
             value.starts_with(prefix) && !value.starts_with(&double_prefix) && value.len() > 2;
 
+        let carapace_styles = crate::config::styles().carapace;
         let mut values: RawValues = Vec::new();
         let include_hidden = crate::config::hidden() == crate::config::Hidden::IncludeCarapace;
         for flag in &cmd.flags {
             if flag.hidden && !include_hidden {
                 continue;
             }
+            // Go Flag.Style(): the flag kind decides the style
+            let style = if !flag.takes_value {
+                carapace_styles.flag_no_arg.clone()
+            } else if flag.is_optarg() {
+                carapace_styles.flag_opt_arg.clone()
+            } else if matches!(flag.nargs, Nargs::AtLeastOne | Nargs::Any)
+                || matches!(flag.nargs, Nargs::Exact(count) if count > 1)
+            {
+                carapace_styles.flag_multi_arg.clone()
+            } else {
+                carapace_styles.flag_arg.clone()
+            };
             let description = flag.description.clone();
             if is_shorthand_series {
                 let Some(shorthand) = flag.shorthand else {
@@ -220,7 +236,8 @@ pub fn action_flags(cmd: &Command) -> Action {
                 if !valid {
                     continue;
                 }
-                let mut value = RawValue::styled_described(shorthand.to_string(), description, "");
+                let mut value =
+                    RawValue::styled_described(shorthand.to_string(), description, &style);
                 value.tag = "shorthand flags".to_owned();
                 if flag.is_optarg() {
                     value = value.nospace(true);
@@ -230,13 +247,16 @@ pub fn action_flags(cmd: &Command) -> Action {
                 let mut longhand = RawValue::styled_described(
                     format!("{double_prefix}{}", flag.name),
                     description.clone(),
-                    "",
+                    &style,
                 );
                 longhand.tag = "longhand flags".to_owned();
                 values.push(longhand);
                 if let Some(shorthand) = flag.shorthand {
-                    let mut short =
-                        RawValue::styled_described(format!("{prefix}{shorthand}"), description, "");
+                    let mut short = RawValue::styled_described(
+                        format!("{prefix}{shorthand}"),
+                        description,
+                        &style,
+                    );
                     short.tag = "shorthand flags".to_owned();
                     values.push(short);
                 }

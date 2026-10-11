@@ -51,30 +51,22 @@ impl Tokenizer {
     /// Returns the next token, or None at the end of input.
     pub(crate) fn next(&mut self) -> Option<Token> {
         if self.state == LexerState::StopParsing {
-            if let Some(mut token) = self.scan_stop_parsing() {
-                token.state = self.state;
-                if token.span.end == 0 && token.span.start != 0 {
-                    token.span.end = token.span.start + token.raw_value.chars().count();
-                } else if token.span.end == 0
-                    && token.span.start == 0
-                    && !token.raw_value.is_empty()
-                {
-                    token.span.end = token.raw_value.chars().count();
-                }
-                return Some(token);
+            // scan_stop_parsing sets the token state and resets to Start
+            // itself; Go does not overwrite it in Next().
+            let mut token = self.scan_stop_parsing()?;
+            if token.span.end == 0 && token.span.start != 0 {
+                token.span.end = token.span.start + token.raw_value.chars().count();
+            } else if token.span.end == 0 && token.span.start == 0 && !token.raw_value.is_empty() {
+                token.span.end = token.raw_value.chars().count();
             }
-            return None;
+            return Some(token);
         }
 
         let mut token = self.scan_stream()?;
         token.state = self.state;
         if token.span.end == 0 && token.span.start != 0 {
             token.span.end = token.span.start + token.raw_value.chars().count();
-        } else if token.span.end == 0
-            && token.span.start == 0
-            && !token.raw_value.is_empty()
-            && token.kind == TokenType::Word
-        {
+        } else if token.span.end == 0 && token.span.start == 0 && !token.raw_value.is_empty() {
             token.span.end = token.raw_value.chars().count();
         }
         if token.kind == TokenType::Wordbreak {
@@ -467,17 +459,21 @@ impl Tokenizer {
                                 continue;
                             }
                             self.state = LexerState::QuotingEscaping;
-                            if let Some(replacement) = self.format.escaping_quote_unescape(r) {
-                                token.value.push_str(&replacement);
-                            } else if self
-                                .format
-                                .escaping_quote_escape_chars()
-                                .contains(&r)
-                            {
-                                token.add(r);
+                            if self.format.escaping_quote_unescaper() {
+                                if let Some(replacement) = self.format.escaping_quote_unescape(r) {
+                                    token.value.push_str(&replacement);
+                                } else {
+                                    token.add('\\');
+                                    token.add(r);
+                                }
                             } else {
-                                token.add('\\');
-                                token.add(r);
+                                let escape_chars = self.format.escaping_quote_escape_chars();
+                                if escape_chars.is_empty() || escape_chars.contains(&r) {
+                                    token.add(r);
+                                } else {
+                                    token.add('\\');
+                                    token.add(r);
+                                }
                             }
                         }
                     }

@@ -2,10 +2,10 @@
 
 use super::format::FormatImpl;
 use super::quote::{
-    cmd_quote_word, elvish_quote_word, hilbish_quote_word, nushell_quote_word, posix_quote_word,
-    powershell_quote_word, xonsh_quote_word,
+    cmd_quote_word, elvish_quote_word, fish_quote_word, hilbish_quote_word, nushell_quote_word,
+    posix_quote_word, powershell_quote_word, xonsh_quote_word,
 };
-use super::token::{RuneClassifier, Token};
+use super::token::{LexerState, RuneClassifier, Token};
 use super::wordbreak::{self, WordbreakType};
 
 /// `COMP_WORDBREAKS` from the environment (bash/zsh classifiers read it at
@@ -36,55 +36,153 @@ fn reclassify_substitution(tokens: &mut [Token]) {
     }
 }
 
-/// Merge `$` + `(` adjacency into a substitution opener (POSIX shells).
+/// Merge `$` + `(` adjacency into a substitution opener and reclassify
+/// `(`/`)` as substitution delimiters (POSIX shells), ported from
+/// `substitution_posix.go`:
+///
+/// 1. `$` word + adjacent `(` wordbreak merges into a single
+///    `WORDBREAK_SUBSTITUTION_OPEN` token with raw value `$(`.
+/// 2. `$((` arithmetic: a second adjacent `(` merges into one opener.
+/// 3. Process substitution: adjacent redirect operator + `(` merges into
+///    an opener (`<(`, `>(`, `>>(`).
+/// 4. Standalone `(` reclassifies as `WORDBREAK_SUBSTITUTION_OPEN`.
+/// 5. `)` reclassifies as `WORDBREAK_SUBSTITUTION_CLOSE`; with arithmetic
+///    open, two adjacent `)` merge into one closer.
 fn posix_substitution_post_process(tokens: Vec<Token>) -> Vec<Token> {
+    use super::token::TokenType;
+
     let mut result = Vec::with_capacity(tokens.len());
-    let mut iter = tokens.into_iter().peekable();
-    while let Some(token) = iter.next() {
-        let merged = {
-            let next = iter.peek();
-            match next {
-                Some(next)
-                    if token.kind == super::token::TokenType::Word
-                        && token.value == "$"
-                        && next.kind == super::token::TokenType::Wordbreak
-                        && next.value == "("
-                        && token.adjoins(next) =>
+    let mut depth: usize = 0;
+    let mut arithmetic_depth: usize = 0;
+
+    let mut index = 0;
+    while index < tokens.len() {
+        let token = &tokens[index];
+
+        // $ + ( adjacency → merge into WORDBREAK_SUBSTITUTION_OPEN
+        if token.kind == TokenType::Word && token.value == "$" && index + 1 < tokens.len() {
+            let next = &tokens[index + 1];
+            if next.kind == TokenType::Wordbreak && next.value == "(" && token.adjoins(next) {
+                // $(( arithmetic
+                if index + 2 < tokens.len()
+                    && tokens[index + 2].kind == TokenType::Wordbreak
+                    && tokens[index + 2].value == "("
+                    && next.adjoins(&tokens[index + 2])
                 {
-                    Some(Token {
-                        kind: super::token::TokenType::Wordbreak,
+                    result.push(Token {
+                        kind: TokenType::Wordbreak,
                         value: "$(".to_owned(),
-                        raw_value: token.raw_value.clone() + &next.raw_value,
+                        raw_value: token.raw_value.clone()
+                            + &next.raw_value
+                            + &tokens[index + 2].raw_value,
                         span: super::token::Span {
                             start: token.span.start,
-                            end: next.span.end,
+                            end: tokens[index + 2].span.end,
                         },
-                        state: next.state,
+                        state: tokens[index + 2].state,
                         wordbreak_type: WordbreakType::SubstitutionOpen,
                         ..Default::default()
-                    })
+                    });
+                    depth += 1;
+                    arithmetic_depth += 1;
+                    index += 3;
+                    continue;
                 }
-                _ => None,
+                // Regular $( command substitution
+                result.push(Token {
+                    kind: TokenType::Wordbreak,
+                    value: "$(".to_owned(),
+                    raw_value: token.raw_value.clone() + &next.raw_value,
+                    span: super::token::Span {
+                        start: token.span.start,
+                        end: next.span.end,
+                    },
+                    state: next.state,
+                    wordbreak_type: WordbreakType::SubstitutionOpen,
+                    ..Default::default()
+                });
+                depth += 1;
+                index += 2;
+                continue;
             }
-        };
-        if let Some(mut merged) = merged {
-            iter.next();
-            if merged.value == "$(" {
-                reclassify_substitution(std::slice::from_mut(&mut merged));
+        }
+
+        // Process substitution: <(, >(, or >>(
+        if token.kind == TokenType::Wordbreak
+            && token.wordbreak_type.is_redirect()
+            && matches!(token.value.as_str(), "<" | ">" | ">>")
+            && index + 1 < tokens.len()
+        {
+            let next = &tokens[index + 1];
+            if next.kind == TokenType::Wordbreak && next.value == "(" && token.adjoins(next) {
+                result.push(Token {
+                    kind: TokenType::Wordbreak,
+                    value: token.value.clone() + "(",
+                    raw_value: token.raw_value.clone() + &next.raw_value,
+                    span: super::token::Span {
+                        start: token.span.start,
+                        end: next.span.end,
+                    },
+                    state: next.state,
+                    wordbreak_type: WordbreakType::SubstitutionOpen,
+                    ..Default::default()
+                });
+                depth += 1;
+                index += 2;
+                continue;
             }
-            result.push(merged);
+        }
+
+        // Reclassify standalone ( as WORDBREAK_SUBSTITUTION_OPEN
+        if token.kind == TokenType::Wordbreak && token.value == "(" {
+            result.push(Token {
+                wordbreak_type: WordbreakType::SubstitutionOpen,
+                ..token.clone()
+            });
+            depth += 1;
+            index += 1;
             continue;
         }
-        let mut token = token;
-        if token.kind == super::token::TokenType::Wordbreak {
-            if token.value == "(" {
-                token.wordbreak_type = WordbreakType::SubstitutionOpen;
-            } else if token.value == ")" {
-                token.wordbreak_type = WordbreakType::SubstitutionClose;
+
+        // Reclassify ) as WORDBREAK_SUBSTITUTION_CLOSE
+        if token.kind == TokenType::Wordbreak && token.value == ")" {
+            // With arithmetic open, two adjacent ) merge into one closer
+            if arithmetic_depth > 0
+                && index + 1 < tokens.len()
+                && tokens[index + 1].kind == TokenType::Wordbreak
+                && tokens[index + 1].value == ")"
+                && token.adjoins(&tokens[index + 1])
+            {
+                result.push(Token {
+                    kind: TokenType::Wordbreak,
+                    value: "))".to_owned(),
+                    raw_value: token.raw_value.clone() + &tokens[index + 1].raw_value,
+                    span: super::token::Span {
+                        start: token.span.start,
+                        end: tokens[index + 1].span.end,
+                    },
+                    state: tokens[index + 1].state,
+                    wordbreak_type: WordbreakType::SubstitutionClose,
+                    ..Default::default()
+                });
+                depth = depth.saturating_sub(1);
+                arithmetic_depth -= 1;
+                index += 2;
+                continue;
             }
+            result.push(Token {
+                wordbreak_type: WordbreakType::SubstitutionClose,
+                ..token.clone()
+            });
+            depth = depth.saturating_sub(1);
+            index += 1;
+            continue;
         }
-        result.push(token);
+
+        result.push(token.clone());
+        index += 1;
     }
+
     result
 }
 
@@ -218,7 +316,7 @@ impl FormatImpl for HilbishFormat {
     }
 
     fn classify_operator(&self, raw: &str) -> WordbreakType {
-        wordbreak::hilbish_wordbreak_type(raw)
+        wordbreak::bash_wordbreak_type(raw) // hilbish uses the full bash operator grammar
     }
 
     fn quote_word(&self, s: &str) -> String {
@@ -289,8 +387,7 @@ impl FormatImpl for FishFormat {
     }
 
     fn quote_word(&self, s: &str) -> String {
-        // Go's fishQuoteWord is identical to posixQuoteWord
-        posix_quote_word(s)
+        fish_quote_word(s)
     }
 
     fn is_line_continuation(&self, r: char) -> bool {
@@ -617,6 +714,26 @@ impl FormatImpl for PowershellFormat {
         powershell_quote_word(s)
     }
 
+    fn quote_insertion_custom(&self, state: LexerState, value: &str) -> Option<String> {
+        // Inside double quotes the escape character is the backtick, not
+        // the backslash; other states use the default rules.
+        if state != LexerState::QuotingEscaping {
+            return None;
+        }
+        let mut b = String::with_capacity(value.len() + 2);
+        b.push('"');
+        for r in value.chars() {
+            match r {
+                '"' => b.push_str("`\""),
+                '`' => b.push_str("``"),
+                '$' => b.push_str("`$"),
+                _ => b.push(r),
+            }
+        }
+        b.push('"');
+        Some(b)
+    }
+
     fn is_line_continuation(&self, r: char) -> bool {
         r == '\n' || r == '\r'
     }
@@ -790,6 +907,10 @@ impl FormatImpl for NushellFormat {
 
     fn escaping_quote_escape_chars(&self) -> &'static [char] {
         &[] // the C-style escape table applies (EscapingQuoteUnescape)
+    }
+
+    fn escaping_quote_unescaper(&self) -> bool {
+        true
     }
 
     fn escaping_quote_unescape(&self, r: char) -> Option<String> {
@@ -969,6 +1090,10 @@ impl FormatImpl for XonshFormat {
 
     fn non_escaping_quote_backslash_escapes(&self) -> bool {
         true // \' and \\ inside single quotes (Python syntax)
+    }
+
+    fn escaping_quote_escape_chars(&self) -> &'static [char] {
+        &[] // Python: the backslash escapes any character inside double quotes
     }
 
     fn triple_quote_support(&self) -> bool {

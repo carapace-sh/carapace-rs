@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use carapace_shlex::{complete, split, Format, TokenSliceExt};
+use carapace_shlex::{Format, TokenSliceExt, complete, split};
 
 /// `Split(...).Words().Strings()`
 pub fn split_words(s: &str, format: Format) -> Vec<String> {
@@ -12,6 +12,16 @@ pub fn pipeline_words(s: &str, format: Format) -> Vec<String> {
     split(s, format)
         .unwrap()
         .current_pipeline()
+        .words()
+        .strings()
+}
+
+/// `Split(...).CurrentPipeline().FilterRedirects().Words().Strings()`
+pub fn filtered_pipeline_words(s: &str, format: Format) -> Vec<String> {
+    split(s, format)
+        .unwrap()
+        .current_pipeline()
+        .filter_redirects()
         .words()
         .strings()
 }

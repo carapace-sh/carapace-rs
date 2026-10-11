@@ -1,6 +1,6 @@
 //! The format trait: a shell's lexical rules (port of `format.go`).
 
-use super::token::{RuneClassifier, Token};
+use super::token::{LexerState, RuneClassifier, Token};
 use super::wordbreak::WordbreakType;
 
 /// The behavior behind a format name: which runes are quotes, escapes,
@@ -69,8 +69,23 @@ pub(crate) trait FormatImpl: Sync {
     fn quote_word(&self, s: &str) -> String;
 
     /// Transform the rune following the escape character inside double
-    /// quotes (None: keep the escape and the rune).
+    /// quotes (None: keep the escape and the rune). Only nushell implements
+    /// the C-style escape table (Go's `escapingQuoteUnescaper`).
     fn escaping_quote_unescape(&self, _r: char) -> Option<String> {
+        None
+    }
+
+    /// Whether the format transforms escapes inside double quotes through
+    /// [`FormatImpl::escaping_quote_unescape`]; unrecognized escapes then
+    /// keep their backslash instead of consulting the escape-chars table.
+    fn escaping_quote_unescaper(&self) -> bool {
+        false
+    }
+
+    /// Optional per-format insertion quoting for states whose escaping
+    /// differs from the POSIX-style default (PowerShell escapes with the
+    /// backtick); None falls back to the default rules.
+    fn quote_insertion_custom(&self, _state: LexerState, _value: &str) -> Option<String> {
         None
     }
 

@@ -130,23 +130,3 @@ pub(crate) fn tcsh_wordbreak_type(raw: &str) -> WordbreakType {
         _ => WordbreakType::Unknown,
     }
 }
-
-/// The POSIX sh operator grammar handled by hilbish's interpreter: no `<<<`,
-/// no `|&`, no `&>` / `&>>`; case lists use `;;`.
-pub(crate) fn hilbish_wordbreak_type(raw: &str) -> WordbreakType {
-    match raw {
-        "<" => WordbreakType::RedirectInput,
-        ">" => WordbreakType::RedirectOutput,
-        ">>" => WordbreakType::RedirectOutputAppend,
-        "<<" => WordbreakType::RedirectHereDoc,
-        "<&" => WordbreakType::RedirectInputDuplicate,
-        "<>" => WordbreakType::RedirectInputOutput,
-        "|" => WordbreakType::Pipe,
-        "&" => WordbreakType::ListAsync,
-        ";" => WordbreakType::ListSequential,
-        "&&" => WordbreakType::ListAnd,
-        "||" => WordbreakType::ListOr,
-        ";;" => WordbreakType::ListSequentialDouble,
-        _ => WordbreakType::Unknown,
-    }
-}

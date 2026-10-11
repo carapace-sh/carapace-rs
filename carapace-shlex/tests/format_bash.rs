@@ -1,7 +1,7 @@
 mod common;
 
+use carapace_shlex::{Format, TokenSliceExt, TokenType, WordbreakType, complete, split};
 use common::{pipeline_count, split_words};
-use carapace_shlex::{complete, split, Format, TokenSliceExt, TokenType, WordbreakType};
 
 #[test]
 fn close_quote_escape_reopen() {

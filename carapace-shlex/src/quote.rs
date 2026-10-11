@@ -29,6 +29,30 @@ pub(crate) fn posix_quote_word(s: &str) -> String {
     b
 }
 
+/// Quote a word for fish: fish double quotes escape only ", $, \, and
+/// newline; backtick is a regular character in fish.
+pub(crate) fn fish_quote_word(s: &str) -> String {
+    if s.is_empty() {
+        return "\"\"".to_owned();
+    }
+    if !s.contains(['"', '\'', ' ', '$', '\n', '\r', '\t', '\\']) {
+        return s.to_owned();
+    }
+    let mut b = String::with_capacity(s.len() + 2);
+    b.push('"');
+    for r in s.chars() {
+        match r {
+            '"' => b.push_str("\\\""),
+            '\\' => b.push_str("\\\\"),
+            '$' => b.push_str("\\$"),
+            '\n' => b.push_str("\\\n"),
+            _ => b.push(r),
+        }
+    }
+    b.push('"');
+    b
+}
+
 /// Quote a word for hilbish: metacharacters are backslash-escaped in
 /// barewords rather than the word being quoted.
 pub(crate) fn hilbish_quote_word(s: &str) -> String {
@@ -256,6 +280,9 @@ pub(crate) fn cmd_quote_word(s: &str) -> String {
 /// the format's quoting primitives: quoting states are closed with the
 /// format's own escape rules, and barewords are quoted as a complete word.
 pub(crate) fn quote_insertion(f: &dyn FormatImpl, state: LexerState, value: &str) -> String {
+    if let Some(quoted) = f.quote_insertion_custom(state, value) {
+        return quoted;
+    }
     if f.stop_parsing_word().is_some() && state == LexerState::StopParsing {
         return value.to_owned(); // raw mode: nothing is quoted
     }

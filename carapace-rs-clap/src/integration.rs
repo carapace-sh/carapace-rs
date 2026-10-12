@@ -1,6 +1,6 @@
 //! Fluent completion wiring for clap commands (port of Go `carapace.Gen`).
 
-use crate::completer::{CommandCompleter, DashAnyCompleter};
+use crate::completer::{CommandCompleter, CommandMeta, DashAnyCompleter};
 use carapace_rs::Action;
 
 /// Completion wiring for [`clap::Command`].
@@ -34,6 +34,17 @@ pub trait Carapace {
     fn dash_completion(self, actions: impl IntoIterator<Item = Action>) -> Self;
     /// Complete any positional after `--`.
     fn dash_any_completion(self, action: Action) -> Self;
+    /// Assign the command to a group (cobra `GroupID`): the group id
+    /// becomes the completion tag and selects the highlight style.
+    /// Named `completion_group` because clap's inherent `Command::group`
+    /// takes precedence over trait methods.
+    fn completion_group(self, id: impl Into<String>) -> Self;
+    /// Disable flag parsing entirely (cobra `DisableFlagParsing`): every
+    /// argument completes as a positional.
+    fn disable_flag_parsing(self) -> Self;
+    /// Set the full use line (cobra `cmd.Use`), used as the fallback usage
+    /// for positional completions when it has more than one field.
+    fn use_line(self, line: impl Into<String>) -> Self;
 }
 
 impl Carapace for clap::Command {
@@ -68,5 +79,34 @@ impl Carapace for clap::Command {
         self.build();
         self = self.add(DashAnyCompleter::new(action));
         self
+    }
+
+    fn completion_group(self, id: impl Into<String>) -> Self {
+        let mut meta = self.get::<CommandMeta>().cloned().unwrap_or_default();
+        meta.group = Some(id.into());
+        self.add(meta)
+    }
+
+    fn disable_flag_parsing(self) -> Self {
+        let mut meta = self.get::<CommandMeta>().cloned().unwrap_or_default();
+        meta.disable_flag_parsing = true;
+        self.add(meta)
+    }
+
+    fn use_line(self, line: impl Into<String>) -> Self {
+        let mut meta = self.get::<CommandMeta>().cloned().unwrap_or_default();
+        meta.use_line = Some(line.into());
+        self.add(meta)
+    }
+}
+
+/// Merge [`CommandMeta`] extensions into the normalized model.
+pub(crate) fn apply_meta(cmd: &clap::Command, model: &mut carapace_rs::model::Command) {
+    if let Some(meta) = cmd.get::<CommandMeta>() {
+        model.group = meta.group.clone();
+        model.disable_flag_parsing |= meta.disable_flag_parsing;
+        if meta.use_line.is_some() {
+            model.use_line = meta.use_line.clone();
+        }
     }
 }

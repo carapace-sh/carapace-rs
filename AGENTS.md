@@ -56,6 +56,19 @@ carapace-rs-bridge/  external completer bridges: fish, bash, zsh, carapace, cara
 carapace-rs-testkit/ in-process sandbox harness for tests
 ```
 
+## Example Command
+
+`carapace-rs-clap/examples/example/` ports the Go repo's `example/cmd` tree —
+a deliberately wide command tree (groups, persistent flags, optargs, embedded
+commands, shorthand chains, disabled flag parsing, mutually exclusive flags,
+every action modifier) serving as the end-to-end regression fixture. Its
+sandbox tests live in `carapace-rs-clap/tests/example.rs`, one topic module
+per Go test file. Cobra-only surfaces are adapted: `Standalone` hides the
+help flag, the `PreRun` plugin command is attached statically, and the
+`compat` topic (cobra's `RegisterFlagCompletionFunc`/`ValidArgsFunction`
+directives) stays a bare command because the directive semantics are covered
+by the cobra bridge tests in `carapace-rs-bridge`.
+
 ## Design Decisions
 
 These are settled; don't relitigate without cause, and preserve them when refactoring.

@@ -12,6 +12,14 @@ pub struct Context {
     pub args: Vec<String>,
     /// Previous parts of the value during multipart completion.
     pub parts: Vec<String>,
+    /// Positional arguments of the current command including those after
+    /// `--` (Go `Flags().Args()`); only populated while completing dash
+    /// arguments, `None` otherwise.
+    pub all_positionals: Option<Vec<String>>,
+    /// Flags with values seen during traversal (Go's pflag `Changed`
+    /// state plus the consumed values); used for repeatable/conflict
+    /// filtering and callback actions.
+    pub parsed_flags: Vec<(String, Vec<String>)>,
     /// Environment available to the action.
     pub env: HashMap<String, String>,
     /// Working directory for the action.

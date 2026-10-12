@@ -97,6 +97,10 @@ pub struct Flag {
     pub tag: Option<String>,
     /// Completion for the flag's value(s), if overridden.
     pub completion: Option<Action>,
+    /// Names of flags this flag conflicts with (cobra's mutually-exclusive
+    /// annotation, directional here): a conflicting flag that was already
+    /// given removes this flag from the flag completion.
+    pub conflicts: Vec<String>,
 }
 
 impl Flag {
@@ -122,7 +126,10 @@ impl Flag {
     }
 
     pub fn is_optarg(&self) -> bool {
-        self.optional
+        // Go's `NoOptDefVal != ""`: boolean and counter flags carry a
+        // default value, so they are optargs as well (while still styling
+        // as `FlagNoArg`)
+        self.optional || !self.takes_value
     }
 }
 
@@ -175,6 +182,10 @@ pub struct Command {
     pub flag_prefix: char,
     /// Help text.
     pub description: String,
+    /// Full use line (Go `cmd.Use`, e.g. `action [pos1] [pos2]`); the
+    /// positional completion fallback usage when it has more than one
+    /// field. `None` when not expressible (clap trees default to None).
+    pub use_line: Option<String>,
 }
 
 impl Command {
@@ -195,6 +206,11 @@ impl Command {
 
     pub fn description(mut self, description: impl Into<String>) -> Self {
         self.description = description.into();
+        self
+    }
+
+    pub fn use_line(mut self, use_line: impl Into<String>) -> Self {
+        self.use_line = Some(use_line.into());
         self
     }
 

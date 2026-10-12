@@ -86,3 +86,5 @@ pub fn dash_completion(
     let actions: Vec<_> = actions.into_iter().collect();
     *cmd = std::mem::take(cmd).add(DashCompleter(actions));
 }
+
+pub use crate::completer::{ArgConflicts, ArgPersistent};

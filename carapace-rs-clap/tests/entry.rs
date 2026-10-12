@@ -142,8 +142,10 @@ fn bash_patch_relexes_compline() {
 
     let (_nospace, data) = output.split_once('\u{1}').unwrap();
     let values: Vec<&str> = data.lines().collect();
+    // `--profile` was already given (non-repeatable): Go's actionFlags
+    // skips it, the flag completion still runs (`--help`)
     assert!(
-        values.contains(&"--profile"),
+        values.contains(&"--help"),
         "re-lexed args drive flag completion: {values:?}"
     );
 }

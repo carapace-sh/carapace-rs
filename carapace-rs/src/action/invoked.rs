@@ -11,6 +11,68 @@ pub struct InvokedAction {
 }
 
 impl InvokedAction {
+    /// Create an [`Action`](super::Action) completing segments of the
+    /// values split by `dividers` (Go `InvokedAction.ToMultiPartsA`):
+    /// values with the current prefix contribute their next segment,
+    /// candidates keep the entered prefix, and the last divider character
+    /// (or `*` for an empty divider) joins the nospace matcher.
+    pub fn to_multiparts_a(&self, dividers: &[&str]) -> super::Action {
+        let dividers: Vec<String> = dividers.iter().map(|divider| divider.to_string()).collect();
+        let values = self.values.clone();
+        super::Action::callback(move |c| {
+            let splitted_value = tokenize(&c.value, &dividers);
+
+            let mut unique: std::collections::BTreeMap<String, crate::value::RawValue> =
+                std::collections::BTreeMap::new();
+            for value in &values {
+                if !value.value.starts_with(&c.value) {
+                    continue;
+                }
+                let splitted = tokenize(&value.value, &dividers);
+                if splitted.len() < splitted_value.len() {
+                    continue;
+                }
+                let joined = splitted[..splitted_value.len()].join("");
+                let display = splitted[splitted_value.len() - 1].clone();
+                if splitted.len() == splitted_value.len() {
+                    unique.insert(
+                        joined.clone(),
+                        crate::value::RawValue {
+                            value: joined.clone(),
+                            display,
+                            description: value.description.clone(),
+                            style: value.style.clone(),
+                            tag: value.tag.clone(),
+                            ..value.clone()
+                        },
+                    );
+                } else {
+                    unique.insert(
+                        joined.clone(),
+                        crate::value::RawValue {
+                            value: joined,
+                            display,
+                            tag: value.tag.clone(),
+                            ..Default::default()
+                        },
+                    );
+                }
+            }
+
+            let mut action = super::Action::raw(unique.into_values().collect());
+            for divider in &dividers {
+                match divider.chars().last() {
+                    None => {
+                        action = action.nospace(['*']);
+                        break;
+                    }
+                    Some(last) => action = action.nospace([last]),
+                }
+            }
+            action
+        })
+    }
+
     /// Remove given values.
     pub fn filter(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let values: Vec<String> = values.into_iter().map(Into::into).collect();
@@ -78,4 +140,26 @@ pub fn merge_all(actions: impl IntoIterator<Item = InvokedAction>) -> InvokedAct
         Some(first) => first.merge(iter),
         None => InvokedAction::default(),
     }
+}
+
+/// Split `s` into tokens that keep their trailing divider (Go
+/// `invokedAction.tokenize`, `strings.SplitAfter` semantics including the
+/// trailing empty token).
+fn tokenize(s: &str, dividers: &[String]) -> Vec<String> {
+    let Some(first) = dividers.first() else {
+        return vec![s.to_owned()];
+    };
+    let mut result = Vec::new();
+    let mut rest = s;
+    while let Some(index) = rest.find(first.as_str()) {
+        let mut tokens = tokenize(&rest[..index], &dividers[1..]);
+        if !tokens.is_empty() {
+            let last = tokens.len() - 1;
+            tokens[last].push_str(first);
+        }
+        result.extend(tokens);
+        rest = &rest[index + first.len()..];
+    }
+    result.extend(tokenize(rest, &dividers[1..]));
+    result
 }

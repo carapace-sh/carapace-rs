@@ -195,7 +195,8 @@ impl Action {
                         ));
                     }
                 } else {
-                    values.push(RawValue::styled("color", combined("color")));
+                    // Go uses `style.Of(styles...)`: the existing styles only
+                    values.push(RawValue::styled("color", existing.join(" ")));
                 }
             }
             if !bg {
@@ -211,7 +212,7 @@ impl Action {
                         ));
                     }
                 } else {
-                    values.push(RawValue::styled("bg-color", combined("bg-color")));
+                    values.push(RawValue::styled("bg-color", existing.join(" ")));
                 }
             }
             for attribute in ["bold", "dim", "italic", "underlined", "blink", "inverse"] {
@@ -364,11 +365,29 @@ fn complete_path(
             context.dir.join(path)
         }
     };
+    crate::log::log(&format!(
+        "complete_path value={:?} dir={:?} resolved={:?}\n{:?}",
+        value,
+        context.dir,
+        resolved,
+        std::backtrace::Backtrace::capture()
+    ));
     let entries = std::fs::read_dir(&resolved).ok()?;
+    // hidden entries are only offered when completing a hidden path
+    // itself (Go `actionPath`'s showHidden)
+    let abs = context.abs(value).unwrap_or_else(|_| value.clone());
+    let show_hidden = !abs.ends_with('/')
+        && std::path::Path::new(&abs)
+            .file_name()
+            .map(|name| name.to_string_lossy().starts_with('.'))
+            .unwrap_or(false);
     let mut values = Vec::new();
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.starts_with(&prefix) {
+            continue;
+        }
+        if !show_hidden && name.starts_with('.') {
             continue;
         }
         let path = entry.path();
@@ -379,9 +398,10 @@ fn complete_path(
         if path.is_dir() {
             candidate.push('/');
         }
-        // candidates keep the value's directory part (relative when the
-        // typed value is relative)
+        // the value keeps the typed directory part while the display shows
+        // only the completed segment (Go's MultiParts prefix re-attachment)
         let mut value = RawValue::new(format!("{}{}", dir_prefix(Path::new(&dir)), candidate));
+        value.display = candidate;
         if path.is_dir() {
             value = value.nospace(true);
         }
@@ -419,6 +439,7 @@ fn complete_path(
     Some(
         Action::raw(values)
             .nospace(['/'])
+            .tag(host)
             .with_meta(crate::meta::Meta::default().query(query)),
     )
 }

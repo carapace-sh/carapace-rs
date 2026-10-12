@@ -4,7 +4,7 @@ use carapace_rs::Action;
 use carapace_rs::model::{ArgumentStyle, Command, Flag, Nargs, Positional};
 
 use crate::completer::{
-    ArgCompleter, CommandCompleter, DashAnyCompleter, DashCompleter, FlagCompleter,
+    ArgCompleter, ArgConflicts, CommandCompleter, DashAnyCompleter, DashCompleter, FlagCompleter,
     PositionalCompleter,
 };
 
@@ -14,10 +14,10 @@ use crate::completer::{
 /// args are resolved.
 pub fn to_model(cmd: &mut clap::Command) -> Command {
     cmd.build();
-    convert_command(cmd)
+    convert_command(cmd, &[])
 }
 
-fn convert_command(cmd: &clap::Command) -> Command {
+fn convert_command(cmd: &clap::Command, inherited: &[(String, Flag)]) -> Command {
     let mut model = Command::new(cmd.get_name().to_owned());
     model.aliases = cmd.get_all_aliases().map(String::from).collect();
     model.description = cmd
@@ -28,11 +28,23 @@ fn convert_command(cmd: &clap::Command) -> Command {
     model.interspersed = !cmd
         .get_positionals()
         .any(|arg| arg.is_trailing_var_arg_set());
-    model.flags = cmd
+    let mut flags: Vec<Flag> = cmd
         .get_arguments()
         .filter(|arg| !arg.is_positional())
         .map(convert_flag)
         .collect();
+    // persistent flags are inherited by every subcommand, fully converted
+    // from their defining command (cobra's shared `*pflag.Flag`)
+    for (name, flag) in inherited {
+        let present = cmd.get_arguments().any(|arg| {
+            !arg.is_positional()
+                && (arg.get_id().as_str() == name || arg.get_long() == Some(name.as_str()))
+        });
+        if !present {
+            flags.push(flag.clone());
+        }
+    }
+    model.flags = flags;
     model.positionals = {
         let mut positionals: Vec<Positional> =
             cmd.get_positionals().map(convert_positional).collect();
@@ -44,12 +56,6 @@ fn convert_command(cmd: &clap::Command) -> Command {
         });
         positionals
     };
-    model.subcommands = cmd.get_subcommands().map(convert_command).collect();
-    if let Some(completer) = cmd.get::<CommandCompleter>() {
-        model.positional_any = Some(completer.0.clone());
-    }
-    // the command-level positional list fills positionals without their own
-    // completion slot (the Nth action completes the Nth positional)
     // the flag map fills flags without their own completion slot; entries
     // are applied in reverse so a repeated key keeps its last action
     if let Some(completer) = cmd.get::<FlagCompleter>() {
@@ -66,6 +72,29 @@ fn convert_command(cmd: &clap::Command) -> Command {
             }
         }
     }
+    // persistent flags flow down to subcommands with their converted
+    // completion (Go's shared flag object lookup)
+    let mut persistent: Vec<(String, Flag)> = inherited.to_vec();
+    for flag in &model.flags {
+        let marked = cmd.get_arguments().any(|arg| {
+            !arg.is_positional()
+                && arg.get::<crate::completer::ArgPersistent>().is_some()
+                && (arg.get_id().as_str() == flag.name
+                    || arg.get_long() == Some(flag.name.as_str()))
+        });
+        if marked && !persistent.iter().any(|(key, _)| key == &flag.name) {
+            persistent.push((flag.name.clone(), flag.clone()));
+        }
+    }
+    model.subcommands = cmd
+        .get_subcommands()
+        .map(|subcommand| convert_command(subcommand, &persistent))
+        .collect();
+    if let Some(completer) = cmd.get::<CommandCompleter>() {
+        model.positional_any = Some(completer.0.clone());
+    }
+    // the command-level positional list fills positionals without their own
+    // completion slot (the Nth action completes the Nth positional)
     if let Some(completer) = cmd.get::<PositionalCompleter>() {
         let actions: Vec<Action> = completer.0.clone();
         // Completions map by argument index (Go completes the Nth argument,
@@ -98,6 +127,17 @@ fn convert_command(cmd: &clap::Command) -> Command {
             }
         }
         model.positionals = expanded;
+        // the Nth action completes the Nth argument even when clap defines
+        // fewer positionals (Go's storage is independent of the command's
+        // arg definition): pad with virtual positionals
+        while model.positionals.len() < actions.len() {
+            let index = model.positionals.len();
+            model.positionals.push(carapace_rs::model::Positional {
+                name: format!("positional{}", index + 1),
+                optional: true,
+                ..Default::default()
+            });
+        }
         for (index, action) in actions.iter().enumerate() {
             if let Some(positional) = model.positionals.get_mut(index) {
                 if positional.completion.is_none() {
@@ -122,6 +162,7 @@ fn convert_command(cmd: &clap::Command) -> Command {
             .collect();
     }
     model.hidden = cmd.is_hide_set();
+    crate::integration::apply_meta(cmd, &mut model);
     init_help_completion(&mut model);
     model
 }
@@ -205,6 +246,10 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
             .map(|completer| completer.0.clone())
             .or_else(|| possible_values_action(arg))
             .or_else(|| value_hint_action(arg)),
+        conflicts: arg
+            .get::<ArgConflicts>()
+            .map(|conflicts| conflicts.0.clone())
+            .unwrap_or_default(),
     }
 }
 

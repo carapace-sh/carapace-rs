@@ -283,9 +283,11 @@ fn hidden_flags_respect_hidden_env() {
             .into_iter()
             .map(|v| v.value)
             .collect();
+    // shorthand candidates do not carry the `--` prefix (Go wraps the
+    // flag batch in `MultiParts(".")`)
     assert_eq!(
         values,
-        vec!["--help", "-h"],
+        vec!["--help"],
         "hidden flag must be skipped: {values:?}"
     );
 

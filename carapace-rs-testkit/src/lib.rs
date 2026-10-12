@@ -37,6 +37,11 @@ impl Sandbox {
         }
     }
 
+    /// The sandbox work directory (completion context directory).
+    pub fn work_dir(&self) -> std::path::PathBuf {
+        self.dir.join("work")
+    }
+
     /// Create files (path, content) relative to the work directory.
     pub fn files<const N: usize>(&self, entries: [(&str, &str); N]) -> &Self {
         for (path, content) in entries {
@@ -85,18 +90,38 @@ impl Sandbox {
             replies: self.replies.clone(),
         };
 
-        // traverse takes the full word list (last word = completed value)
+        // traverse takes the full word list (last word = completed value);
+        // the seeded context applies the sandbox state to actions invoked
+        // during traversal as well
         let mut words = context.args.clone();
         words.push(context.value.clone());
-        let mut completion = carapace_rs::traverse(&model, words);
-        completion.context.dir = context.dir;
-        completion.context.env = context.env;
-        completion.context.mock = Some(mock);
+        context.mock = Some(mock);
+        let completion = carapace_rs::traverse_seeded(&model, words, context.clone());
         let invoked = completion.action.invoke(&completion.context);
 
+        // the actual side round-trips through the export shell's shared
+        // dispatch (prefix filtering, flag merging, sorting, uid
+        // stripping) exactly like Go's sandbox (`ActionExecute` runs
+        // `_carapace export`)
+        let json = carapace_rs::shell::Shell::Export.value(
+            &context.value,
+            &invoked.meta,
+            &invoked.values,
+            &carapace_rs::shell::bash::Context::default(),
+        );
+        let export = carapace_rs::export::Export::from_json(&json).unwrap_or_else(|| {
+            carapace_rs::export::Export {
+                version: String::new(),
+                meta: Default::default(),
+                values: Vec::new(),
+            }
+        });
+
         Run {
-            export: carapace_rs::export::Export::from_parts(&invoked.meta, &invoked.values),
+            export,
             args: args.iter().map(|arg| arg.to_string()).collect(),
+            context: completion.context,
+            value: context.value.clone(),
         }
     }
 }
@@ -124,12 +149,17 @@ impl<'s> Reply<'s> {
 pub struct Run {
     export: carapace_rs::export::Export,
     args: Vec<String>,
+    context: carapace_rs::Context,
+    value: String,
 }
 
 impl Run {
     /// The export JSON of the run (for custom assertions).
+    ///
+    /// Like Go's sandbox comparison, values are filtered by the completed
+    /// prefix, sorted and stripped of uids.
     pub fn output(&self) -> String {
-        self.export.to_json()
+        serde_json::to_string(&self.normalized_export()).unwrap()
     }
 
     /// The completion values of the run.
@@ -138,12 +168,28 @@ impl Run {
     }
 
     /// Assert the run equals the expected action (compared as export JSON).
+    ///
+    /// Following Go's sandbox comparison (`invoke` with `strict=false`),
+    /// both sides are filtered by the completed prefix, sorted by value and
+    /// stripped of uids, and the expectation is invoked with the run's
+    /// context (directory and environment).
     pub fn expect(&self, action: Action) {
-        let invoked = action.invoke(&carapace_rs::Context::default());
+        let invoked = action.invoke(&self.context);
         let expected = carapace_rs::export::Export::from_parts(&invoked.meta, &invoked.values);
         assert_eq!(
-            serde_json::to_string(&self.export).unwrap(),
-            serde_json::to_string(&expected).unwrap(),
+            serde_json::to_string(&self.normalized_export()).unwrap(),
+            serde_json::to_string(&normalized(expected, &self.value)).unwrap(),
+            "completion mismatch for run {:?}",
+            self.args
+        );
+    }
+
+    /// Assert the run's export JSON equals the given (already normalized)
+    /// output of another run.
+    pub fn expect_output(&self, output: &str) {
+        assert_eq!(
+            self.output(),
+            output,
             "completion mismatch for run {:?}",
             self.args
         );
@@ -151,13 +197,36 @@ impl Run {
 
     /// Assert the run does NOT equal the given action.
     pub fn expect_not(&self, action: Action) {
-        let invoked = action.invoke(&carapace_rs::Context::default());
+        let invoked = action.invoke(&self.context);
         let expected = carapace_rs::export::Export::from_parts(&invoked.meta, &invoked.values);
         assert_ne!(
-            serde_json::to_string(&self.export).unwrap(),
-            serde_json::to_string(&expected).unwrap(),
+            serde_json::to_string(&self.normalized_export()).unwrap(),
+            serde_json::to_string(&normalized(expected, &self.value)).unwrap(),
             "completion unexpectedly matched for run {:?}",
             self.args
         );
     }
+
+    fn normalized_export(&self) -> carapace_rs::export::Export {
+        normalized(self.export.clone(), &self.value)
+    }
+}
+
+/// Normalize an export for comparison (Go `sandbox.run.invoke` with
+/// `strict=false`): filter values by the completed prefix, sort by value
+/// and strip uids.
+fn normalized(mut export: carapace_rs::export::Export, value: &str) -> carapace_rs::export::Export {
+    export.values.retain(|v| v.value.starts_with(value));
+    export.values.sort_by(|a, b| {
+        a.value
+            .cmp(&b.value)
+            .then_with(|| a.display.cmp(&b.display))
+    });
+    for v in &mut export.values {
+        v.uid = String::new();
+        // the per-value nospace is a Rust-only wire extension; Go's
+        // comparison has no equivalent field
+        v.nospace = None;
+    }
+    export
 }

@@ -84,9 +84,11 @@ fn completes_positionals() {
 
 #[test]
 fn completes_flag_names() {
+    // `--` excludes shorthand candidates (they do not carry the prefix,
+    // Go `actionFlags` wraps the batch in `MultiParts(".")`)
     assert_eq!(
         complete(&["--"]),
-        vec!["--define", "--include", "--output", "--verbose", "-o", "-v"]
+        vec!["--define", "--include", "--output", "--verbose"]
     );
     assert_eq!(
         complete(&["-"]),
@@ -149,7 +151,9 @@ fn flag_consumes_next_arg() {
 fn completes_after_subcommand() {
     assert_eq!(complete(&["build", ""]), vec!["bin", "lib"]);
     assert_eq!(complete(&["build", "--jobs", ""]), vec!["1", "2"]);
-    assert_eq!(complete(&["build", "-j"]), vec!["--jobs"]);
+    // `-j` is a shorthand series whose member takes a required value: the
+    // series aborts (Go `actionFlags` shorthand handling)
+    assert_eq!(complete(&["build", "-j"]), Vec::<String>::new());
 }
 
 #[test]
@@ -176,11 +180,32 @@ fn shorthand_series_prefix() {
 }
 
 #[test]
-fn unknown_flags_are_ignored() {
+fn unknown_flags_are_reported_unless_lenient() {
+    // pflag errors on unknown flags; `CARAPACE_LENIENT` falls back to
+    // ignoring them (Go `env.Lenient`)
+    let completion = traverse(&app(), vec!["--unknown".to_string(), "".to_string()]);
+    let invoked = completion.action.invoke(&completion.context);
+    assert_eq!(invoked.values, Vec::new());
+    assert_eq!(
+        invoked.meta.messages,
+        vec!["unknown flag: --unknown".to_owned()]
+    );
+
+    let _guard = env_lock();
+    unsafe { std::env::set_var("CARAPACE_LENIENT", "1") };
     assert_eq!(
         complete(&["--unknown", ""]),
         vec!["build", "t1", "t2", "test"]
     );
+    unsafe { std::env::remove_var("CARAPACE_LENIENT") };
+}
+
+/// Serializes tests that touch `CARAPACE_*` environment variables.
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 #[test]
@@ -325,8 +350,6 @@ fn flag_names_carry_kind_styles() {
     assert_eq!(styles["--output"], "blue"); // single argument
     assert_eq!(styles["--include"], "magenta"); // multiple arguments
     assert_eq!(styles["--define"], "yellow"); // optional argument
-    assert_eq!(styles["-v"], "");
-    assert_eq!(styles["-o"], "blue");
 }
 
 #[test]
@@ -494,4 +517,89 @@ fn implicit_uids_on_flags_and_subcommands() {
         .clone()
         .unwrap();
     assert_eq!(force, "cmd://app/sub/deep?flag=force");
+}
+
+#[test]
+fn probe_interspersed_parse() {
+    let cmd = Command::new("app")
+        .flag(Flag {
+            id: "bool".into(),
+            name: "bool".into(),
+            shorthand: Some('b'),
+            ..Default::default()
+        })
+        .positional(Positional {
+            name: "pos1".into(),
+            completion: Some(Action::values(["p1"])),
+            ..Default::default()
+        })
+        .positional(Positional {
+            name: "pos2".into(),
+            completion: Some(Action::values(["p2"])),
+            ..Default::default()
+        })
+        .interspersed(false);
+    let parsed = carapace_rs::traverse::parse::parse(
+        &cmd,
+        &["--bool".to_string(), "p1".to_string(), "--".to_string()],
+    );
+    println!(
+        "PROBE positionals={:?} dash={}",
+        parsed.positionals, parsed.dash
+    );
+}
+
+#[test]
+fn probe_prefix_modifier() {
+    let a = Action::values(["p1"]).prefix("--persistentFlag=");
+    let invoked = a.invoke(&carapace_rs::Context::default().value("--persistentFlag="));
+    println!(
+        "PROBE prefix out={:?}",
+        invoked
+            .values
+            .iter()
+            .map(|v| v.value.clone())
+            .collect::<Vec<_>>()
+    );
+    let b = Action::values(["p1"]);
+    let wrapped = Action::callback(move |c| {
+        let invoked = b.invoke(c);
+        let mut action = invoked.to_action();
+        if action.meta.usage.as_deref().is_none_or(str::is_empty) {
+            action.meta.usage = Some("usage".to_owned());
+        }
+        action
+    })
+    .prefix("--persistentFlag=");
+    let invoked2 = wrapped.invoke(&carapace_rs::Context::default().value("--persistentFlag="));
+    println!(
+        "PROBE wrapped out={:?}",
+        invoked2
+            .values
+            .iter()
+            .map(|v| v.value.clone())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn probe_shlex_redirect() {
+    for input in ["pos1>", "pos1>subdir/", "pos1>subdir/file1.txt --b"] {
+        let c = carapace_rs_shlex::complete(input, carapace_rs::Format::Bash);
+        println!(
+            "PROBE input={input:?} words={:?} current={:?} redirect={}",
+            c.words, c.current_word, c.is_redirect
+        );
+    }
+}
+
+#[test]
+fn probe_for_path_colors() {
+    let context = carapace_rs::Context::default();
+    for p in ["dirA/", "dirC/", "file5.go", "missing.txt"] {
+        println!(
+            "PROBE for_path {p:?} = {:?}",
+            carapace_rs::shell::for_path(&context, p)
+        );
+    }
 }

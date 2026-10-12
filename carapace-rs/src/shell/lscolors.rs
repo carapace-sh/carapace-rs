@@ -108,7 +108,11 @@ impl Colorist {
             .style_for_feature
             .get(&Feature::MultiHardLink)
             .is_some_and(|style| !style.trim_matches('0').is_empty());
-        let feature = determine_feature(Path::new(fname), mh).unwrap_or(Feature::Regular);
+        // a path that does not exist has no feature and thus no style
+        // (Go's featureInvalid)
+        let Some(feature) = determine_feature(Path::new(fname), mh) else {
+            return String::new();
+        };
         if feature == Feature::Regular {
             if let Some(ext) = path_ext(fname) {
                 if let Some(style) = self.style_for_ext.get(&ext) {
@@ -157,6 +161,8 @@ fn has_mode(mode: u32, bit: u32) -> bool {
 
 /// The feature of the file at the given path (Go `determineFeature`).
 fn determine_feature(fname: &Path, mh: bool) -> Option<Feature> {
+    // Go's determineFeature yields the (unstyled) invalid feature when the
+    // path does not exist; the regular/extension fallback must not apply
     let metadata = std::fs::symlink_metadata(fname).ok()?;
 
     // symlinks have the highest precedence

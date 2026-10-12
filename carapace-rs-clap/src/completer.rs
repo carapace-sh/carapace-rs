@@ -21,6 +21,22 @@ impl std::fmt::Debug for ArgCompleter {
 
 impl ArgExt for ArgCompleter {}
 
+/// Flag conflict names (cobra `MarkFlagsMutuallyExclusive`, directional):
+/// a conflicting flag that was already given removes this flag from the
+/// flag-name completion. Stored as an arg extension since clap does not
+/// expose its conflict graph.
+#[derive(Clone, Debug, Default)]
+pub struct ArgConflicts(pub Vec<String>);
+
+impl ArgExt for ArgConflicts {}
+
+/// Marks an arg as persistent (cobra `PersistentFlags`): the flag and its
+/// completion are inherited by all subcommands.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ArgPersistent;
+
+impl ArgExt for ArgPersistent {}
+
 /// Completion for any positional after `--`, stored as a command extension.
 #[derive(Clone)]
 pub struct DashAnyCompleter(pub Action);
@@ -84,3 +100,19 @@ impl CommandExt for FlagCompleter {}
 pub struct DashCompleter(pub Vec<Action>);
 
 impl CommandExt for DashCompleter {}
+
+/// Model properties cobra commands have but clap cannot express, carried
+/// as a command extension and merged into the normalized model at
+/// conversion time (Go `GroupID`, `DisableFlagParsing`, `cmd.Use`).
+#[derive(Clone, Debug, Default)]
+pub struct CommandMeta {
+    /// Group id this command belongs to (Go `GroupID`).
+    pub group: Option<String>,
+    /// Whether flag parsing is disabled entirely (Go `DisableFlagParsing`).
+    pub disable_flag_parsing: bool,
+    /// Full use line (Go `cmd.Use`); the positional completion fallback
+    /// usage when it has more than one field.
+    pub use_line: Option<String>,
+}
+
+impl CommandExt for CommandMeta {}

@@ -94,14 +94,16 @@ impl Action {
         })
     }
 
-    /// Set a per-value style.
+    /// Set a per-value style. The closure receives the invocation context
+    /// (Go `style.Context`), so styles may resolve dynamically at invoke
+    /// time (e.g. `shell::for_path`, config-backed styles).
     pub fn style_f<F>(self, f: F) -> Self
     where
-        F: Fn(&RawValue) -> String + Send + Sync + 'static,
+        F: Fn(&Context, &RawValue) -> String + Send + Sync + 'static,
     {
-        self.map_invoked(move |_, mut invoked| {
+        self.map_invoked(move |context, mut invoked| {
             for value in &mut invoked.values {
-                value.style = f(value);
+                value.style = f(context, value);
             }
             invoked
         })
@@ -368,6 +370,141 @@ impl Action {
                 .prefix(&prefix)
                 .to_action()
                 .nospace([nospace])
+        })
+    }
+
+    /// Suppress error messages matching the given regular expressions
+    /// (port of Go `Action.Suppress`). An invalid expression surfaces as
+    /// a message instead.
+    pub fn suppress(self, exprs: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let exprs: Vec<String> = exprs.into_iter().map(Into::into).collect();
+        Self::callback(move |c| {
+            let invoked = self.invoke(c);
+            let mut messages = invoked.meta.messages.clone();
+            for expr in &exprs {
+                match regex::Regex::new(expr) {
+                    Err(error) => return Self::message(error.to_string()),
+                    Ok(expr) => messages.retain(|message| !expr.is_match(message)),
+                }
+            }
+            let mut meta = invoked.meta.clone();
+            meta.messages = messages;
+            InvokedAction { meta, ..invoked }.to_action()
+        })
+    }
+
+    /// Complete parts of an argument separated by `divider`, resolving
+    /// placeholder segments of `pattern` via `f` (port of Go
+    /// `Action.MultiPartsP`). Static segments must match the entered parts;
+    /// a placeholder segment (matching `pattern`) is completed by `f` with
+    /// the data entered for all placeholders seen so far.
+    pub fn multipartsp<F>(self, divider: &str, pattern: &str, f: F) -> Self
+    where
+        F: Fn(&str, &std::collections::HashMap<String, String>) -> Self + Send + Sync + 'static,
+    {
+        let divider = divider.to_owned();
+        let pattern = match regex::Regex::new(pattern) {
+            Ok(pattern) => Some(pattern),
+            Err(error) => return Self::message(error.to_string()),
+        };
+        let f = std::sync::Arc::new(f);
+        Self::callback(move |c| {
+            let Some(pattern) = pattern.clone() else {
+                return Self::message("invalid pattern");
+            };
+            let invoked = self.invoke(c);
+
+            // split the value like `ActionMultiParts` (Go delegates to it)
+            let mut context = c.clone();
+            let mut prefix = String::new();
+            let splitted: Vec<String> = split_n(&context.value, &divider, -1);
+            if splitted.len() > 1 {
+                context.value = splitted.last().cloned().unwrap_or_default();
+                context.parts = splitted[..splitted.len() - 1].to_vec();
+                prefix = format!("{}{divider}", context.parts.join(&divider));
+            } else {
+                context.parts = Vec::new();
+            }
+
+            let mut entered: std::collections::HashMap<String, String> =
+                std::collections::HashMap::new();
+            let mut static_matches: std::collections::BTreeSet<usize> =
+                std::collections::BTreeSet::new();
+            let mut candidates: std::collections::BTreeMap<String, crate::value::RawValue> =
+                std::collections::BTreeMap::new();
+
+            'path: for value in &invoked.values {
+                let segments: Vec<&str> = value.value.split(&divider).collect();
+                for (index, segment) in segments.iter().enumerate() {
+                    if index >= context.parts.len() {
+                        break;
+                    } else if *segment != context.parts[index] {
+                        if !pattern.is_match(segment) {
+                            continue 'path;
+                        }
+                        entered.insert((*segment).to_owned(), context.parts[index].clone());
+                    } else {
+                        static_matches.insert(index);
+                    }
+                }
+
+                if segments.len() < context.parts.len() + 1 {
+                    continue 'path;
+                }
+                for index in &static_matches {
+                    if *index < segments.len() && segments[*index] != context.parts[*index] {
+                        continue 'path;
+                    }
+                }
+
+                if segments.len() == context.parts.len() + 1 {
+                    candidates.insert(segments[context.parts.len()].to_owned(), value.clone());
+                } else {
+                    candidates.insert(
+                        format!("{}{divider}", segments[context.parts.len()]),
+                        crate::value::RawValue::default(),
+                    );
+                }
+            }
+
+            let mut actions: Vec<Self> = Vec::new();
+            for (key, value) in candidates {
+                let trimmed = key.strip_suffix(&divider).unwrap_or(&key);
+                if pattern.is_match(trimmed) {
+                    let suffix = if key.ends_with(&divider) {
+                        &divider
+                    } else {
+                        ""
+                    };
+                    let entered = entered.clone();
+                    let trimmed = trimmed.to_owned();
+                    let suffix = suffix.to_owned();
+                    let f_clone = f.clone();
+                    actions.push(Self::callback(move |c| {
+                        let mut invoked = f_clone(&trimmed, &entered).invoke(c).suffix(&suffix);
+                        for value in &mut invoked.values {
+                            value.display.push_str(&suffix);
+                        }
+                        invoked.to_action()
+                    }));
+                } else {
+                    actions.push(Self::raw(vec![crate::value::RawValue {
+                        value: key.clone(),
+                        display: key,
+                        ..value
+                    }]));
+                }
+            }
+            let action = crate::action::batch::batch(actions)
+                .invoke(&context)
+                .prefix(&prefix)
+                .to_action();
+            let mut meta = action.meta.clone();
+            meta.merge(&invoked.meta);
+            // Go's MultiPartsP wraps `ActionMultiParts`, whose tail adds the
+            // divider's last character (`*` when empty) to the nospace matcher
+            meta = meta.nospace([divider.chars().last().unwrap_or('*')]);
+            Self { meta, ..action }
         })
     }
 

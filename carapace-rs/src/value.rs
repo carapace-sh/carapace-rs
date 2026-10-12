@@ -110,6 +110,13 @@ pub fn by_display(a: &RawValue, b: &RawValue) -> Ordering {
 
 /// Deduplicate values by `(value, uid)` key, keeping first occurrence.
 pub fn unique(values: &mut RawValues) {
-    let mut seen = std::collections::HashSet::new();
-    values.retain(|v| seen.insert((v.value.clone(), v.uid.clone())));
+    // Go's `RawValues.Unique` is a map assignment: later entries win
+    let mut unique: std::collections::HashMap<(String, Option<String>), RawValue> =
+        std::collections::HashMap::new();
+    for value in values.drain(..) {
+        unique.insert((value.value.clone(), value.uid.clone()), value);
+    }
+    let mut result: Vec<RawValue> = unique.into_values().collect();
+    result.sort_by(by_display);
+    *values = result;
 }

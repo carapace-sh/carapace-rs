@@ -9,6 +9,7 @@ pub mod action;
 // the test harness, but not part of the stable API.
 #[doc(hidden)]
 pub mod cache;
+pub mod condition;
 #[doc(hidden)]
 pub mod config;
 pub mod context;
@@ -31,5 +32,5 @@ pub use carapace_rs_shlex::Format;
 pub use context::Context;
 pub use meta::Meta;
 pub use model::{ArgumentStyle, Command, Flag, Nargs, Positional};
-pub use traverse::{Completion, traverse};
+pub use traverse::{Completion, traverse, traverse_seeded};
 pub use value::{RawValue, RawValues};

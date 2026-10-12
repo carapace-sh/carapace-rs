@@ -205,11 +205,12 @@ fn invoked_merge_dedups() {
 
 #[test]
 fn unique_dedups_by_value() {
-    // Go TestUnique: repeated values collapse
+    // Go `RawValues.Unique`: repeated values collapse (later entries win)
+    // and the result is sorted by display
     let action = Action::values(["one", "two", "one", "three"]).unique();
     assert_eq!(
         values(action.invoke(&Context::default())),
-        vec!["one", "two", "three"]
+        vec!["one", "three", "two"]
     );
 }
 

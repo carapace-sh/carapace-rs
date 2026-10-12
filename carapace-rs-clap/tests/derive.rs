@@ -17,5 +17,5 @@ struct Cli {
 fn derive_completer_attaches_to_arg() {
     let sandbox = Sandbox::new("clap-derive");
     let run = sandbox.run(Cli::command, &["--profile", ""]);
-    run.expect(Action::values(["dev", "prod"]));
+    run.expect(Action::values(["dev", "prod"]).usage("the deployment profile"));
 }

@@ -67,11 +67,33 @@ pub fn parse(cmd: &Command, args: &[String]) -> Parsed {
                         }
                     }
                 }
+                // a shorthand series registers every member as given
+                // (pflag `Changed` semantics), not just the terminal flag
+                let series: Vec<char> = arg.chars().skip(cmd.flag_prefix.len_utf8()).collect();
+                if series.len() > 1 {
+                    for shorthand in &series {
+                        if let Some(member) = cmd.lookup_short(*shorthand) {
+                            if member.id != matched.flag.id {
+                                parsed.flags.push((member.id.clone(), Vec::new()));
+                            }
+                        }
+                    }
+                }
                 parsed.flags.push((matched.flag.id.clone(), values));
                 continue;
             }
             // unknown flag: leniently skip
             continue;
+        }
+        if !cmd.interspersed {
+            // pflag's non-interspersed mode: the first positional ends
+            // flag parsing, everything after (including flag-lookalikes
+            // and `--`) is a positional argument
+            parsed.positionals.push(arg.clone());
+            for rest in iter {
+                parsed.positionals.push(rest.1.clone());
+            }
+            break;
         }
         parsed.positionals.push(arg.clone());
     }

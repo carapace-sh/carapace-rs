@@ -57,7 +57,8 @@ impl Sandbox {
 
     /// Register mocked output for a command invocation.
     pub fn reply(&mut self, program: &str, args: &[&str]) -> Reply<'_> {
-        let key = carapace_rs::mock::Mock::key(program, args);
+        let args: Vec<String> = args.iter().map(|arg| (*arg).to_owned()).collect();
+        let key = carapace_rs::mock::Mock::key(program, &args);
         Reply { sandbox: self, key }
     }
 

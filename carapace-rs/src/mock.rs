@@ -18,14 +18,14 @@ pub struct Mock {
 
 impl Mock {
     /// Key for a command invocation: JSON-encoded `[program, args...]`.
-    pub fn key(program: &str, args: &[&str]) -> String {
+    pub fn key(program: &str, args: &[String]) -> String {
         let mut parts = vec![program.to_owned()];
-        parts.extend(args.iter().map(|arg| arg.to_string()));
+        parts.extend(args.iter().cloned());
         serde_json::to_string(&parts).expect("mock key serialization cannot fail")
     }
 
     /// Mocked output for the command, if registered.
-    pub fn reply(&self, program: &str, args: &[&str]) -> Option<String> {
+    pub fn reply(&self, program: &str, args: &[String]) -> Option<String> {
         self.replies.get(&Self::key(program, args)).cloned()
     }
 }

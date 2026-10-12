@@ -9,7 +9,11 @@ const DIRECTIVE_FILTER_FILE_EXT: i32 = 8;
 const DIRECTIVE_FILTER_DIRS: i32 = 16;
 
 /// Bridge completions from a cobra binary via its hidden `__complete` command.
-pub fn action(command: &[&str]) -> Action {
+pub fn action<I, S>(command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     super::action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         let command_name = command[0].clone();
@@ -20,7 +24,7 @@ pub fn action(command: &[&str]) -> Action {
             args.push(c.value.clone());
             match c.execute(
                 &command_name,
-                &args.iter().map(String::as_str).collect::<Vec<_>>(),
+                args.iter().map(String::as_str).collect::<Vec<_>>(),
             ) {
                 Ok(output) => parse_output(&String::from_utf8_lossy(&output), &c.value),
                 Err(error) => Action::message(error),

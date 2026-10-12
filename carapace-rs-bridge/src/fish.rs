@@ -4,7 +4,11 @@
 use carapace_rs::Action;
 
 /// Bridge completions registered in fish.
-pub fn action(command: &[&str]) -> Action {
+pub fn action<I, S>(command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     super::action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         Action::callback(move |c| {
@@ -30,7 +34,7 @@ pub fn action(command: &[&str]) -> Action {
                     .replace('$', "\\$"),
             );
 
-            match c.execute("fish", &["--no-config", "--command", &snippet]) {
+            match c.execute("fish", ["--no-config", "--command", &snippet]) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let mut values = Vec::new();

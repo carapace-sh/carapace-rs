@@ -7,7 +7,11 @@ use carapace_rs::Action;
 const ZSH_SCRIPT: &str = include_str!("../third_party/zsh-capture-completion/capture.zsh");
 
 /// Bridge completions registered in zsh.
-pub fn action(command: &[&str]) -> Action {
+pub fn action<I, S>(command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     super::action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         Action::callback(move |c| {

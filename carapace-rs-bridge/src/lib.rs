@@ -15,7 +15,11 @@ use carapace_rs::model::Command;
 use std::sync::Arc;
 
 /// Dispatch a bridge by name.
-pub fn action(name: &str, command: &[&str]) -> Action {
+pub fn action<I, S>(name: &str, command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     match name {
         "fish" => fish::action(command),
         "bash" => shell::bash(command),
@@ -51,12 +55,14 @@ pub(crate) fn ensure_exists(path: &std::path::Path) -> Result<(), String> {
 /// Wrap a bridge function with the "no command provided" behavior: the
 /// first positional selects the executable (executables + files), later
 /// positionals delegate to the bridge shifted by one.
-pub fn action_command<F>(command: &[&str], f: F) -> Action
+pub fn action_command<I, S, F>(command: I, f: F) -> Action
 where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
     F: Fn(&[String]) -> Action + Send + Sync + 'static,
 {
+    let command: Vec<String> = command.into_iter().map(|c| c.as_ref().to_owned()).collect();
     if !command.is_empty() {
-        let command: Vec<String> = command.iter().map(|c| c.to_string()).collect();
         return f(&command);
     }
 
@@ -84,7 +90,11 @@ where
 }
 
 /// Bridge completions from the Go carapace binary: parses the export JSON.
-pub fn carapace(command: &[&str]) -> Action {
+pub fn carapace<I, S>(command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         let command_name = command[0].clone();
@@ -94,10 +104,7 @@ pub fn carapace(command: &[&str]) -> Action {
             let mut args = args.clone();
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            match c.execute(
-                &command_name,
-                &args.iter().map(String::as_str).collect::<Vec<_>>(),
-            ) {
+            match c.execute(&command_name, &args) {
                 Ok(output) if output.is_empty() => Action::default(),
                 Ok(output) => Action::import(&String::from_utf8_lossy(&output)),
                 Err(error) => Action::message(error),
@@ -107,7 +114,11 @@ pub fn carapace(command: &[&str]) -> Action {
 }
 
 /// Bridge completions registered in carapace-bin.
-pub fn carapace_bin(command: &[&str]) -> Action {
+pub fn carapace_bin<I, S>(command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         let bin = "carapace".to_owned();
@@ -117,7 +128,7 @@ pub fn carapace_bin(command: &[&str]) -> Action {
             let mut args = prefix.clone();
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            match c.execute(&bin, &args.iter().map(String::as_str).collect::<Vec<_>>()) {
+            match c.execute(&bin, &args) {
                 Ok(output) if output.is_empty() => Action::files(Vec::<String>::new()),
                 Ok(output) => Action::import(&String::from_utf8_lossy(&output)),
                 Err(error) => Action::message(error),
@@ -127,7 +138,11 @@ pub fn carapace_bin(command: &[&str]) -> Action {
 }
 
 /// Bridge completions from an external clap binary (unstable-dynamic engine).
-pub fn clap(command: &[&str]) -> Action {
+pub fn clap<I, S>(command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         let command_name = command[0].clone();
@@ -146,10 +161,7 @@ pub fn clap(command: &[&str]) -> Action {
             args.extend(command.iter().cloned());
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            match c.execute(
-                &command_name,
-                &args.iter().map(String::as_str).collect::<Vec<_>>(),
-            ) {
+            match c.execute(&command_name, &args) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.lines().collect();

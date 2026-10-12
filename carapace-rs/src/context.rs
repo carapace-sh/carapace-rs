@@ -202,16 +202,24 @@ impl Context {
     ///
     /// When a sandbox mock is attached to the context and a reply is
     /// registered for the command, the mocked output is returned instead.
-    pub fn execute(&self, program: &str, args: &[&str]) -> Result<Vec<u8>, String> {
+    pub fn execute<I, S>(&self, program: &str, args: I) -> Result<Vec<u8>, String>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let args: Vec<String> = args
+            .into_iter()
+            .map(|arg| arg.as_ref().to_owned())
+            .collect();
         if let Some(reply) = self
             .mock
             .as_ref()
-            .and_then(|mock| mock.reply(program, args))
+            .and_then(|mock| mock.reply(program, &args))
         {
             return Ok(reply.into_bytes());
         }
         let mut command = std::process::Command::new(program);
-        command.args(args).env_clear().envs(&self.env);
+        command.args(&args).env_clear().envs(&self.env);
         if !self.dir.as_os_str().is_empty() {
             command.current_dir(&self.dir);
         }

@@ -64,7 +64,7 @@ fn sandbox_replies_mock_commands() {
                 let cmd = Command::new("myapp").arg(Arg::new("branch").index(1));
                 cmd.positional_completion([Action::exec_command(
                     "git",
-                    &["branch", "--list"],
+                    ["branch", "--list"],
                     |stdout| {
                         let output = String::from_utf8_lossy(stdout).into_owned();
                         let branches: Vec<String> = output

@@ -5,7 +5,11 @@ use carapace_rs::Action;
 const BASH_SNIPPET: &str = include_str!("bash.sh");
 
 /// Bridge completions registered in bash via bash-completion scripts.
-pub fn bash(command: &[&str]) -> Action {
+pub fn bash<I, S>(command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     super::action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         Action::callback(move |c| {
@@ -41,7 +45,7 @@ pub fn bash(command: &[&str]) -> Action {
             context.env.insert("COMP_LINE".to_owned(), joined);
             let result = context.execute(
                 "bash",
-                &[
+                [
                     "--rcfile",
                     &rc_path.to_string_lossy(),
                     "-i",

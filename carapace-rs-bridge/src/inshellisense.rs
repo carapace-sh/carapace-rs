@@ -3,7 +3,11 @@
 use carapace_rs::Action;
 
 /// Bridge completions from microsoft/inshellisense.
-pub fn action(command: &[&str]) -> Action {
+pub fn action<I, S>(command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     super::action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         Action::callback(move |c| {
@@ -18,7 +22,7 @@ pub fn action(command: &[&str]) -> Action {
                 input = format!("{} ", &input[..input.len() - 2]);
             }
 
-            match c.execute("inshellisense", &["complete", &input]) {
+            match c.execute("inshellisense", ["complete", &input]) {
                 Ok(output) => parse_output(&String::from_utf8_lossy(&output), &c.value),
                 Err(error) => Action::message(error),
             }

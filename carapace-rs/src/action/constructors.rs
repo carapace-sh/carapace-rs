@@ -130,39 +130,39 @@ impl Action {
     ///
     /// Errors surface as message actions; the callback receives the raw
     /// stdout bytes.
-    pub fn exec_command<F>(command: &str, args: &[&str], f: F) -> Self
+    pub fn exec_command<I, S, F>(command: &str, args: I, f: F) -> Self
     where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
         F: Fn(&[u8]) -> Self + Send + Sync + 'static,
     {
         let command = command.to_owned();
-        let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-        Self::callback(move |c| {
-            match c.execute(
-                &command,
-                &args.iter().map(String::as_str).collect::<Vec<_>>(),
-            ) {
-                Ok(stdout) => f(&stdout),
-                Err(error) => Self::message(error),
-            }
+        let args: Vec<String> = args
+            .into_iter()
+            .map(|arg| arg.as_ref().to_owned())
+            .collect();
+        Self::callback(move |c| match c.execute(&command, &args) {
+            Ok(stdout) => f(&stdout),
+            Err(error) => Self::message(error),
         })
     }
 
     /// Like [`exec_command`](Self::exec_command) but the callback receives
     /// the error explicitly.
-    pub fn exec_command_e<F>(command: &str, args: &[&str], f: F) -> Self
+    pub fn exec_command_e<I, S, F>(command: &str, args: I, f: F) -> Self
     where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
         F: Fn(Result<&[u8], String>) -> Self + Send + Sync + 'static,
     {
         let command = command.to_owned();
-        let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-        Self::callback(move |c| {
-            match c.execute(
-                &command,
-                &args.iter().map(String::as_str).collect::<Vec<_>>(),
-            ) {
-                Ok(stdout) => f(Ok(&stdout)),
-                Err(error) => f(Err(error)),
-            }
+        let args: Vec<String> = args
+            .into_iter()
+            .map(|arg| arg.as_ref().to_owned())
+            .collect();
+        Self::callback(move |c| match c.execute(&command, &args) {
+            Ok(stdout) => f(Ok(&stdout)),
+            Err(error) => f(Err(error)),
         })
     }
 

@@ -25,7 +25,7 @@ fn carapace_rs_bridge_completes_git() {
             r#"{"version":"v0.7.0","messages":[],"noprefix":"","nospace":"","usage":"","values":[{"value":"commit","display":"commit","description":"record changes"}]}"#,
         );
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::carapace(&["git"])),
+        || cli().positional_any_completion(bridge::carapace(["git"])),
         &[""],
     );
     let values = run.values();
@@ -49,7 +49,7 @@ fn fish_bridge_uses_custom_config() {
     let mut sandbox = Sandbox::new("bridge-fish");
     sandbox.env("XDG_CONFIG_HOME", dir.to_string_lossy().as_ref());
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::fish::action(&["bridgefish"])),
+        || cli().positional_any_completion(bridge::fish::action(["bridgefish"])),
         &[""],
     );
     std::fs::remove_dir_all(&dir).ok();
@@ -79,7 +79,7 @@ fn clap_bridge_parses_lines_and_nospace() {
         sandbox.run(
             || {
                 let script = script.clone();
-                cli().positional_any_completion(bridge::clap(&[script.as_str()]))
+                cli().positional_any_completion(bridge::clap([script.as_str()]))
             },
             &[""],
         )
@@ -109,7 +109,7 @@ fn clap_bridge_parses_lines_and_nospace() {
         path.to_string_lossy().into_owned()
     };
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::clap(&[script2.as_str()])),
+        || cli().positional_any_completion(bridge::clap([script2.as_str()])),
         &[""],
     );
     std::fs::remove_file(&script2).ok();
@@ -138,7 +138,7 @@ fn zsh_bridge_uses_custom_config() {
     let mut sandbox = Sandbox::new("bridge-zsh");
     sandbox.env("XDG_CONFIG_HOME", dir.to_string_lossy().as_ref());
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::zsh::action(&["bridgezsh"])),
+        || cli().positional_any_completion(bridge::zsh::action(["bridgezsh"])),
         &[""],
     );
     std::fs::remove_dir_all(&dir).ok();
@@ -150,7 +150,7 @@ fn zsh_bridge_uses_custom_config() {
 
 #[test]
 fn bridge_dispatch_rejects_unknown() {
-    let action = bridge::action("nope", &["x"]);
+    let action = bridge::action("nope", ["x"]);
     let invoked = action.invoke(&carapace_rs::Context::default());
     assert!(!invoked.meta.messages.is_empty());
 }
@@ -163,7 +163,7 @@ fn cobra_bridge_parses_values_and_descriptions() {
         .with("commit\trecord changes\nbranch\tlist branches\n:0\n");
 
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        || cli().positional_any_completion(bridge::cobra::action(["git"])),
         &[""],
     );
     run.expect(Action::values_described([
@@ -181,7 +181,7 @@ fn cobra_bridge_reattaches_flag_prefix() {
         || {
             Command::new("outer")
                 .arg(Arg::new("branch").long("branch").action(ArgAction::Set))
-                .flag_completion([("branch", bridge::cobra::action(&["git"]))])
+                .flag_completion([("branch", bridge::cobra::action(["git"]))])
         },
         &["--branch="],
     );
@@ -193,12 +193,12 @@ fn cobra_bridge_prefixes_bare_flag_values() {
     let mock = carapace_rs::mock::Mock {
         dir: std::env::temp_dir(),
         replies: std::collections::HashMap::from([(
-            carapace_rs::mock::Mock::key("git", &["__complete", "--branch="]),
+            carapace_rs::mock::Mock::key("git", &["__complete".to_owned(), "--branch=".to_owned()]),
             "main\n:0\n".to_owned(),
         )]),
     };
-    let invoked = bridge::cobra::action(&["git"])
-        .invoke(&carapace_rs::Context::new(["--branch="]).mock(mock));
+    let invoked =
+        bridge::cobra::action(["git"]).invoke(&carapace_rs::Context::new(["--branch="]).mock(mock));
     let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
     assert_eq!(values, vec!["--branch=main".to_string()]);
 }
@@ -209,7 +209,7 @@ fn cobra_bridge_honors_nospace_directive() {
     sandbox.reply("git", &["__complete", ""]).with("dir/\n:2\n");
 
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        || cli().positional_any_completion(bridge::cobra::action(["git"])),
         &[""],
     );
     assert!(
@@ -232,7 +232,7 @@ fn inshellisense_bridge_skips_flags_for_plain_words() {
         );
 
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::inshellisense::action(&["bridgeish"])),
+        || cli().positional_any_completion(bridge::inshellisense::action(["bridgeish"])),
         &[""],
     );
     assert_eq!(run.values(), vec!["one".to_string()]);
@@ -243,7 +243,10 @@ fn inshellisense_bridge_includes_flags_for_flag_words() {
     let mock = carapace_rs::mock::Mock {
         dir: std::env::temp_dir(),
         replies: std::collections::HashMap::from([(
-            carapace_rs::mock::Mock::key("inshellisense", &["complete", "bridgeish -"]),
+            carapace_rs::mock::Mock::key(
+                "inshellisense",
+                &["complete".to_owned(), "bridgeish -".to_owned()],
+            ),
             r#"{"suggestions":[
                 {"name":"one","allNames":["one"],"description":"first","icon":""},
                 {"name":"--flag","allNames":["--flag","-f"],"description":"a flag","icon":"\ud83d\udd17"}
@@ -251,7 +254,7 @@ fn inshellisense_bridge_includes_flags_for_flag_words() {
             .to_owned(),
         )]),
     };
-    let invoked = bridge::inshellisense::action(&["bridgeish"])
+    let invoked = bridge::inshellisense::action(["bridgeish"])
         .invoke(&carapace_rs::Context::new(["-"]).mock(mock));
 
     let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
@@ -266,7 +269,7 @@ fn cobra_bridge_error_directive() {
     sandbox.reply("git", &["__complete", ""]).with(":1\n");
 
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        || cli().positional_any_completion(bridge::cobra::action(["git"])),
         &[""],
     );
     let output = run.output();
@@ -279,7 +282,7 @@ fn cobra_bridge_nofilecomp_directive_skips_file_fallback() {
     sandbox.reply("git", &["__complete", ""]).with(":4\n");
 
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        || cli().positional_any_completion(bridge::cobra::action(["git"])),
         &[""],
     );
     let output = run.output();
@@ -296,7 +299,7 @@ fn cobra_bridge_filterfileext_directive() {
         .with("go\nmod\n:8\n");
 
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        || cli().positional_any_completion(bridge::cobra::action(["git"])),
         &[""],
     );
     let output = run.output();
@@ -313,7 +316,7 @@ fn cobra_bridge_filterdirs_directive() {
     sandbox.reply("git", &["__complete", ""]).with(":16\n");
 
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        || cli().positional_any_completion(bridge::cobra::action(["git"])),
         &[""],
     );
     let output = run.output();
@@ -332,7 +335,7 @@ fn cobra_bridge_with_values_and_directive() {
         .with("one\ntwo\n:4\n");
 
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        || cli().positional_any_completion(bridge::cobra::action(["git"])),
         &[""],
     );
     let output = run.output();

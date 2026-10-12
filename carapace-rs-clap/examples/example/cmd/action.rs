@@ -54,7 +54,7 @@ pub fn cmd(commands: Option<Action>) -> Command {
         ("directories", Action::directories()),
         (
             "execcommand",
-            Action::exec_command("git", &["remote"], |output| {
+            Action::exec_command("git", ["remote"], |output| {
                 let text = String::from_utf8_lossy(output);
                 let lines: Vec<String> = text
                     .split('\n')
@@ -66,7 +66,7 @@ pub fn cmd(commands: Option<Action>) -> Command {
         ),
         (
             "execcommandE",
-            Action::exec_command_e("false", &[], |result| match result {
+            Action::exec_command_e("false", [""; 0], |result| match result {
                 Err(_) => Action::message("failed with exit status 1"),
                 Ok(_) => Action::values(Vec::<String>::new()),
             }),

@@ -195,30 +195,52 @@ fn convert(spec: Spec, inherited: &[Flag]) -> Result<Command, String> {
 
 /// Build a completion action from a list of macro/value entries.
 ///
-/// Plain entries accumulate into values; the first macro provides the base
-/// action (further macros merge in); `$chdir`-style modifiers apply to all.
+/// Plain entries accumulate into values; macros merge in via batch. An
+/// entry may chain ` ||| ` modifiers; a modifier as the *first* part of
+/// an entry applies to the whole batch (Go `action.Parse`).
 fn values_action(entries: &[String]) -> Action {
     let mut base: Option<Action> = None;
     let mut values: Vec<RawValue> = Vec::new();
-    let mut modifiers: Vec<Box<dyn Fn(Action) -> Action + Send + Sync>> = Vec::new();
+    let mut batch_modifiers: Vec<Box<dyn Fn(Action) -> Action + Send + Sync>> = Vec::new();
 
     for entry in entries {
-        if entry.starts_with('$') {
-            if let Some(modifier) = macro_resolve::modifier(entry) {
-                modifiers.push(modifier);
-            } else {
-                let action = macro_resolve::resolve(entry);
-                base = Some(match base {
-                    Some(existing) => {
-                        let merged = carapace_rs::batch(vec![existing, action]);
-                        Action::callback(move |c| merged.invoke(c).to_action())
-                    }
-                    None => action,
-                });
+        let mut parts = entry.split(" ||| ");
+        let first = parts.next().unwrap_or_default();
+        if first.starts_with('$') && macro_resolve::is_batch_modifier(first) {
+            if let Some(modifier) = macro_resolve::modifier(first) {
+                batch_modifiers.push(modifier);
             }
-        } else {
-            values.push(macro_resolve::parse_value(entry));
+            for part in parts {
+                if let Some(modifier) = macro_resolve::modifier(part) {
+                    batch_modifiers.push(modifier);
+                }
+            }
+            continue;
         }
+        let parts: Vec<&str> = parts.collect();
+        if !first.starts_with('$') && parts.is_empty() {
+            // plain entries without modifiers accumulate into one values action
+            values.push(macro_resolve::parse_value(first));
+            continue;
+        }
+        let mut action = if first.starts_with('$') {
+            macro_resolve::resolve(first)
+        } else {
+            Action::raw(vec![macro_resolve::parse_value(first)])
+        };
+        for part in parts {
+            action = match macro_resolve::modifier(part) {
+                Some(modifier) => modifier(action),
+                None => Action::message(format!("unknown macro: {part}")),
+            };
+        }
+        base = Some(match base {
+            Some(existing) => {
+                let merged = carapace_rs::batch(vec![existing, action]);
+                Action::callback(move |c| merged.invoke(c).to_action())
+            }
+            None => action,
+        });
     }
 
     let mut action = match base {
@@ -230,7 +252,7 @@ fn values_action(entries: &[String]) -> Action {
         None if values.is_empty() => Action::default(),
         None => Action::raw(values),
     };
-    for modifier in modifiers {
+    for modifier in batch_modifiers {
         action = modifier(action);
     }
     action

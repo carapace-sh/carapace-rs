@@ -31,17 +31,175 @@ pub fn parse_value(entry: &str) -> RawValue {
     raw
 }
 
+/// Whether the entry names a generic modifier applied to the whole batch
+/// (Go `action.Parse`'s modifier switch).
+pub fn is_batch_modifier(entry: &str) -> bool {
+    matches!(
+        split_macro(entry.strip_prefix('$').unwrap_or(entry)).0,
+        "chdir"
+            | "filter"
+            | "filterargs"
+            | "list"
+            | "multiparts"
+            | "nospace"
+            | "noprefix"
+            | "prefix"
+            | "retain"
+            | "shift"
+            | "split"
+            | "splitp"
+            | "suffix"
+            | "suppress"
+            | "style"
+            | "tag"
+            | "uniquelist"
+            | "usage"
+    )
+}
+
 /// Apply a generic modifier entry to an action; unsupported modifiers pass through.
 pub fn modifier(entry: &str) -> Option<Box<dyn Fn(Action) -> Action + Send + Sync>> {
     let macro_entry = entry.strip_prefix('$')?;
     let (name, args) = split_macro(macro_entry);
     match name {
         "chdir" => {
-            let dir = args.trim_matches('(').trim_end_matches(')').to_owned();
-            Some(Box::new(move |action| action.chdir(dir.clone())))
+            let dir = args.trim_matches(|c| c == '(' || c == ')').to_owned();
+            Some(Box::new(move |action| match chdir_macro(&dir) {
+                Some(chdir) => chdir(action),
+                None => Action::message(format!("unknown macro: ${dir}")),
+            }))
+        }
+        "filter" => {
+            let values = parse_args(args);
+            Some(Box::new(move |action| {
+                action.filter(values.iter().cloned())
+            }))
+        }
+        "filterargs" => Some(Box::new(move |action| action.filter_args())),
+        "list" => {
+            let divider = unparen(args);
+            Some(Box::new(move |action| action.list(&divider)))
+        }
+        "multiparts" => {
+            let dividers = std::sync::Arc::new(parse_args(args));
+            Some(Box::new(move |action| {
+                let dividers = dividers.clone();
+                Action::callback(move |c| {
+                    action
+                        .clone()
+                        .invoke(c)
+                        .to_multiparts_a(&dividers.iter().map(String::as_str).collect::<Vec<_>>())
+                })
+            }))
+        }
+        "nospace" => {
+            let suffixes: Vec<char> = unparen(args).chars().collect();
+            Some(Box::new(move |action| {
+                action.nospace(suffixes.iter().copied())
+            }))
+        }
+        "noprefix" => {
+            let prefixes: Vec<char> = unparen(args).chars().collect();
+            Some(Box::new(move |action| {
+                action.no_prefix(prefixes.iter().copied())
+            }))
+        }
+        "prefix" => {
+            let prefix = unparen(args);
+            Some(Box::new(move |action| action.prefix(prefix.clone())))
+        }
+        "retain" => {
+            let values = parse_args(args);
+            Some(Box::new(move |action| {
+                action.retain(values.iter().cloned())
+            }))
+        }
+        "shift" => {
+            let n = unparen(args).trim().parse::<usize>().unwrap_or_default();
+            Some(Box::new(move |action| action.shift(n)))
+        }
+        "split" => {
+            let format = unparen(args);
+            Some(Box::new(move |action| match format_name(&format) {
+                Some(format) => action.split(format),
+                None => Action::message(format!("unknown format: {format}")),
+            }))
+        }
+        "splitp" => {
+            let format = unparen(args);
+            Some(Box::new(move |action| match format_name(&format) {
+                Some(format) => action.split_p(format),
+                None => Action::message(format!("unknown format: {format}")),
+            }))
+        }
+        "suffix" => {
+            let suffix = unparen(args);
+            Some(Box::new(move |action| action.suffix(suffix.clone())))
+        }
+        "suppress" => {
+            let exprs = parse_args(args);
+            Some(Box::new(move |action| {
+                action.suppress(exprs.iter().cloned())
+            }))
+        }
+        "style" => {
+            let style = unparen(args);
+            Some(Box::new(move |action| action.style(style.clone())))
+        }
+        "tag" => {
+            let tag = unparen(args);
+            Some(Box::new(move |action| action.tag(tag.clone())))
+        }
+        "uniquelist" => {
+            let divider = unparen(args);
+            Some(Box::new(move |action| action.unique_list(&divider)))
+        }
+        "usage" => {
+            let usage = unparen(args);
+            Some(Box::new(move |action| action.usage(usage.clone())))
         }
         _ => None,
     }
+}
+
+/// `$chdir` accepts a literal directory or a traverse macro (Go
+/// `modifier.chdir`); only the engine-supported lookups are available.
+fn chdir_macro(arg: &str) -> Option<Box<dyn Fn(Action) -> Action + Send + Sync>> {
+    if !arg.starts_with('$') {
+        let dir = arg.to_owned();
+        return Some(Box::new(move |action| action.chdir(dir.clone())));
+    }
+    let (name, args) = split_macro(arg.trim_start_matches('$'));
+    match name {
+        "gitdir" => Some(Box::new(move |action| {
+            action.chdir_f(|c| carapace_rs::traverse::git::git_dir(c).unwrap_or_default())
+        })),
+        "gitworktree" => Some(Box::new(move |action| {
+            action.chdir_f(|c| carapace_rs::traverse::git::git_work_tree(c).unwrap_or_default())
+        })),
+        "parent" => {
+            let names: Vec<String> = parse_args(args);
+            Some(Box::new(move |action| {
+                let names = names.clone();
+                action.chdir_f(move |c| {
+                    carapace_rs::traverse::git::parent(
+                        c,
+                        &names.iter().map(String::as_str).collect::<Vec<_>>(),
+                    )
+                    .unwrap_or_default()
+                })
+            }))
+        }
+        _ => None,
+    }
+}
+
+fn format_name(name: &str) -> Option<carapace_rs::Format> {
+    carapace_rs::Format::from_name(name.trim())
+}
+
+fn unparen(args: &str) -> String {
+    args.trim_matches(|c| c == '(' || c == ')').to_owned()
 }
 
 /// Split `$name(args)` into name and args (empty parens for bare macros).
@@ -52,7 +210,7 @@ fn split_macro(entry: &str) -> (&str, &str) {
     }
 }
 
-/// Parse macro arguments like `[.go, .mod]` or `.go, .mod` into a list.
+/// Parse macro arguments like `[.go, .mod]`, `(a, b)` or `a` into a list.
 fn parse_args(args: &str) -> Vec<String> {
     let args = args
         .trim_start_matches('[')

@@ -362,3 +362,32 @@ fn unsupported_flag_key_is_an_error() {
     let error = carapace_rs_spec::from_yaml("name: mycmd\nflags:\n  -abc: series\n").unwrap_err();
     assert!(error.contains("long shorthand"), "{error}");
 }
+
+#[test]
+fn modifiers_apply_to_entries_and_batch() {
+    let yaml = r#"
+name: mycmd
+completion:
+  positional:
+    - ["first ||| $suffix(x)", "second", "dropped"]
+  positionalany: ["$files([.rs]) ||| $nospace(/)"]
+"#;
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+
+    // entry-level filter via ` ||| `
+    let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .iter()
+        .map(|value| value.value.clone())
+        .collect();
+    assert!(values.contains(&"firstx".to_owned()), "{values:?}");
+    assert!(values.contains(&"second".to_owned()));
+    assert!(values.contains(&"dropped".to_owned()));
+    // the files macro keeps its nospace flag through the modifier chain
+    let any = model.positional_any.as_ref().unwrap();
+    let invoked = any.invoke(&Context::default().value("src/"));
+    assert!(invoked.meta.nospace.contains(&'/'), "{:?}", invoked.meta);
+}

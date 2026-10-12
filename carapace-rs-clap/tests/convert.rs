@@ -252,21 +252,18 @@ fn hidden_subcommands_are_excluded() {
             .collect();
     assert_eq!(values, vec!["visible", "help"]);
 
-    unsafe { std::env::set_var("CARAPACE_HIDDEN", "2") };
     let values: Vec<String> =
         carapace_rs::traverse::action_commands(&model, std::slice::from_ref(&model.name))
-            .invoke(&Context::default())
+            .invoke(&Context::default().env("CARAPACE_HIDDEN", "2"))
             .values
             .into_iter()
             .map(|v| v.value)
             .collect();
-    unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
     assert!(values.contains(&"secret".to_string()));
 }
 
 #[test]
 fn hidden_flags_respect_hidden_env() {
-    let _guard = env_lock();
     let mut cmd = Command::new("app").arg(
         Arg::new("secret")
             .long("secret")
@@ -275,7 +272,6 @@ fn hidden_flags_respect_hidden_env() {
     );
     let model = to_model(&mut cmd);
 
-    unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
     let values: Vec<String> =
         carapace_rs::traverse::action_flags(&model, std::slice::from_ref(&model.name))
             .invoke(&Context::default().value("--"))
@@ -291,15 +287,13 @@ fn hidden_flags_respect_hidden_env() {
         "hidden flag must be skipped: {values:?}"
     );
 
-    unsafe { std::env::set_var("CARAPACE_HIDDEN", "2") };
     let values: Vec<String> =
         carapace_rs::traverse::action_flags(&model, std::slice::from_ref(&model.name))
-            .invoke(&Context::default().value("--"))
+            .invoke(&Context::default().value("--").env("CARAPACE_HIDDEN", "2"))
             .values
             .into_iter()
             .map(|v| v.value)
             .collect();
-    unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
     assert!(values.contains(&"--secret".to_string()));
 }
 

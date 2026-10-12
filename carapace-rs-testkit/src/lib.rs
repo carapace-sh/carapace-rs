@@ -103,11 +103,12 @@ impl Sandbox {
         // dispatch (prefix filtering, flag merging, sorting, uid
         // stripping) exactly like Go's sandbox (`ActionExecute` runs
         // `_carapace export`)
-        let json = carapace_rs::shell::Shell::Export.value(
+        let json = carapace_rs::shell::Shell::Export.value_with(
             &context.value,
             &invoked.meta,
             &invoked.values,
             &carapace_rs::shell::bash::Context::default(),
+            &completion.context.config,
         );
         let export = carapace_rs::export::Export::from_json(&json).unwrap_or_else(|| {
             carapace_rs::export::Export {

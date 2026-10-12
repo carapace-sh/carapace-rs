@@ -191,21 +191,23 @@ fn unknown_flags_are_reported_unless_lenient() {
         vec!["unknown flag: --unknown".to_owned()]
     );
 
-    let _guard = env_lock();
-    unsafe { std::env::set_var("CARAPACE_LENIENT", "1") };
-    assert_eq!(
-        complete(&["--unknown", ""]),
-        vec!["build", "t1", "t2", "test"]
+    // the flags derive from the context environment map (Go's sandbox
+    // analog seeds the child environment)
+    let lenient = carapace_rs::Context::default().env("CARAPACE_LENIENT", "1");
+    let completion = carapace_rs::traverse_seeded(
+        &app(),
+        vec!["--unknown".to_string(), "".to_string()],
+        lenient,
     );
-    unsafe { std::env::remove_var("CARAPACE_LENIENT") };
-}
-
-/// Serializes tests that touch `CARAPACE_*` environment variables.
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-    LOCK.get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    let mut values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .into_iter()
+        .map(|v| v.value)
+        .collect();
+    values.sort();
+    assert_eq!(values, vec!["build", "t1", "t2", "test"]);
 }
 
 #[test]

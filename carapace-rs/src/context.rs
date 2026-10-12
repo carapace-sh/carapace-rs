@@ -26,6 +26,9 @@ pub struct Context {
     pub dir: PathBuf,
     /// Sandbox mock for tests: mocked replies and cache root (None in production).
     pub mock: Option<crate::mock::Mock>,
+    /// `CARAPACE_*` completion flags, parsed from the environment map
+    /// (Go reads them from process environment functions).
+    pub config: crate::config::Flags,
 }
 
 impl Context {
@@ -36,11 +39,14 @@ impl Context {
             Some((value, args)) => (value.clone(), args.to_vec()),
             None => (String::new(), Vec::new()),
         };
+        let env = current_env();
+        let config = crate::config::Flags::from_env_map(&env);
         Self {
             value,
             args,
-            env: current_env(),
+            env,
             dir: std::env::current_dir().unwrap_or_default(),
+            config,
             ..Default::default()
         }
     }
@@ -62,6 +68,7 @@ impl Context {
 
     pub fn env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.env.insert(key.into(), value.into());
+        self.config = crate::config::Flags::from_env_map(&self.env);
         self
     }
 

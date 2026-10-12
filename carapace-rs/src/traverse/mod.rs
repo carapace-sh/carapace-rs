@@ -49,9 +49,16 @@ fn traverse_command(
     ));
     let mut context = {
         let mut context = Context::new(args.clone());
-        context.env = template.env.clone();
+        // the template's environment overrides the process environment
+        // entry by entry (the sandbox analog is the mock's env)
+        for (key, value) in &template.env {
+            context.env.insert(key.clone(), value.clone());
+        }
         context.dir = template.dir.clone();
         context.mock = template.mock.clone();
+        // the flags derive from the merged environment map (the env is
+        // their single source of truth)
+        context.config = crate::config::Flags::from_env_map(&context.env);
         context
     };
 
@@ -132,7 +139,7 @@ fn traverse_command(
 
     if !cmd.disable_flag_parsing && !dash {
         if let Some(message) = unknown_flag {
-            if !crate::config::lenient() {
+            if !context.config.lenient {
                 return Completion {
                     action: Action::message(message),
                     context,
@@ -364,7 +371,7 @@ pub fn action_flags(cmd: &Command, path: &[String]) -> Action {
         let carapace_styles = crate::config::styles().carapace;
         let mut values: RawValues = Vec::new();
         let mut series_nospace: Vec<char> = Vec::new();
-        let include_hidden = crate::config::hidden() != crate::config::Hidden::None;
+        let include_hidden = c.config.hidden != crate::config::Hidden::None;
         for flag in &cmd.flags {
             if flag.hidden && !include_hidden {
                 continue;
@@ -468,7 +475,7 @@ pub fn action_commands(cmd: &Command, path: &[String]) -> Action {
             return Action::message(format!("unknown subcommand {first:?} for {:?}", cmd.name));
         }
 
-        let hidden = crate::config::hidden();
+        let hidden = c.config.hidden;
         let include_hidden = hidden != crate::config::Hidden::None;
 
         let mut group_order: Vec<String> = Vec::new();

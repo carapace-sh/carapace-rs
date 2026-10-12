@@ -30,32 +30,50 @@ fn styles_load_from_json() {
 
 #[test]
 fn color_priority() {
-    unsafe { std::env::set_var("CARAPACE_COLOR", "0") };
-    unsafe { std::env::set_var("NO_COLOR", "1") };
-    assert!(config::color_disabled());
-
-    unsafe { std::env::set_var("CARAPACE_COLOR", "1") };
-    unsafe { std::env::set_var("NO_COLOR", "1") };
-    assert!(!config::color_disabled(), "explicit CARAPACE_COLOR wins");
-
-    unsafe { std::env::remove_var("CARAPACE_COLOR") };
-    unsafe { std::env::set_var("NO_COLOR", "0") };
-    assert!(!config::color_disabled(), "NO_COLOR=0 is falsy");
-
-    unsafe { std::env::remove_var("NO_COLOR") };
-    unsafe { std::env::set_var("CLICOLOR", "0") };
-    assert!(config::color_disabled());
-
-    unsafe { std::env::remove_var("CLICOLOR") };
+    let env = |pairs: &[(&str, &str)]| {
+        pairs
+            .iter()
+            .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
+            .collect::<std::collections::HashMap<String, String>>()
+    };
+    assert!(
+        config::Flags::from_env_map(&env(&[("CARAPACE_COLOR", "0"), ("NO_COLOR", "1")]))
+            .color_disabled
+    );
+    assert!(
+        !config::Flags::from_env_map(&env(&[("CARAPACE_COLOR", "1"), ("NO_COLOR", "1")]))
+            .color_disabled,
+        "explicit CARAPACE_COLOR wins"
+    );
+    assert!(
+        !config::Flags::from_env_map(&env(&[("NO_COLOR", "0")])).color_disabled,
+        "NO_COLOR=0 is falsy"
+    );
+    assert!(
+        config::Flags::from_env_map(&env(&[("CLICOLOR", "0")])).color_disabled,
+        "CLICOLOR=0 disables color"
+    );
 }
 
 #[test]
 fn hidden_modes() {
-    unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
-    assert_eq!(config::hidden(), config::Hidden::None);
-    unsafe { std::env::set_var("CARAPACE_HIDDEN", "2") };
-    assert_eq!(config::hidden(), config::Hidden::IncludeCarapace);
-    unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
+    let env = |value: &str| {
+        [("CARAPACE_HIDDEN".to_owned(), value.to_owned())]
+            .into_iter()
+            .collect::<std::collections::HashMap<_, _>>()
+    };
+    assert_eq!(
+        config::Flags::from_env_map(&std::collections::HashMap::new()).hidden,
+        config::Hidden::None
+    );
+    assert_eq!(
+        config::Flags::from_env_map(&env("1")).hidden,
+        config::Hidden::ExcludeCarapace
+    );
+    assert_eq!(
+        config::Flags::from_env_map(&env("2")).hidden,
+        config::Hidden::IncludeCarapace
+    );
 }
 
 #[test]

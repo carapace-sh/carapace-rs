@@ -129,6 +129,10 @@ impl Shell {
     }
 
     /// Format invoked values for the shell, applying the shared dispatch steps.
+    ///
+    /// The `CARAPACE_*` flags come from the process environment; scoped
+    /// flags travel on the completion [`Context`](crate::Context) and are
+    /// passed via [`Shell::value_with`].
     pub fn value(
         &self,
         current_word: &str,
@@ -136,20 +140,39 @@ impl Shell {
         values: &RawValues,
         bash_context: &bash::Context,
     ) -> String {
+        self.value_with(
+            current_word,
+            meta,
+            values,
+            bash_context,
+            &crate::config::Flags::from_env(),
+        )
+    }
+
+    /// Like [`Shell::value`] with context-carried flags.
+    pub fn value_with(
+        &self,
+        current_word: &str,
+        meta: &Meta,
+        values: &RawValues,
+        bash_context: &bash::Context,
+        flags: &crate::config::Flags,
+    ) -> String {
         let mut meta = meta.clone();
         let mut values = values.clone();
 
-        if env_color_disabled() {
+        if flags.color_disabled {
             for value in &mut values {
                 value.style = String::new();
             }
         }
 
-        if !env_unfiltered() {
+        if !flags.unfiltered {
             values.retain(|value| crate::config::has_prefix(&value.value, current_word));
         }
 
-        if env_merge_flags() || *self == Self::Zsh {
+        if flags.merge_flags.unwrap_or(false) || (*self == Self::Zsh && flags.merge_flags.is_none())
+        {
             for value in &mut values {
                 if matches!(value.tag.as_str(), "shorthand flags" | "longhand flags") {
                     value.tag = "flags".to_owned();
@@ -164,7 +187,7 @@ impl Shell {
         if *self != Self::Export {
             if !meta.messages.is_empty() {
                 meta.nospace.push('*');
-            } else if let Some(nospace) = env_nospace() {
+            } else if let Some(nospace) = &flags.nospace {
                 meta.nospace.extend(nospace.chars());
             }
         }
@@ -289,28 +312,6 @@ fn look_path(program: &str) -> Option<std::path::PathBuf> {
             .into_iter()
             .find(|path| path.is_file())
     })
-}
-
-fn env_flag(name: &str) -> bool {
-    std::env::var(name).is_ok_and(|value| !value.is_empty() && value != "0")
-}
-
-fn env_color_disabled() -> bool {
-    crate::config::color_disabled()
-}
-
-fn env_unfiltered() -> bool {
-    env_flag("CARAPACE_UNFILTERED")
-}
-
-fn env_merge_flags() -> bool {
-    env_flag("CARAPACE_MERGEFLAGS")
-}
-
-fn env_nospace() -> Option<String> {
-    std::env::var("CARAPACE_NOSPACE")
-        .ok()
-        .filter(|value| !value.is_empty())
 }
 
 /// Integrate messages as synthetic completion values (Go `Messages.Integrate`).

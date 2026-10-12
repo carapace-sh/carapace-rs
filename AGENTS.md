@@ -115,7 +115,13 @@ These are settled; don't relitigate without cause, and preserve them when refact
    `Context::lookup_env`/`get_env`, never `std::env::var` (the plan's stated rule).
    Bridge config dirs, for example, resolve from the context. Process env reads are
    acceptable only in entry-point code (before a `Context` exists) and for genuinely
-   shell-provided variables (`COMP_*`, `CARAPACE_COMPLINE`).
+   shell-provided variables (`COMP_*`, `CARAPACE_COMPLINE`). The `CARAPACE_*`
+   completion flags ride the `Context` as `config::Flags` (parsed from the context
+   env map, re-derived at every traverse level from the merged environment);
+   `Shell::value_with` takes them as a parameter, `Shell::value` defaults to the
+   process environment. Known leftovers kept process-global: description-length
+   trimming and case-insensitive matching inside formatters/prefix modifiers, and
+   `CARAPACE_EXPERIMENTAL` (needs a `look_path` check).
 10. **One conflated type became two.** Go's `Action` conflates lazy and materialized;
    here `Action::invoke(&Context) -> InvokedAction` splits them. Modifiers compose via
    `map_invoked`.
@@ -193,10 +199,12 @@ names aligned with Go so specs port mechanically.
 - Use the `carapace-rs-testkit` `Sandbox` for completion behavior: `files`, `reply`
   (mocked command output), `env`, `run(...).expect(Action)`. Assertions compare export
   JSON.
-- The `Sandbox` holds no process-global state; tests run in parallel. Any test that
-  mutates process environment (`COMP_*`, `CARAPACE_*`, `SHELL`, `XDG_*`) must hold its
-  binary's `env_lock()` for the whole test — unlocked env mutation has caused flaky
-  races repeatedly (e.g. `patch()` unsetting `COMP_*` mid-run of a parallel test).
+- The `Sandbox` holds no process-global state; tests run in parallel. `CARAPACE_*`
+  flags travel on the sandbox context (`sandbox.env(...)`), so no process mutation
+  is needed for them. Any test that must mutate process environment (`COMP_*` for
+  entry-point tests, `SHELL`, `XDG_*`) must hold its binary's `env_lock()` for the
+  whole test — unlocked env mutation has caused flaky races repeatedly (e.g.
+  `patch()` unsetting `COMP_*` mid-run of a parallel test).
 - External tools in tests (fish, zsh, bash) are exercised through real binaries or
   mocked replies; never assume a tool is installed without a guard.
 - Flag-value completers return **bare values** (`"dev"`); the attached form

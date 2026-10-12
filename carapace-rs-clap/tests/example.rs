@@ -13,20 +13,11 @@ mod cmd;
 use carapace_rs::Action;
 use carapace_rs_testkit::Sandbox;
 
-/// Serializes tests that mutate `CARAPACE_*` process environment variables.
-pub(crate) fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-    LOCK.get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
 mod root {
     use super::*;
 
     #[test]
     fn completes_subcommands_grouped() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-root");
         sandbox
             .run(cmd::root_cmd, &[""])
@@ -64,7 +55,6 @@ mod root {
 
     #[test]
     fn filters_by_prefix() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-root-prefix");
         sandbox.run(cmd::root_cmd, &["a"]).expect(
             Action::values_described([("action", "action example"), ("alias", "action example")])
@@ -80,7 +70,6 @@ mod root {
 
     #[test]
     fn completes_flags_split_by_prefix() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-root-flags");
         sandbox.run(cmd::root_cmd, &["-"]).expect(
             carapace_rs::batch(vec![
@@ -164,7 +153,6 @@ mod root {
 
     #[test]
     fn completes_optargs() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-root-optarg");
         sandbox.run(cmd::root_cmd, &["--persistentFlag="]).expect(
             Action::values(["p1", "p2", "p3"])
@@ -190,9 +178,8 @@ mod root {
 
     #[test]
     fn merges_flags_when_configured() {
-        let _guard = env_lock();
-        unsafe { std::env::set_var("CARAPACE_MERGEFLAGS", "1") };
-        let sandbox = Sandbox::new("example-root-mergeflags");
+        let mut sandbox = Sandbox::new("example-root-mergeflags");
+        sandbox.env("CARAPACE_MERGEFLAGS", "1");
         sandbox.run(cmd::root_cmd, &["-"]).expect(
             Action::styled_values_described([
                 ("-C", "change work directory", "blue"),
@@ -221,7 +208,7 @@ mod root {
             .nospace(['.']),
         );
 
-        unsafe { std::env::set_var("CARAPACE_MERGEFLAGS", "0") };
+        sandbox.env("CARAPACE_MERGEFLAGS", "0");
         sandbox.run(cmd::root_cmd, &["-"]).expect(
             carapace_rs::batch(vec![
                 Action::styled_values_described([
@@ -254,7 +241,6 @@ mod root {
             ])
             .nospace(['.']),
         );
-        unsafe { std::env::remove_var("CARAPACE_MERGEFLAGS") };
     }
 }
 
@@ -263,7 +249,6 @@ mod help {
 
     #[test]
     fn completes_commands() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-help");
         sandbox.run(cmd::root_cmd, &["help", "a"]).expect(
             Action::values_described([("action", "action example"), ("alias", "action example")])
@@ -279,7 +264,6 @@ mod flag {
 
     #[test]
     fn completes_dash_arguments() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-flag-dash");
         sandbox
             .run(cmd::root_cmd, &["flag", "--", ""])
@@ -316,7 +300,6 @@ mod flag_disabled {
 
     #[test]
     fn completes_positionals_without_flag_parsing() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-flag-disabled");
         sandbox
             .run(cmd::root_cmd, &["flag", "disabled", ""])
@@ -335,7 +318,6 @@ mod interspersed {
 
     #[test]
     fn stops_flag_parsing_at_positionals() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-interspersed");
         sandbox.run(cmd::root_cmd, &["interspersed", "--s"]).expect(
             Action::values_described([("--string", "string flag")])
@@ -374,7 +356,6 @@ mod special {
 
     #[test]
     fn respects_mutually_exclusive_flags() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-special");
         sandbox.run(cmd::root_cmd, &["special", "--e"]).expect(
             Action::values_described([
@@ -408,7 +389,6 @@ mod subcommand {
 
     #[test]
     fn completes_aliases_groups_and_hidden() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-subcommand");
         sandbox
             .run(cmd::root_cmd, &["subcommand", ""])
@@ -427,9 +407,8 @@ mod subcommand {
 
     #[test]
     fn includes_hidden_when_configured() {
-        let _guard = env_lock();
-        unsafe { std::env::set_var("CARAPACE_HIDDEN", "1") };
-        let sandbox = Sandbox::new("example-subcommand-hidden");
+        let mut sandbox = Sandbox::new("example-subcommand-hidden");
+        sandbox.env("CARAPACE_HIDDEN", "1");
         sandbox
             .run(cmd::root_cmd, &["subcommand", ""])
             .expect(carapace_rs::batch(vec![
@@ -445,7 +424,7 @@ mod subcommand {
                     .style("blue"),
             ]));
 
-        unsafe { std::env::set_var("CARAPACE_HIDDEN", "2") };
+        sandbox.env("CARAPACE_HIDDEN", "2");
         sandbox
             .run(cmd::root_cmd, &["subcommand", ""])
             .expect(carapace_rs::batch(vec![
@@ -461,7 +440,6 @@ mod subcommand {
                     .tag("group commands")
                     .style("blue"),
             ]));
-        unsafe { std::env::remove_var("CARAPACE_HIDDEN") };
     }
 }
 
@@ -470,7 +448,6 @@ mod chain {
 
     #[test]
     fn completes_shorthand_chains() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-chain");
         sandbox.run(cmd::root_cmd, &["chain", "-b"]).expect(
             Action::styled_values([("c", ""), ("o", "yellow"), ("v", "blue")])
@@ -537,7 +514,6 @@ mod action {
 
     #[test]
     fn completes_flag_actions() {
-        let _guard = env_lock();
         let mut sandbox = Sandbox::new("example-action");
         sandbox.files(FILES);
         sandbox.reply("git", &["remote"]).with("origin\nfork");
@@ -761,7 +737,6 @@ mod action {
 
     #[test]
     fn completes_embedded_positionals() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-action-embedded");
         sandbox.run(cmd::root_cmd, &["action", "embe"]).expect(
             Action::values(["embeddedP1", "embeddedPositional1"])
@@ -777,7 +752,6 @@ mod action {
 
     #[test]
     fn completes_dash_via_embedded() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-action-dash");
         sandbox.run(cmd::root_cmd, &["action", "--", ""]).expect(
             Action::values(["embeddedP1", "embeddedPositional1"])
@@ -847,25 +821,22 @@ mod action {
 
     #[test]
     fn unknown_flag_and_lenient() {
-        let _guard = env_lock();
-        let sandbox = Sandbox::new("example-action-unknown");
+        let mut sandbox = Sandbox::new("example-action-unknown");
         sandbox
             .run(cmd::root_cmd, &["action", "--unknown", ""])
             .expect(Action::message("unknown flag: --unknown"));
 
-        unsafe { std::env::set_var("CARAPACE_LENIENT", "1") };
+        sandbox.env("CARAPACE_LENIENT", "1");
         sandbox
             .run(cmd::root_cmd, &["action", "--unknown", ""])
             .expect(
                 Action::values(["embeddedP1", "embeddedPositional1"])
                     .usage("action [pos1] [pos2] [--] [dashAny]..."),
             );
-        unsafe { std::env::remove_var("CARAPACE_LENIENT") };
     }
 
     #[test]
     fn completes_persistent_flags() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-action-persistent");
         sandbox
             .run(cmd::root_cmd, &["action", "--persistentFlag="])
@@ -881,7 +852,6 @@ mod action {
 
     #[test]
     fn completes_attached_values() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-action-attached");
         sandbox.files(FILES);
         sandbox.run(cmd::root_cmd, &["action", "--values="]).expect(
@@ -927,7 +897,6 @@ mod action {
 
     #[test]
     fn completes_multipartsn() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-action-multipartsn");
         sandbox
             .run(cmd::root_cmd, &["action", "--multipartsn", ""])
@@ -967,7 +936,6 @@ mod action {
     #[cfg(unix)]
     #[test]
     fn completes_symlinks() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-action-symlink");
         sandbox.files(FILES);
         let dir = sandbox.work_dir();
@@ -1019,7 +987,6 @@ mod modifier {
 
     #[test]
     fn batch_merges_descriptions() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-batch");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--batch", ""])
@@ -1036,7 +1003,6 @@ mod modifier {
 
     #[test]
     fn cache_roundtrips_until_cleared() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-cache");
         let cached = sandbox
             .run(cmd::root_cmd, &["modifier", "--cache", ""])
@@ -1058,7 +1024,6 @@ mod modifier {
 
     #[test]
     fn filter_and_retain() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-filter");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--filter", ""])
@@ -1070,7 +1035,6 @@ mod modifier {
 
     #[test]
     fn shift_reports_remaining_args() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-shift");
         sandbox
             .run(cmd::root_cmd, &["modifier", "one", "--shift", ""])
@@ -1085,7 +1049,6 @@ mod modifier {
 
     #[test]
     fn timeout_falls_back() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-timeout");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--timeout", ""])
@@ -1094,7 +1057,6 @@ mod modifier {
 
     #[test]
     fn usage_is_surfaced() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-usage");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--usage", ""])
@@ -1105,7 +1067,6 @@ mod modifier {
     fn chdir_completes_relative() {
         // Go TestChdir: a standalone action completing relative to the
         // chdir'ed directory
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-chdir");
         sandbox.files([("subdir/file1.txt", "")]);
         sandbox
@@ -1130,7 +1091,6 @@ mod modifier {
 
     #[test]
     fn chdirf_resolves_git_work_tree() {
-        let _guard = env_lock();
         let mut sandbox = Sandbox::new("example-modifier-chdirf");
         sandbox.files([
             (".git/config", ""),
@@ -1164,7 +1124,6 @@ mod modifier {
 
     #[test]
     fn multiparts_segments() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-multiparts");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--multiparts", ""])
@@ -1201,7 +1160,6 @@ mod modifier {
 
     #[test]
     fn noprefix_and_prefix() {
-        let _guard = env_lock();
         let mut sandbox = Sandbox::new("example-modifier-prefix");
         sandbox.files([("subdir/file1.txt", "")]);
         sandbox.env("LS_COLORS", "");
@@ -1248,7 +1206,6 @@ mod modifier {
 
     #[test]
     fn filterargs_and_filterparts() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-filterargs");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--filterargs", ""])
@@ -1293,7 +1250,6 @@ mod modifier {
 
     #[test]
     fn multipartsp_placeholders() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-multipartsp");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--multipartsp", ""])
@@ -1345,7 +1301,6 @@ mod modifier {
 
     #[test]
     fn split_relexes_the_value() {
-        let _guard = env_lock();
         let mut sandbox = Sandbox::new("example-modifier-split");
         sandbox.files([("subdir/file1.txt", "")]);
         sandbox.env("LS_COLORS", "");
@@ -1412,7 +1367,6 @@ mod modifier {
 
     #[test]
     fn splitp_supports_pipelines() {
-        let _guard = env_lock();
         let mut sandbox = Sandbox::new("example-modifier-splitp");
         sandbox.files([("subdir/file1.txt", "")]);
         sandbox.env("LS_COLORS", "");
@@ -1513,7 +1467,6 @@ mod modifier {
 
     #[test]
     fn unless_conditions() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-unless");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--unless", "true:"])
@@ -1535,7 +1488,6 @@ mod modifier {
 
     #[test]
     fn unlessf_completing_path() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-unlessf");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--unlessf", ""])
@@ -1559,7 +1511,6 @@ mod modifier {
 
     #[test]
     fn unique_variants() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-modifier-unique");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--unique", ""])
@@ -1631,7 +1582,6 @@ mod multiparts {
 
     #[test]
     fn completes_positional_entries() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-multiparts");
         sandbox.files(FILES);
 
@@ -1710,7 +1660,6 @@ mod multiparts {
 
     #[test]
     fn completes_none_divider_variants() {
-        let _guard = env_lock();
         let sandbox = Sandbox::new("example-multiparts-none");
         sandbox
             .run(cmd::root_cmd, &["multiparts", "--none-zero", ""])

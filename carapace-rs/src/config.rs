@@ -178,6 +178,76 @@ fn config_file(name: &str) -> Option<std::path::PathBuf> {
     path.exists().then_some(path)
 }
 
+/// Completion flags carried by the [`Context`](crate::Context)
+/// (Go reads the same `CARAPACE_*` variables from process environment
+/// functions; here they travel with the completion so embedded and
+/// sandboxed completions can scope them).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Flags {
+    /// `CARAPACE_HIDDEN`: hidden command/flag visibility.
+    pub hidden: Hidden,
+    /// `CARAPACE_LENIENT`: unknown flags are ignored instead of erroring.
+    pub lenient: bool,
+    /// `CARAPACE_MERGEFLAGS`: `None` when unset (zsh merges implicitly).
+    pub merge_flags: Option<bool>,
+    /// `CARAPACE_UNFILTERED`: candidates are not filtered by prefix.
+    pub unfiltered: bool,
+    /// `CARAPACE_NOSPACE`: additional nospace characters.
+    pub nospace: Option<String>,
+    /// `CARAPACE_COLOR`/`NO_COLOR`/`CLICOLOR`: styling disabled.
+    pub color_disabled: bool,
+    /// `CARAPACE_DESCRIPTION_LENGTH` (default 80).
+    pub description_length: usize,
+}
+
+impl Default for Flags {
+    fn default() -> Self {
+        Self {
+            hidden: Hidden::None,
+            lenient: false,
+            merge_flags: None,
+            unfiltered: false,
+            nospace: None,
+            color_disabled: false,
+            description_length: 80,
+        }
+    }
+}
+
+impl Flags {
+    /// Parse the flags from an environment map.
+    pub fn from_env_map(env: &std::collections::HashMap<String, String>) -> Self {
+        let var = |name: &str| env.get(name).map(String::as_str);
+        let flag = |name: &str| var(name).is_some_and(|value| !value.is_empty() && value != "0");
+        Self {
+            hidden: match var("CARAPACE_HIDDEN").and_then(|v| v.parse::<u8>().ok()) {
+                Some(1) => Hidden::ExcludeCarapace,
+                Some(2) => Hidden::IncludeCarapace,
+                _ => Hidden::None,
+            },
+            lenient: flag("CARAPACE_LENIENT"),
+            merge_flags: var("CARAPACE_MERGEFLAGS").map(|v| !v.is_empty() && v != "0"),
+            unfiltered: flag("CARAPACE_UNFILTERED"),
+            nospace: var("CARAPACE_NOSPACE")
+                .filter(|value| !value.is_empty())
+                .map(String::from),
+            color_disabled: match var("CARAPACE_COLOR") {
+                Some(value) => value == "0",
+                None => flag("NO_COLOR") || var("CLICOLOR").is_some_and(|v| v == "0"),
+            },
+            description_length: var("CARAPACE_DESCRIPTION_LENGTH")
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(80),
+        }
+    }
+
+    /// Parse the flags from the process environment.
+    pub fn from_env() -> Self {
+        let env: std::collections::HashMap<String, String> = std::env::vars().collect();
+        Self::from_env_map(&env)
+    }
+}
+
 /// Hidden-flag mode from `CARAPACE_HIDDEN`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Hidden {
@@ -188,17 +258,6 @@ pub enum Hidden {
     ExcludeCarapace,
     /// Include everything, even hidden.
     IncludeCarapace,
-}
-
-pub fn hidden() -> Hidden {
-    match std::env::var("CARAPACE_HIDDEN")
-        .ok()
-        .and_then(|v| v.parse::<u8>().ok())
-    {
-        Some(1) => Hidden::ExcludeCarapace,
-        Some(2) => Hidden::IncludeCarapace,
-        _ => Hidden::None,
-    }
 }
 
 /// Read a `CARAPACE_*` env var as a flag (set and not `0`).
@@ -212,35 +271,8 @@ pub fn log_enabled() -> bool {
     flag("CARAPACE_LOG")
 }
 
-pub fn lenient() -> bool {
-    flag("CARAPACE_LENIENT")
-}
-
-pub fn unfiltered() -> bool {
-    flag("CARAPACE_UNFILTERED")
-}
-
-pub fn merge_flags() -> bool {
-    flag("CARAPACE_MERGEFLAGS")
-}
-
 pub fn experimental() -> bool {
     flag("CARAPACE_EXPERIMENTAL")
-}
-
-pub fn nospace() -> Option<String> {
-    std::env::var("CARAPACE_NOSPACE")
-        .ok()
-        .filter(|value| !value.is_empty())
-}
-
-/// Color disable logic: explicit `CARAPACE_COLOR` wins, then `NO_COLOR`,
-/// then `CLICOLOR`.
-pub fn color_disabled() -> bool {
-    match std::env::var("CARAPACE_COLOR") {
-        Ok(value) => value == "0",
-        Err(_) => flag("NO_COLOR") || std::env::var("CLICOLOR").is_ok_and(|v| v == "0"),
-    }
 }
 
 /// Whether prefix matching is case-insensitive (`CARAPACE_MATCH`).

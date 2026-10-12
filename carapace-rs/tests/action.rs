@@ -409,3 +409,22 @@ fn style_r_reads_the_cell_at_invocation() {
     let invoked = action.invoke(&Context::default());
     assert_eq!(invoked.values[0].style, "blue");
 }
+
+#[test]
+fn files_completion_resolves_the_filesystem_root() {
+    // `/tmp` (no trailing slash): the empty directory part before the
+    // leading slash is the filesystem root, not the context directory
+    let context = Context::default().value("/tmp");
+    let invoked = Action::files(Vec::<String>::new()).invoke(&context);
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    assert!(values.iter().any(|v| v.starts_with("/tmp/")), "{values:?}");
+
+    // the candidates keep the root as their typed directory part
+    let context = Context::default().value("/t");
+    let invoked = Action::files(Vec::<String>::new()).invoke(&context);
+    assert!(
+        invoked.values.iter().any(|v| v.value == "/tmp/"),
+        "{:?}",
+        invoked.values
+    );
+}

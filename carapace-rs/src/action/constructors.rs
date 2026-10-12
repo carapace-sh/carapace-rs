@@ -354,7 +354,12 @@ fn complete_path(
         Some(index) => (value[..index].to_owned(), value[index + 1..].to_owned()),
         None => (String::new(), value.clone()),
     };
-    let resolved = if dir.is_empty() {
+    // a leading slash with no directory part resolves against the
+    // filesystem root (value `/tmp` lists `/`), not the context directory
+    let at_root = value.starts_with('/') && dir.is_empty();
+    let resolved = if at_root {
+        PathBuf::from("/")
+    } else if dir.is_empty() {
         context.dir.clone()
     } else {
         let expanded = expand_tilde(&dir);
@@ -400,7 +405,12 @@ fn complete_path(
         }
         // the value keeps the typed directory part while the display shows
         // only the completed segment (Go's MultiParts prefix re-attachment)
-        let mut value = RawValue::new(format!("{}{}", dir_prefix(Path::new(&dir)), candidate));
+        let typed_dir = if at_root {
+            "/".to_owned()
+        } else {
+            dir_prefix(Path::new(&dir))
+        };
+        let mut value = RawValue::new(format!("{typed_dir}{candidate}"));
         value.display = candidate;
         if path.is_dir() {
             value = value.nospace(true);

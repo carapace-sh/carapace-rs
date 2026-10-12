@@ -9,7 +9,7 @@ mod marshal;
 
 pub use marshal::to_yaml;
 
-use carapace_rs::model::{Command, Positional};
+use carapace_rs::model::{Command, Flag, Positional};
 use carapace_rs::{Action, RawValue};
 use serde::Deserialize;
 
@@ -107,10 +107,10 @@ struct CompletionSpec {
 /// Parse a YAML spec into a command tree.
 pub fn from_yaml(yaml: &str) -> Result<Command, String> {
     let spec: Spec = serde_yaml::from_str(yaml).map_err(|error| error.to_string())?;
-    Ok(convert(spec))
+    convert(spec, &[])
 }
 
-fn convert(spec: Spec) -> Command {
+fn convert(spec: Spec, inherited: &[Flag]) -> Result<Command, String> {
     // name may embed a usage string after the first space
     let name = spec.name.split(' ').next().unwrap_or_default().to_owned();
 
@@ -129,10 +129,19 @@ fn convert(spec: Spec) -> Command {
     model.interspersed = parsing == Parsing::Interspersed;
     model.disable_flag_parsing = parsing == Parsing::Disabled;
 
-    for (key, flag_spec) in spec.flags.iter().chain(&spec.persistent_flags) {
-        if let Some(flag) = flagkey::parse(key, flag_spec) {
-            model.flags.push(flag);
-        }
+    for (key, flag_spec) in &spec.flags {
+        model.flags.push(flagkey::parse(key, flag_spec)?);
+    }
+    for (key, flag_spec) in &spec.persistent_flags {
+        let mut flag = flagkey::parse(key, flag_spec)?;
+        flag.persistent = true;
+        model.flags.push(flag);
+    }
+    // inherited persistent flags materialize on every subcommand (cobra's
+    // shared flag object lookup); the `persistent` marker keeps the dump
+    // able to recover the original section
+    for flag in inherited {
+        model.flags.push(flag.clone());
     }
 
     for (index, positional) in spec.completion.positional.iter().enumerate() {
@@ -165,11 +174,23 @@ fn convert(spec: Spec) -> Command {
         }
     }
 
-    for subcommand in spec.commands {
-        model.subcommands.push(convert(subcommand));
+    // collect after the completion mapping so the copies carry it down
+    let mut persistent: Vec<Flag> = inherited.to_vec();
+    for flag in &model.flags {
+        if flag.persistent
+            && !inherited
+                .iter()
+                .any(|inherited| inherited.name == flag.name)
+        {
+            persistent.push(flag.clone());
+        }
     }
 
-    model
+    for subcommand in spec.commands {
+        model.subcommands.push(convert(subcommand, &persistent)?);
+    }
+
+    Ok(model)
 }
 
 /// Build a completion action from a list of macro/value entries.

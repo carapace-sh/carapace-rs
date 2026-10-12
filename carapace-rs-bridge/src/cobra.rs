@@ -35,6 +35,8 @@ where
 
 fn parse_output(output: &str, value: &str) -> Action {
     let lines: Vec<&str> = output.split('\n').collect();
+    // directive unparseable or missing: no candidates (Go `readDirective`
+    // error path returns ActionValues())
     let Some(directive) = lines
         .len()
         .checked_sub(2)
@@ -42,7 +44,7 @@ fn parse_output(output: &str, value: &str) -> Action {
         .and_then(|line| line.strip_prefix(':'))
         .and_then(|directive| directive.parse::<i32>().ok())
     else {
-        return Action::default();
+        return Action::values(Vec::<String>::new());
     };
 
     let mut action = if directive & DIRECTIVE_FILTER_DIRS != 0 {
@@ -57,7 +59,7 @@ fn parse_output(output: &str, value: &str) -> Action {
         action = Action::files(Vec::<String>::new());
     }
     if directive & DIRECTIVE_ERROR != 0 {
-        action = Action::default();
+        action = Action::values(Vec::<String>::new());
     }
     if directive & DIRECTIVE_NO_SPACE != 0 {
         action = action.nospace([]);

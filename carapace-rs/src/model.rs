@@ -87,6 +87,11 @@ pub struct Flag {
     pub required: bool,
     /// Whether the flag is hidden from completion.
     pub hidden: bool,
+    /// Whether the flag is persistent (cobra `PersistentFlags`, spec
+    /// `persistentflags`): inherited by subcommands; adapters materialize
+    /// copies on each child with this marker so the dump can recover the
+    /// original section.
+    pub persistent: bool,
     /// Whether values may start with the flag prefix (clap `allow_hyphen_values`).
     pub allow_hyphen_values: bool,
     /// Help text.

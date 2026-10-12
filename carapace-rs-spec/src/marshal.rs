@@ -26,18 +26,28 @@ struct SpecOut {
     parsing: Option<&'static str>,
     #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     flags: std::collections::BTreeMap<String, FlagOut>,
+    #[serde(
+        skip_serializing_if = "std::collections::BTreeMap::is_empty",
+        rename = "persistentflags"
+    )]
+    persistent_flags: std::collections::BTreeMap<String, FlagOut>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     commands: Vec<SpecOut>,
 }
 
 impl From<&Command> for SpecOut {
     fn from(command: &Command) -> Self {
+        // hidden flags are dumped with the `&` suffix (Go's VisitAll
+        // includes them); persistent flags go into their own section
         let mut flags = std::collections::BTreeMap::new();
+        let mut persistent_flags = std::collections::BTreeMap::new();
         for flag in &command.flags {
-            if flag.hidden {
-                continue;
-            }
-            flags.insert(definition(flag), FlagOut::from(flag));
+            let target = if flag.persistent {
+                &mut persistent_flags
+            } else {
+                &mut flags
+            };
+            target.insert(definition(flag), FlagOut::from(flag));
         }
         Self {
             name: command.name.clone(),
@@ -51,6 +61,7 @@ impl From<&Command> for SpecOut {
                 (false, _) => None,
             },
             flags,
+            persistent_flags,
             commands: command
                 .subcommands
                 .iter()
@@ -61,26 +72,36 @@ impl From<&Command> for SpecOut {
     }
 }
 
-/// Flag key with modifier suffixes (port of pflagfork `Flag.Definition`).
+/// Flag key with modifier suffixes (port of pflagfork `Flag.Definition`):
+/// long aliases append as additional `--long` parts (the parser accepts
+/// them), suffix order matches Go: optarg/value, repeatable, required,
+/// hidden.
 fn definition(flag: &Flag) -> String {
     let mut key = match flag.shorthand {
         Some(c) if !flag.name.is_empty() => format!("-{c}, --{}", flag.name),
         Some(c) => format!("-{c}"),
         None => format!("--{}", flag.name),
     };
-    if flag.hidden {
-        key.push('&');
-    }
-    if flag.required {
-        key.push('!');
-    }
-    if flag.repeatable {
-        key.push('*');
+    for alias in &flag.aliases {
+        if alias.chars().count() == 1 {
+            key.push_str(&format!(", -{alias}"));
+        } else {
+            key.push_str(&format!(", --{alias}"));
+        }
     }
     if flag.optional {
         key.push('?');
     } else if flag.takes_value {
         key.push('=');
+    }
+    if flag.repeatable {
+        key.push('*');
+    }
+    if flag.required {
+        key.push('!');
+    }
+    if flag.hidden {
+        key.push('&');
     }
     key
 }

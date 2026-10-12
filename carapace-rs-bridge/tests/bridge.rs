@@ -277,6 +277,20 @@ fn cobra_bridge_error_directive() {
 }
 
 #[test]
+fn cobra_bridge_truncated_output_yields_no_candidates() {
+    // output without a directive line: no candidates, no message
+    // (Go's readDirective error path returns ActionValues())
+    let mut sandbox = Sandbox::new("bridge-cobra-truncated");
+    sandbox.reply("git", &["__complete", ""]).with("value\n");
+
+    let run = sandbox.run(
+        || cli().positional_any_completion(bridge::cobra::action(["git"])),
+        &[""],
+    );
+    assert!(run.output().contains("values\":[]"), "{}", run.output());
+}
+
+#[test]
 fn cobra_bridge_nofilecomp_directive_skips_file_fallback() {
     let mut sandbox = Sandbox::new("bridge-cobra-nofilecomp");
     sandbox.reply("git", &["__complete", ""]).with(":4\n");

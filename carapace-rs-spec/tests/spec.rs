@@ -294,3 +294,71 @@ fn optarg_flag_binds_delimited_value() {
         ("output".to_owned(), vec!["dev".to_owned()])
     );
 }
+
+#[test]
+fn persistent_flags_round_trip_and_inherit() {
+    let yaml = r#"
+name: mycmd
+flags:
+  --local=: local flag
+persistentflags:
+  -g, --global=: global flag
+commands:
+  - name: sub
+    flags:
+      --sub=: sub flag
+"#;
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+
+    // persistent flags materialize on subcommands (cobra inheritance)
+    let sub = model.lookup_subcommand("sub").unwrap();
+    let global = sub.lookup_long("global").unwrap();
+    assert!(global.persistent);
+    assert!(global.takes_value);
+    assert_eq!(global.shorthand, Some('g'));
+
+    // the dump recovers the section split
+    let dumped = carapace_rs_spec::to_yaml(&model);
+    let reparsed = carapace_rs_spec::from_yaml(&dumped).unwrap();
+    assert!(reparsed.lookup_long("global").unwrap().persistent);
+    assert!(!reparsed.lookup_long("local").unwrap().persistent);
+    let sub_dumped = reparsed.lookup_subcommand("sub").unwrap();
+    assert!(sub_dumped.lookup_long("global").unwrap().persistent);
+    assert!(sub_dumped.lookup_long("sub").is_some());
+    let yaml_out = carapace_rs_spec::to_yaml(sub_dumped);
+    assert!(yaml_out.contains("persistentflags:"), "{yaml_out}");
+    assert!(yaml_out.contains("-g, --global"), "{yaml_out}");
+}
+
+#[test]
+fn hidden_flags_survive_round_trip() {
+    let model = carapace_rs_spec::from_yaml(EXAMPLE).unwrap();
+    let dumped = carapace_rs_spec::to_yaml(&model);
+    assert!(dumped.contains("--hidden&"), "{dumped}");
+    let reparsed = carapace_rs_spec::from_yaml(&dumped).unwrap();
+    let hidden = reparsed.lookup_long("hidden").unwrap();
+    assert!(hidden.hidden);
+}
+
+#[test]
+fn flag_aliases_round_trip() {
+    let yaml = r#"
+name: mycmd
+flags:
+  -v, --verbose, --loud: be verbose
+"#;
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+    assert!(model.lookup_long("loud").is_some());
+
+    let reparsed = carapace_rs_spec::from_yaml(&carapace_rs_spec::to_yaml(&model)).unwrap();
+    let verbose = reparsed.lookup_long("verbose").unwrap();
+    assert!(verbose.aliases.contains(&"loud".to_owned()));
+    assert!(reparsed.lookup_long("loud").is_some());
+}
+
+#[test]
+fn unsupported_flag_key_is_an_error() {
+    // Go's parseFlag errors instead of silently dropping the flag
+    let error = carapace_rs_spec::from_yaml("name: mycmd\nflags:\n  -abc: series\n").unwrap_err();
+    assert!(error.contains("long shorthand"), "{error}");
+}

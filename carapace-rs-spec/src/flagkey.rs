@@ -7,11 +7,12 @@ use super::FlagSpec;
 
 /// Parse a flag key with modifier suffixes into a model flag.
 ///
-/// Returns `None` when the key cannot be mapped (e.g. non-POSIX shorthands).
-pub fn parse(key: &str, spec: &FlagSpec) -> Option<Flag> {
+/// Errors visibly on unmappable keys (Go `parseFlag` returns an error
+/// instead of silently dropping the flag).
+pub fn parse(key: &str, spec: &FlagSpec) -> Result<Flag, String> {
     let key = key.trim();
     if key.is_empty() {
-        return None;
+        return Err("malformed flag: empty key".to_owned());
     }
 
     let (flag_part, suffixes) = split_suffixes(key);
@@ -61,11 +62,17 @@ pub fn parse(key: &str, spec: &FlagSpec) -> Option<Flag> {
             longs.push(long);
             continue;
         }
-        let shorthand = part.strip_prefix('-')?;
+        let shorthand = part
+            .strip_prefix('-')
+            .ok_or_else(|| format!("malformed flag: {key}"))?;
         let mut chars = shorthand.chars();
         match (chars.next(), chars.as_str().is_empty()) {
             (Some(single), true) => shorthands.push(single),
-            _ => return None, // non-POSIX shorthand series unsupported
+            _ => {
+                return Err(format!(
+                    "long shorthand only supported with carapace-sh/carapace-pflag: {part}"
+                ));
+            }
         }
     }
 
@@ -82,7 +89,7 @@ pub fn parse(key: &str, spec: &FlagSpec) -> Option<Flag> {
     }
 
     if flag.name.is_empty() && flag.shorthand.is_none() {
-        return None;
+        return Err(format!("malformed flag: '{key}'"));
     }
     let id = flag
         .name
@@ -91,7 +98,7 @@ pub fn parse(key: &str, spec: &FlagSpec) -> Option<Flag> {
         .flatten()
         .unwrap_or_else(|| flag.name.clone());
     flag.id = id;
-    Some(flag)
+    Ok(flag)
 }
 
 /// Split trailing modifier suffix characters off the key.

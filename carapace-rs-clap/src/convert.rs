@@ -299,6 +299,7 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
         repeatable,
         required: arg.is_required_set(),
         hidden: arg.is_hide_set(),
+        persistent: arg.is_global_set(),
         allow_hyphen_values: arg.is_allow_hyphen_values_set(),
         description: arg
             .get_long_help()

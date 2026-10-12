@@ -1,0 +1,14 @@
+[package]
+name = "carapace-rs-shlex"
+description = "Shell lexing for completion: tokenizing, partial tokens, insertion quoting"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "Apache-2.0"
+repository.workspace = true
+readme.workspace = true
+keywords = ["shell", "lexer", "tokenizer", "completion", "carapace"]
+categories.workspace = true
+
+[dependencies]
+shlex = "1"

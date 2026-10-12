@@ -16,7 +16,7 @@ live next to this one and should be consulted when porting or verifying behavior
 |---|---|
 | `../carapace` | core library: `action.go`, `traverse.go`, `complete.go`, `internal/shell/*`, `internal/pflagfork`, `pkg/*` |
 | `../carapace-bridge` | bridge reference: `pkg/actions/bridge/*.go` |
-| `../carapace-shlex` | shell lexing reference: `completion.go`, `shlex.go`, `quote.go`, `format_*.go` — the completion core is ported as the `carapace-shlex` crate (format tests 1:1; `verify_*.go` source-crosscheck corpora are ported in `src/verify.rs`, fish/zsh/xonsh/powershell sections condensed) |
+| `../carapace-shlex` | shell lexing reference: `completion.go`, `shlex.go`, `quote.go`, `format_*.go` — the completion core is ported as the `carapace-rs-shlex` crate (format tests 1:1; `verify_*.go` source-crosscheck corpora are ported in `src/verify.rs`, fish/zsh/xonsh/powershell sections condensed) |
 | `../carapace-spec` | YAML spec format and core macros |
 
 Rule of thumb: port behavior 1:1 in spirit (same semantics, same edge cases, same wire
@@ -34,26 +34,26 @@ cargo clippy --workspace      # must be warning-free
 Run the demo binary to try completions end to end:
 
 ```bash
-cargo run -p carapace-clap --example demo -- _carapace bash demo --profile ""
-cargo run -p carapace-clap --example demo -- _carapace spec
+cargo run -p carapace-rs-clap --example demo -- _carapace bash demo --profile ""
+cargo run -p carapace-rs-clap --example demo -- _carapace spec
 ```
 
 ## Workspace Layout
 
 ```
-carapace-shlex/   the ported carapace-shlex completion core: per-format lexing
+carapace-rs-shlex/   the ported carapace-shlex completion core: per-format lexing
                   (12-state machine, quoting states, wordbreak/operator
                   classification, spans), Complete() context (words, current
                   word, wordbreak prefix, redirect/variable/substitution
                   detection), Quote/Join per format
-carapace-core/    framework-independent engine: model, action, traverse, shell formatters,
+carapace-rs/         framework-independent engine: model, action, traverse, shell formatters,
                   cache, uid, export, mock
-carapace-clap/    clap adapter: Carapace extension trait, extension completers, _carapace entry point,
+carapace-rs-clap/    clap adapter: Carapace extension trait, extension completers, _carapace entry point,
                   completer!/command_completer! macro_rules! wrappers for clap derive
-carapace-spec/    YAML specs: from_yaml parsing, to_yaml dump, $-macro resolution
-carapace-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin,
+carapace-rs-spec/    YAML specs: from_yaml parsing, to_yaml dump, $-macro resolution
+carapace-rs-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin,
                   clap, cobra, inshellisense
-carapace-testkit/ in-process sandbox harness for tests
+carapace-rs-testkit/ in-process sandbox harness for tests
 ```
 
 ## Design Decisions
@@ -76,10 +76,10 @@ These are settled; don't relitigate without cause, and preserve them when refact
     attached/delimited/next styles via `ArgumentStyle`) — so the machinery is
     not ported; non-clap tools are delegated to their own completers by the
     bridges.
-4. **Framework-agnostic model as the seam.** The engine (`carapace_core::traverse`)
+4. **Framework-agnostic model as the seam.** The engine (`carapace_rs::traverse`)
    never sees framework types; adapters convert into `model::Command` once per request.
    The spec backend plugs in through the same seam. Do not let clap types leak into
-   `carapace-core`.
+   `carapace-rs`.
 5. **Own lenient traversal, never clap's parser.** clap's parser errors on unknown
    flags and cannot express optarg/custom-prefix semantics; carapace's completion
    needs lenient classification. The `Flag` model fields (`nargs`, `optional`,
@@ -127,16 +127,18 @@ These are settled; don't relitigate without cause, and preserve them when refact
     unix, `;` on Windows); likewise executables check the unix permission bits
     or the `.exe` extension.
 16. **Per-crate licensing follows upstream provenance.** Crates porting
-    Apache-2.0 upstreams (`carapace-shlex`, `carapace-core`) stay Apache-2.0;
-    crates porting MIT upstreams (`carapace-spec`, `carapace-bridge`) and
-    original work (`carapace-clap`, `carapace-testkit`) are MIT. `carapace-core`
+    Apache-2.0 upstreams (`carapace-shlex` → `carapace-rs-shlex`, `carapace` →
+    `carapace-rs`) stay Apache-2.0;
+    crates porting MIT upstreams (`carapace-spec` → `carapace-rs-spec`,
+    `carapace-bridge` → `carapace-rs-bridge`) and
+    original work (`carapace-rs-clap`, `carapace-rs-testkit`) are MIT. `carapace-rs`
     carries the upstream `LICENSE.appendix` reserving `Uid`, `Query`, `Trace`
     for Tabdance™. Do not flatten back to one workspace-wide license.
 17. **Core internals are published but not API.** `cache`, `config`, `log`,
     `meta`, `mock`, `uid` mirror Go's `internal/` packages and are
     `#[doc(hidden)]`; they stay reachable for adapters and the test harness but
     are not semver commitments. Do not move stable API into them.
-18. **The `_carapace spec` dump is feature-gated.** `carapace-clap` has a
+18. **The `_carapace spec` dump is feature-gated.** `carapace-rs-clap` has a
     default-on `spec` feature; without it the YAML machinery (serde_yaml) is
     not compiled and `_carapace spec` behaves like an unknown shell (returns
     `None`). Keep the feature default-on for Go parity.
@@ -161,6 +163,13 @@ These are settled; don't relitigate without cause, and preserve them when refact
 
 ## Naming
 
+The engine crate is `carapace-rs` (matching the repository name) and workspace
+members take it as their family prefix with hyphen separators (`carapace-rs-clap`,
+…), following clap's family-prefix model (`clap`, `clap_builder`, …) but keeping
+hyphenated spelling — clap's all-underscore form only works because its base
+crate is a single word. Cargo derives the underscore Rust identifiers
+(`carapace_rs_clap`) from the hyphenated packages; code and doc examples use those.
+
 Go CamelCase maps to Rust snake_case with the prefix/suffix conventions preserved:
 `ActionValuesDescribed` → `Action::values_described`; the `F`/`P`/`E`/`N` suffixes
 (`UidF`, `MultiPartsN`, `ExecCommandE`) are kept as `_f`/`_n`/`_e`. Keep modifier
@@ -168,7 +177,7 @@ names aligned with Go so specs port mechanically.
 
 ## Testing
 
-- Use the `carapace-testkit` `Sandbox` for completion behavior: `files`, `reply`
+- Use the `carapace-rs-testkit` `Sandbox` for completion behavior: `files`, `reply`
   (mocked command output), `env`, `run(...).expect(Action)`. Assertions compare export
   JSON.
 - The `Sandbox` holds no process-global state; tests run in parallel. Any test that
@@ -186,7 +195,7 @@ names aligned with Go so specs port mechanically.
 - Snippets invoke `{binary} _carapace <shell>` with the command name, not
   Go's `uid.Executable()` absolute path (which has no Rust equivalent in
   the snippets; PATH lookup covers registration).
-- The bridges delegate word joining/quoting to `carapace_shlex::join` (Go's
+- The bridges delegate word joining/quoting to `carapace_rs_shlex::join` (Go's
   `shlex.Join`); quoting is only applied when the shell needs it, and an empty
   word renders as `""` (the inshellisense workaround strips it).
 - fish 4.x splits `complete -a` arguments on whitespace; a `\t` escape inside the
@@ -198,7 +207,7 @@ names aligned with Go so specs port mechanically.
   custom `config.fish` directly instead.
 - clap derive's `add = <expr>` escape hatch forwards to builder methods — the
   mechanism `completer!`/`command_completer!` build on; they are `macro_rules!`
-  exported from carapace-clap, so that one dependency covers derive usage.
+  exported from carapace-rs-clap, so that one dependency covers derive usage.
 - `_carapace` entry handles: snippet output (0/1 args), completion (2+ args), `style
   set`, and `spec` (YAML dump, behind the default-on `spec` feature). Unknown
   shells return `None` so the program runs normally.

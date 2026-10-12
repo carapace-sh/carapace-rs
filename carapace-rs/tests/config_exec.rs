@@ -4,8 +4,43 @@ fn value_of(output: &str) -> String {
     output.trim_end_matches('\n').to_owned()
 }
 
+/// Serializes tests that mutate the process environment.
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Saves an environment variable and restores it on drop (panic-safe).
+struct EnvGuard(Option<String>, &'static str);
+
+impl EnvGuard {
+    fn set(name: &'static str, value: &str) -> Self {
+        let previous = std::env::var(name).ok();
+        unsafe { std::env::set_var(name, value) };
+        Self(previous, name)
+    }
+
+    fn remove(name: &'static str) -> Self {
+        let previous = std::env::var(name).ok();
+        unsafe { std::env::remove_var(name) };
+        Self(previous, name)
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        match self.0.take() {
+            Some(value) => unsafe { std::env::set_var(self.1, value) },
+            None => unsafe { std::env::remove_var(self.1) },
+        }
+    }
+}
+
 #[test]
 fn styles_load_from_json() {
+    let _lock = env_lock();
     let dir = std::env::temp_dir().join(format!("carapace-config-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("carapace")).unwrap();
     std::fs::write(
@@ -13,11 +48,11 @@ fn styles_load_from_json() {
         r#"{"carapace.Error": "magenta", "keyword": "blue bold"}"#,
     )
     .unwrap();
-    unsafe { std::env::set_var("XDG_CONFIG_HOME", &dir) };
+    let _guard = EnvGuard::set("XDG_CONFIG_HOME", dir.to_string_lossy().as_ref());
     config::reset_styles();
 
     let styles = config::styles();
-    unsafe { std::env::remove_var("XDG_CONFIG_HOME") };
+    drop(_guard);
     config::reset_styles(); // other tests start from defaults
     std::fs::remove_dir_all(&dir).ok();
 
@@ -162,8 +197,9 @@ fn styles_action_suppresses_taken_halves() {
 
 #[test]
 fn case_insensitive_matching() {
+    let _lock = env_lock();
     let values = vec![carapace_rs::RawValue::new("CamelCase")];
-    unsafe { std::env::remove_var("CARAPACE_MATCH") };
+    let _guard = EnvGuard::remove("CARAPACE_MATCH");
     // case-sensitive by default
     assert!(
         !carapace_rs::shell::Shell::Fish
@@ -175,7 +211,7 @@ fn case_insensitive_matching() {
             )
             .contains("CamelCase")
     );
-    unsafe { std::env::set_var("CARAPACE_MATCH", "CASE_INSENSITIVE") };
+    let _set = EnvGuard::set("CARAPACE_MATCH", "CASE_INSENSITIVE");
     let matched = carapace_rs::shell::Shell::Fish
         .value(
             "camel",
@@ -184,7 +220,7 @@ fn case_insensitive_matching() {
             &carapace_rs::shell::bash::Context::default(),
         )
         .contains("CamelCase");
-    unsafe { std::env::remove_var("CARAPACE_MATCH") };
+    drop(_set);
     assert!(matched);
 }
 

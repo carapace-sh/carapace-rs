@@ -233,7 +233,9 @@ fn carapace_unknown_shell_yields_nothing() {
 
 #[test]
 fn style_set_persists_to_styles_json() {
+    let _lock = env_lock();
     let dir = std::env::temp_dir().join(format!("carapace-styleset-{}", std::process::id()));
+    let previous = std::env::var("XDG_CONFIG_HOME").ok();
     unsafe { std::env::set_var("XDG_CONFIG_HOME", &dir) };
 
     let output = carapace_rs_clap::complete(
@@ -246,7 +248,10 @@ fn style_set_persists_to_styles_json() {
             "magenta".to_string(),
         ],
     );
-    unsafe { std::env::remove_var("XDG_CONFIG_HOME") };
+    match previous {
+        Some(value) => unsafe { std::env::set_var("XDG_CONFIG_HOME", value) },
+        None => unsafe { std::env::remove_var("XDG_CONFIG_HOME") },
+    }
 
     assert_eq!(output.as_deref(), Some(""));
     let content = std::fs::read_to_string(dir.join("carapace/styles.json")).unwrap();

@@ -2,6 +2,26 @@ use carapace_rs::shell::{Shell, zsh};
 use carapace_rs::{Action, Context, Meta, RawValue};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
+/// Saves an environment variable and restores it on drop (panic-safe).
+struct EnvGuard(Option<String>, &'static str);
+
+impl EnvGuard {
+    fn set(name: &'static str, value: &str) -> Self {
+        let previous = std::env::var(name).ok();
+        unsafe { std::env::set_var(name, value) };
+        Self(previous, name)
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        match self.0.take() {
+            Some(value) => unsafe { std::env::set_var(self.1, value) },
+            None => unsafe { std::env::remove_var(self.1) },
+        }
+    }
+}
+
 /// Serializes tests that touch CARAPACE_* environment variables.
 fn env_lock() -> MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -542,7 +562,7 @@ fn tcsh_common_prefix_collapse() {
 
 #[test]
 fn files_suffix_filters_candidate_names() {
-    let dir = std::env::temp_dir().join("carapace-files-test");
+    let dir = std::env::temp_dir().join(format!("carapace-files-test-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("readme.md"), "").unwrap();
     std::fs::write(dir.join("script.sh"), "").unwrap();
@@ -727,12 +747,11 @@ fn export_strips_uids_and_queries_unless_experimental() {
     assert!(parsed.get("queries").is_none(), "{output}");
 
     // experimental flag without tabdance on PATH: still stripped
-    unsafe { std::env::set_var("CARAPACE_EXPERIMENTAL", "1") };
+    let _experimental = EnvGuard::set("CARAPACE_EXPERIMENTAL", "1");
     let empty_dir =
         std::env::temp_dir().join(format!("carapace-empty-path-{}", std::process::id()));
     std::fs::create_dir_all(&empty_dir).unwrap();
-    let saved_path = std::env::var("PATH").unwrap_or_default();
-    unsafe { std::env::set_var("PATH", &empty_dir) };
+    let _path = EnvGuard::set("PATH", empty_dir.to_string_lossy().as_ref());
     let output = export(
         &meta,
         &vec![value.clone()],
@@ -754,7 +773,8 @@ fn export_strips_uids_and_queries_unless_experimental() {
     assert_eq!(parsed["values"][0]["uid"], "test://host/entry", "{output}");
     assert_eq!(parsed["queries"][0], "file:///tmp", "{output}");
 
-    unsafe { std::env::set_var("PATH", saved_path) };
+    drop(_path);
+    drop(_experimental);
     std::fs::remove_dir_all(empty_dir).unwrap();
 }
 

@@ -34,22 +34,24 @@ All settled decisions hold; two are strained:
       (`bridge/src/lib.rs:171`).
 - [x] bridge `config_dir` falls back to process env via `dirs`; must use the
       context environment (DD9).
-- [ ] pre-invoke hook nesting order vs docs (`convert.rs:189-196` runs the
-      command's own hook first; docs claim ancestors-first) — decide the Go
-      semantics, align code and docs, add a nested-hooks test.
-- [ ] spec `to_yaml`: drop nothing — emit `completion` section, hidden flags
-      (`&`), flag aliases; round-trip test.
-- [ ] spec: persistent flags not persistent (`lookup_arg` only checks the
-      current node) — decide model-level persistence.
-- [ ] spec: ` ||| ` modifier separator; implement the Go modifier set
+- [x] pre-invoke hook nesting order vs docs — Go's `storage.preinvoke`
+      nests parents outermost; the wrap loop was inverted. Fixed with a
+      nested-hooks test (clap conversion commit).
+- [x] spec `to_yaml`: hidden flags (`&`) and flag aliases are dumped again;
+      persistent flags get their own `persistentflags:` section. Note: Go's
+      `_carapace spec` does not emit `completion:` sections either (actions
+      cannot be decompiled) — the earlier review finding was a misdiagnosis.
+- [x] spec: persistent flags not persistent — `Flag::persistent` added to the
+      model; spec materializes copies on every subcommand (cobra inheritance).
+- [x] spec: ` ||| ` modifier separator and the generic modifier set
       (`$nospace`, `$filter`, `$style`, ...) instead of "unsupported macro".
-- [ ] spec: error visibly on unsupported flag keys (multi-char shorthand,
-      NameAsShorthand) instead of silently dropping flags.
+- [x] spec: error visibly on unsupported flag keys (multi-char shorthand)
+      instead of silently dropping flags.
 - [ ] spec: envsubst (`$VAR`/`${VAR}`) in entries; `C_ARGn`/`C_VALUE` exports.
-- [ ] bridge: cobra directive-error paths should match Go (`ActionValues()`,
-      "unexpected command output" on empty output).
+- [x] bridge: cobra directive-error paths match Go (`ActionValues()` on
+      unparseable directive and ShellCompDirectiveError).
 - [ ] bridge: fish/zsh/bash/inshellisense missing `style.ForPath` styling.
-- [ ] shlex: triple-quote runes missing from `raw_value`/`span` (xonsh).
+- [x] shlex: triple-quote runes missing from `raw_value`/`span` (xonsh).
 - [ ] shlex: variable detection gated on format (cmd/powershell have none in Go).
 
 ## Low priority / hygiene
@@ -76,12 +78,13 @@ All settled decisions hold; two are strained:
 ## Test infrastructure
 
 - [x] guard fish/zsh bridge tests on tool availability (AGENTS.md rule).
-- [ ] env-lock discipline is per-binary and cannot serialize across test
-      binaries: `config_exec.rs` mutates `XDG_CONFIG_HOME`/`CARAPACE_MATCH`
-      racing style/prefix tests in other binaries. Fix structurally: shared
-      env-guard helper crate, or pass env explicitly.
-- [ ] non-atomic env restore on panic (`shell_dispatch.rs`, `entry.rs`,
-      `config_exec.rs`): save/restore in a Drop guard.
+- [x] env mutations hold their binary's env lock and restore state with a
+      panic-safe Drop guard (`config_exec.rs`, `shell_dispatch.rs`,
+      `entry.rs`). Correction to the review: test binaries are separate
+      processes, so env races are intra-binary only — the per-binary lock is
+      sufficient; the earlier "cross-binary" framing was wrong.
+- [ ] shared filesystem temp dirs without unique suffixes audited
+      (`carapace-files-test` fixed; Mock dirs pointing at global temp).
 - [ ] direct tests for `bash::patch`, bash bridge, `carapace_bin` bridge.
 - [ ] replace wall-clock-margin tests (`example.rs` timeout/cache TTL) with
       deterministic ones; give `batch.rs` `Barrier` test a timeout strategy.

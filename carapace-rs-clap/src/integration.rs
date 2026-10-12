@@ -1,6 +1,6 @@
 //! Fluent completion wiring for clap commands (port of Go `carapace.Gen`).
 
-use crate::completer::{CommandCompleter, CommandMeta, DashAnyCompleter};
+use crate::completer::{CommandCompleter, CommandMeta, DashAnyCompleter, PreInvoke};
 use carapace_rs::Action;
 
 /// Completion wiring for [`clap::Command`].
@@ -45,6 +45,10 @@ pub trait Carapace {
     /// Set the full use line (cobra `cmd.Use`), used as the fallback usage
     /// for positional completions when it has more than one field.
     fn use_line(self, line: impl Into<String>) -> Self;
+    /// Register a hook wrapping every flag/positional completion of the
+    /// command and its subcommands (Go `Gen(cmd).PreInvoke`); runs at
+    /// invocation time with the completion context.
+    fn pre_invoke(self, hook: crate::completer::PreInvokeHook) -> Self;
 }
 
 impl Carapace for clap::Command {
@@ -97,6 +101,10 @@ impl Carapace for clap::Command {
         let mut meta = self.get::<CommandMeta>().cloned().unwrap_or_default();
         meta.use_line = Some(line.into());
         self.add(meta)
+    }
+
+    fn pre_invoke(self, hook: crate::completer::PreInvokeHook) -> Self {
+        self.add(PreInvoke(hook))
     }
 }
 

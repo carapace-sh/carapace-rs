@@ -1751,3 +1751,36 @@ mod multiparts {
             );
     }
 }
+
+#[test]
+fn pre_invoke_chdirs_all_actions() {
+    let sandbox = Sandbox::new("example-preinvoke");
+    sandbox.files([("dirB/file4.md", ""), ("dirB/dirC/file3.go", "")]);
+
+    // the root's `--chdir` value redirects every action of the tree
+    sandbox
+        .run(cmd::root_cmd, &["action", "--chdir", "dirB", "--files", ""])
+        .expect(
+            Action::values(["dirC/", "file4.md"])
+                .tag("files")
+                .style_f(|context, value| {
+                    carapace_rs::shell::for_path(context, &format!("dirB/{}", value.value))
+                })
+                .nospace(['/'])
+                .usage("ActionFiles()"),
+        );
+    sandbox
+        .run(
+            cmd::root_cmd,
+            &["action", "--chdir", "dirB", "--directories", ""],
+        )
+        .expect(
+            Action::values(["dirC/"])
+                .tag("directories")
+                .style_f(|context, value| {
+                    carapace_rs::shell::for_path(context, &format!("dirB/{}", value.value))
+                })
+                .nospace(['/'])
+                .usage("ActionDirectories()"),
+        );
+}

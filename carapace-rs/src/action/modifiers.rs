@@ -110,6 +110,19 @@ impl Action {
         })
     }
 
+    /// Set a style read at invocation time from the given cell (Go
+    /// `Action.StyleR`): runtime changes to the cell apply to later
+    /// completions.
+    pub fn style_r(self, style: std::sync::Arc<std::sync::RwLock<String>>) -> Self {
+        Self::callback(move |c| {
+            let style = style
+                .read()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone();
+            self.invoke(c).to_action().style(style)
+        })
+    }
+
     /// Set a tag on all values.
     pub fn tag(self, tag: impl Into<String>) -> Self {
         let tag = tag.into();

@@ -169,6 +169,17 @@ fn root_inner(complete: bool) -> Command {
             ("persistentFlag", Action::values(["p1", "p2", "p3"])),
             ("persistentFlag2", Action::values(["p4", "p5", "p6"])),
         ])
+        // every action of the tree completes relative to the `--chdir`
+        // flag's value (Go `Gen(rootCmd).PreInvoke`)
+        .pre_invoke(std::sync::Arc::new(|c: &carapace_rs::Context, action| {
+            let dir = c
+                .parsed_flags
+                .iter()
+                .find(|(name, _)| name == "chdir")
+                .and_then(|(_, values)| values.first().cloned())
+                .unwrap_or_default();
+            action.chdir(dir)
+        }))
 }
 
 /// cobra's auto-generated `help` flag with its wording. Must be applied

@@ -64,11 +64,15 @@ commands, shorthand chains, disabled flag parsing, mutually exclusive flags,
 every action modifier) serving as the end-to-end regression fixture. Its
 sandbox tests live in `carapace-rs-clap/tests/example.rs`, one topic module
 per Go test file. Cobra-only surfaces are adapted: `Standalone` hides the
-help flag, the `PreRun` plugin command is attached statically, and the
-`compat` topic (cobra's `RegisterFlagCompletionFunc`/`ValidArgsFunction`
-directives) stays a bare command because the directive semantics are covered
-by the cobra bridge tests in `carapace-rs-bridge`. Snippet golden fixtures
-live in `carapace-rs-clap/examples/example/_test/` and are asserted by
+help flag, the `PreRun` plugin command is attached statically, the root
+`PreInvoke` hook is available as the `pre_invoke` extension (Go
+`Gen(cmd).PreInvoke`) and `StyleR` as `Action::style_r`. The `compat`
+topic (cobra's `RegisterFlagCompletionFunc`/`ValidArgsFunction` directives)
+stays a bare command because the directive semantics are covered by the
+cobra bridge tests in `carapace-rs-bridge`. Deliberately unported (no Go
+test coverage, no clap-native equivalent): the `flag` command's `--optarg`
+`PreRun` toggling of `NoOptDefVal`. Snippet golden fixtures live in
+`carapace-rs-clap/examples/example/_test/` and are asserted by
 `tests/example_snippets.rs`; regenerate them via the example binary.
 
 ## Design Decisions

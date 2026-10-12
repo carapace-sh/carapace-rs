@@ -101,6 +101,25 @@ pub struct DashCompleter(pub Vec<Action>);
 
 impl CommandExt for DashCompleter {}
 
+/// A command's [`PreInvoke`] hook (Go's storage `preinvoke` closure).
+pub type PreInvokeHook =
+    std::sync::Arc<dyn Fn(&carapace_rs::Context, Action) -> Action + Send + Sync>;
+
+/// Hook wrapping every flag/positional completion of the command and its
+/// subcommands (port of Go `Gen(cmd).PreInvoke`): runs at invocation time
+/// with the completion context. Ancestors' hooks run first (outermost),
+/// the command's own hook last (innermost).
+#[derive(Clone)]
+pub struct PreInvoke(pub PreInvokeHook);
+
+impl std::fmt::Debug for PreInvoke {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("PreInvoke").finish_non_exhaustive()
+    }
+}
+
+impl CommandExt for PreInvoke {}
+
 /// Model properties cobra commands have but clap cannot express, carried
 /// as a command extension and merged into the normalized model at
 /// conversion time (Go `GroupID`, `DisableFlagParsing`, `cmd.Use`).

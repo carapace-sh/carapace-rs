@@ -5,7 +5,7 @@ use carapace_rs::model::{ArgumentStyle, Command, Flag, Nargs, Positional};
 
 use crate::completer::{
     ArgCompleter, ArgConflicts, CommandCompleter, DashAnyCompleter, DashCompleter, FlagCompleter,
-    PositionalCompleter,
+    PositionalCompleter, PreInvoke, PreInvokeHook,
 };
 
 /// Convert a built clap command tree into the normalized model.
@@ -14,10 +14,14 @@ use crate::completer::{
 /// args are resolved.
 pub fn to_model(cmd: &mut clap::Command) -> Command {
     cmd.build();
-    convert_command(cmd, &[])
+    convert_command(cmd, &[], &[])
 }
 
-fn convert_command(cmd: &clap::Command, inherited: &[(String, Flag)]) -> Command {
+fn convert_command(
+    cmd: &clap::Command,
+    inherited: &[(String, Flag)],
+    hooks: &[PreInvokeHook],
+) -> Command {
     let mut model = Command::new(cmd.get_name().to_owned());
     model.aliases = cmd.get_all_aliases().map(String::from).collect();
     model.description = cmd
@@ -86,9 +90,15 @@ fn convert_command(cmd: &clap::Command, inherited: &[(String, Flag)]) -> Command
             persistent.push((flag.name.clone(), flag.clone()));
         }
     }
+    // ancestors' PreInvoke hooks run first (outermost), the command's own
+    // hook last (Go's `storage.preinvoke` parent walk)
+    let mut hooks: Vec<PreInvokeHook> = hooks.to_vec();
+    if let Some(hook) = cmd.get::<PreInvoke>() {
+        hooks.push(hook.0.clone());
+    }
     model.subcommands = cmd
         .get_subcommands()
-        .map(|subcommand| convert_command(subcommand, &persistent))
+        .map(|subcommand| convert_command(subcommand, &persistent, &hooks))
         .collect();
     if let Some(completer) = cmd.get::<CommandCompleter>() {
         model.positional_any = Some(completer.0.clone());
@@ -164,7 +174,47 @@ fn convert_command(cmd: &clap::Command, inherited: &[(String, Flag)]) -> Command
     model.hidden = cmd.is_hide_set();
     crate::integration::apply_meta(cmd, &mut model);
     init_help_completion(&mut model);
+    // after init_help_completion so the auto-generated help completion is
+    // wrapped as well (Go's preinvoke applies to the help command too)
+    wrap_pre_invoke(&mut model, &hooks);
     model
+}
+
+/// Wrap every completion slot with the hooks (Go `storage.preinvoke`):
+/// the first hook is the outermost, so ancestors' hooks run first.
+fn wrap_pre_invoke(model: &mut Command, hooks: &[PreInvokeHook]) {
+    if hooks.is_empty() {
+        return;
+    }
+    let wrap = |action: Action, hooks: &[PreInvokeHook]| {
+        let mut action = action;
+        for hook in hooks {
+            let hook = hook.clone();
+            action = Action::callback(move |c| hook(c, action.clone()));
+        }
+        action
+    };
+    for flag in &mut model.flags {
+        if let Some(completion) = flag.completion.take() {
+            flag.completion = Some(wrap(completion, hooks));
+        }
+    }
+    for positional in model
+        .positionals
+        .iter_mut()
+        .chain(model.dash_positionals.iter_mut())
+    {
+        if let Some(completion) = positional.completion.take() {
+            positional.completion = Some(wrap(completion, hooks));
+        }
+    }
+    for slot in [model.positional_any.as_mut(), model.dash_any.as_mut()]
+        .into_iter()
+        .flatten()
+    {
+        let action = slot.clone();
+        *slot = wrap(action, hooks);
+    }
 }
 
 /// Complete the arguments of the auto-generated `help` subcommand with the

@@ -394,3 +394,18 @@ fn files_carry_file_uids_and_query() {
 
     std::fs::remove_dir_all(base).unwrap();
 }
+
+#[test]
+fn style_r_reads_the_cell_at_invocation() {
+    // Go StyleR: the style resolves at invoke time, so runtime changes
+    // apply to later completions
+    let cell = std::sync::Arc::new(std::sync::RwLock::new(String::new()));
+    let action = Action::values(["one"]).style_r(cell.clone());
+
+    let invoked = action.invoke(&Context::default());
+    assert_eq!(invoked.values[0].style, "");
+
+    *cell.write().unwrap() = "blue".to_owned();
+    let invoked = action.invoke(&Context::default());
+    assert_eq!(invoked.values[0].style, "blue");
+}

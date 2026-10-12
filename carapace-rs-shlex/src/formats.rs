@@ -778,7 +778,7 @@ fn powershell_post_process(tokens: Vec<Token>) -> Vec<Token> {
                 && (token.value == "*"
                     || (token.value.len() == 1
                         && token.value.as_bytes()[0].is_ascii_digit()
-                        && token.value.as_bytes()[0] >= b'1'))
+                        && (b'1'..=b'6').contains(&token.value.as_bytes()[0])))
             {
                 let mut merged = Token {
                     kind: super::token::TokenType::Wordbreak,

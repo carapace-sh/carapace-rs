@@ -3,7 +3,7 @@ mod common;
 use carapace_rs_shlex::{
     Format, LexerState, TokenSliceExt, TokenType, WordbreakType, complete, quote_word, split,
 };
-use common::{pipeline_count, split_words};
+use common::{pipeline_count, pipeline_words, split_words};
 
 // Stop-parsing mode edge cases (PowerShell --%).
 
@@ -74,6 +74,40 @@ fn block_comment_after_wordbreak() {
         pipeline_count("echo foo |<# comment #> bar", Format::Powershell),
         2
     );
+}
+
+#[test]
+fn block_comment_after_wordbreak_trailing_words() {
+    // the words after the block comment must survive (a naive fix starts a
+    // line comment that swallows the rest of the line)
+    assert_eq!(
+        pipeline_words("echo foo |<# comment #> bar", Format::Powershell),
+        vec!["bar".to_owned()]
+    );
+}
+
+#[test]
+fn line_continuation_mid_word() {
+    // Go stays in IN_WORD_STATE across `\<LF>` inside a word: the word
+    // continues on the next line and a following space still splits
+    assert_eq!(
+        split_words(
+            "foo\\
+bar baz",
+            Format::Bash
+        ),
+        vec!["foobar".to_owned(), "baz".to_owned()]
+    );
+}
+
+#[test]
+fn no_variables_for_cmd_and_powershell() {
+    // Go's variableExpander interface: cmd and powershell do not implement
+    // it, so `$name` stays a plain word
+    let ctx = complete("echo $HO", Format::Cmd);
+    assert!(ctx.variable.is_none());
+    let ctx = complete("echo $HO", Format::Powershell);
+    assert!(ctx.variable.is_none());
 }
 
 // Unicode / multi-byte character tests.

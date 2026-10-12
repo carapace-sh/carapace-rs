@@ -89,7 +89,9 @@ pub(crate) fn variable_ref(
             name_start: posix_name_start,
             name_rune: posix_name_rune,
         },
-        // posix-ish: bash, zsh, tcsh, hilbish, cmd(no $ — but harmless), oil
+        // posix-ish: bash, zsh, tcsh, hilbish, oil (Go's `variableExpander`
+        // interface; cmd and powershell do not implement it)
+        "cmd" | "powershell" => return None,
         _ => VariableRules {
             brace: true,
             expands: |state| state != LexerState::Quoting,

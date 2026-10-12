@@ -179,7 +179,7 @@ impl Tokenizer {
         let entry_raw_length = token.raw_value.len();
         for expected in opener.chars().skip(1) {
             match self.read() {
-                Some(r) if r == expected => token.raw_value.push(r),
+                Some(r) if r == expected => {}
                 _ => {
                     // restore the cursor and raw value on mismatch
                     self.index = entry_index;
@@ -189,6 +189,41 @@ impl Tokenizer {
             }
         }
         token.raw_value.push_str(&opener[1..]);
+        self.block_closer = closer.to_owned();
+        self.block_closer_index = 0;
+        true
+    }
+
+    /// Block-comment opener completed by a wordbreak token (Go
+    /// `WORDBREAK_STATE`): the wordbreak so far is the opener's first rune
+    /// and the current rune continues it.
+    fn check_block_comment_opener_wordbreak(
+        &mut self,
+        next_rune: Option<char>,
+        token: &mut Token,
+    ) -> bool {
+        let Some((opener, closer)) = self.format.block_comment() else {
+            return false;
+        };
+        let mut opener_chars = opener.chars();
+        let Some(first) = opener_chars.next() else {
+            return false;
+        };
+        // the raw value already includes the current rune (appended at the
+        // top of the loop), the value does not
+        if token.value != first.to_string() || next_rune != opener_chars.next() {
+            return false;
+        }
+        let entry_index = self.index;
+        for expected in opener_chars {
+            match self.read() {
+                Some(r) if r == expected => {}
+                _ => {
+                    self.index = entry_index;
+                    return false;
+                }
+            }
+        }
         self.block_closer = closer.to_owned();
         self.block_closer_index = 0;
         true
@@ -322,6 +357,14 @@ impl Tokenizer {
                     }
                 }
                 LexerState::Wordbreak => {
+                    // the wordbreak token may be the first rune of the
+                    // block-comment opener (`<` + `#` → `<#`, Go
+                    // `WORDBREAK_STATE`)
+                    if self.check_block_comment_opener_wordbreak(next_rune, &mut token) {
+                        token.kind = TokenType::Comment;
+                        self.state = LexerState::BlockComment;
+                        continue;
+                    }
                     match next_rune_type {
                         RuneClass::Wordbreak => {
                             // extend the operator; a new operator starts when
@@ -401,7 +444,7 @@ impl Tokenizer {
                         }
                         RuneClass::Escape => {
                             if self.format.escape_not_bareword() {
-                                if self.handle_line_continuation(&mut token, true) {
+                                if self.handle_line_continuation(&mut token, false) {
                                     continue;
                                 }
                                 self.state = LexerState::Escaping;
@@ -695,9 +738,6 @@ impl Tokenizer {
             self.index += 1;
         }
         token.raw_value.pop(); // the escape char
-        if let Some(r) = self.peek() {
-            let _ = r;
-        }
         if at_start {
             // no word content yet: stay in Start
             self.state = LexerState::Start;

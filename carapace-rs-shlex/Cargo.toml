@@ -11,4 +11,3 @@ keywords = ["shell", "lexer", "tokenizer", "completion", "carapace"]
 categories.workspace = true
 
 [dependencies]
-shlex = "1"

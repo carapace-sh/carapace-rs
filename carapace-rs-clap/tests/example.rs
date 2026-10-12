@@ -1759,7 +1759,7 @@ fn pre_invoke_chdirs_all_actions() {
 
     // the root's `--chdir` value redirects every action of the tree
     sandbox
-        .run(cmd::root_cmd, &["action", "--chdir", "dirB", "--files", ""])
+        .run(cmd::root_cmd, &["--chdir", "dirB", "action", "--files", ""])
         .expect(
             Action::values(["dirC/", "file4.md"])
                 .tag("files")
@@ -1772,7 +1772,7 @@ fn pre_invoke_chdirs_all_actions() {
     sandbox
         .run(
             cmd::root_cmd,
-            &["action", "--chdir", "dirB", "--directories", ""],
+            &["--chdir", "dirB", "action", "--directories", ""],
         )
         .expect(
             Action::values(["dirC/"])

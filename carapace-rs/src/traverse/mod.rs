@@ -127,13 +127,29 @@ fn traverse_command(
 
         if let Some(subcommand) = cmd.lookup_subcommand(&arg) {
             crate::log::log(&format!("arg {arg:?} is a subcommand"));
+            // the current command's flags parse before descending (Go
+            // `ParseFlags(inArgs)` in the subcommand case), so the flag
+            // state accumulates down the tree (hooks read the values of
+            // flags defined on ancestors)
+            let mut sub_template = template;
+            let mut parent_flags = parse::parse(cmd, &in_args).flags;
+            sub_template
+                .parsed_flags
+                .retain(|(name, _)| !parent_flags.iter().any(|(flag, _)| flag == name));
+            parent_flags.append(&mut sub_template.parsed_flags);
+            sub_template.parsed_flags = parent_flags;
             // recurse with everything after the subcommand, including the
             // value being completed as the last word (Go passes args[i+1:]);
             // the uid path uses the subcommand's actual name (Go
             // `uid.Command` builds from `cmd.Name()`, not the typed alias)
             let mut sub_path = path.clone();
             sub_path.push(subcommand.name.clone());
-            return traverse_command(subcommand, args[index + 1..].to_vec(), template, sub_path);
+            return traverse_command(
+                subcommand,
+                args[index + 1..].to_vec(),
+                sub_template,
+                sub_path,
+            );
         }
 
         crate::log::log(&format!("arg {arg:?} is a positional"));
@@ -196,7 +212,11 @@ fn traverse_command(
         }
         let parsed = parse::parse(cmd, &to_parse);
         context.args = parsed.positionals.clone();
-        context.parsed_flags = parsed.flags.clone();
+        context.parsed_flags = template.parsed_flags.clone();
+        for (name, values) in parsed.flags.iter() {
+            context.parsed_flags.retain(|(flag, _)| flag != name);
+            context.parsed_flags.push((name.clone(), values.clone()));
+        }
         parsed
     };
 

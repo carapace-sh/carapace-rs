@@ -478,10 +478,16 @@ fn color_sgr(color: &str, background: bool) -> String {
             {
                 format!("{extended};5;{index}")
             } else if let Some(rgb) = color.strip_prefix('#').filter(|rgb| rgb.len() == 6) {
+                // hex channels convert to decimal SGR params (zsh's
+                // list-colors cannot parse hex)
                 let channels: Vec<String> = rgb
                     .as_bytes()
                     .chunks(2)
-                    .map(|pair| String::from_utf8_lossy(pair).into_owned())
+                    .map(|pair| {
+                        u8::from_str_radix(std::str::from_utf8(pair).unwrap_or("0"), 16)
+                            .map(|value| value.to_string())
+                            .unwrap_or_else(|_| "0".to_owned())
+                    })
                     .collect();
                 format!(
                     "{extended};2;{};{};{}",

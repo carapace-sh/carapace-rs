@@ -111,7 +111,6 @@ fn root_inner(complete: bool) -> Command {
         .subcommand(subcommand::cmd())
         .arg(
             Arg::new("chdir")
-                .add(carapace_rs_clap::ArgPersistent)
                 .short('C')
                 .long("chdir")
                 .action(ArgAction::Set)
@@ -119,7 +118,6 @@ fn root_inner(complete: bool) -> Command {
         )
         .arg(
             Arg::new("toggle")
-                .add(carapace_rs_clap::ArgPersistent)
                 .short('t')
                 .long("toggle")
                 .action(ArgAction::SetTrue)
@@ -144,7 +142,6 @@ fn root_inner(complete: bool) -> Command {
         )
         .arg(
             Arg::new("array")
-                .add(carapace_rs_clap::ArgPersistent)
                 .short('a')
                 .long("array")
                 .action(ArgAction::Append)

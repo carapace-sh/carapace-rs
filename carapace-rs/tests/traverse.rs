@@ -528,3 +528,20 @@ fn traverse_keeps_the_process_working_directory() {
     let completion = traverse(&app(), vec!["".to_string()]);
     assert_eq!(completion.context.dir, std::env::current_dir().unwrap());
 }
+
+#[test]
+fn longhand_value_does_not_register_shorthands() {
+    // `--output=dev` is a longhand with a value, not a shorthand series:
+    // its trailing `v` must not register the `v` shorthand as given
+    let completion = traverse(
+        &app(),
+        vec!["--output".to_string(), "dev".to_string(), "-".to_string()],
+    );
+    let given: Vec<&str> = completion
+        .context
+        .parsed_flags
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect();
+    assert_eq!(given, vec!["output"]);
+}

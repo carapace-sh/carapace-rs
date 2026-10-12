@@ -67,10 +67,16 @@ pub fn parse(cmd: &Command, args: &[String]) -> Parsed {
                         }
                     }
                 }
-                // a shorthand series registers every member as given
-                // (pflag `Changed` semantics), not just the terminal flag
-                let series: Vec<char> = arg.chars().skip(cmd.flag_prefix.len_utf8()).collect();
-                if series.len() > 1 {
+                // a shorthand series (`-abc`) registers every member as
+                // given (pflag `Changed` semantics), not just the terminal
+                // flag; longhands are not series (the value `--output=dev`
+                // must not register a shorthand for its last rune)
+                let double_prefix: String = [cmd.flag_prefix, cmd.flag_prefix].iter().collect();
+                let is_series = arg.starts_with(cmd.flag_prefix)
+                    && !arg.starts_with(&double_prefix)
+                    && arg.chars().nth(1).is_some();
+                if is_series {
+                    let series: Vec<char> = arg.chars().skip(cmd.flag_prefix.len_utf8()).collect();
                     for shorthand in &series {
                         if let Some(member) = cmd.lookup_short(*shorthand) {
                             if member.id != matched.flag.id {

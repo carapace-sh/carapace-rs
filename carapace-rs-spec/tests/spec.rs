@@ -188,6 +188,9 @@ fn yaml_round_trip() {
         .find(|flag| flag.name == "output")
         .unwrap();
     assert!(output.optional);
+    // `?` marks an optarg: the flag takes a value (Go `parseFlag`:
+    // Value = Optarg || "=" in modifier)
+    assert!(output.takes_value);
 
     let two = reparsed
         .flags
@@ -271,4 +274,23 @@ commands:
     // and it survives the YAML dump
     let dumped = carapace_rs_spec::to_yaml(&model);
     assert!(dumped.contains("group: admin"), "{dumped}");
+}
+
+#[test]
+fn optarg_flag_binds_delimited_value() {
+    // `--output?` takes a value through `=` but never consumes the next
+    // positional (Go's NoOptDefVal semantics)
+    let model = carapace_rs_spec::from_yaml(EXAMPLE).unwrap();
+    let completion = carapace_rs::traverse(
+        &model,
+        vec![
+            "--output=dev".to_owned(),
+            "--file=".to_owned(),
+            "".to_owned(),
+        ],
+    );
+    assert_eq!(
+        completion.context.parsed_flags[0],
+        ("output".to_owned(), vec!["dev".to_owned()])
+    );
 }

@@ -15,14 +15,13 @@ pub fn parse(key: &str, spec: &FlagSpec) -> Option<Flag> {
     }
 
     let (flag_part, suffixes) = split_suffixes(key);
-    if suffixes.contains(&'*') && suffixes.contains(&'?') && suffixes.contains(&'=') {
-        // unsupported combination of repeatable + optarg
-        return None;
-    }
 
-    #[allow(clippy::assign_op_pattern)]
-    let mut takes_value = suffixes.contains(&'=');
+    // `?` marks an optarg (Go `parseFlag`: Value = Optarg || "=" in
+    // modifier) — the flag takes a value, it just doesn't consume the
+    // next argument; `=` binds only through the delimiter
     let optional = suffixes.contains(&'?');
+    #[allow(clippy::assign_op_pattern)]
+    let mut takes_value = suffixes.contains(&'=') || optional;
     let nargs = match spec.nargs {
         Some(2..=i64::MAX) => {
             takes_value = true;

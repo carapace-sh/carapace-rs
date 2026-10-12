@@ -42,12 +42,16 @@ where
                     }
                     let mut values = Vec::new();
                     for line in lines {
-                        let line = strip_ansi(&unquote(line));
+                        let line = unquote(line);
+                        // strip ANSI from the value only; the description
+                        // is emitted verbatim (Go `stripansi.Strip(splitted[0])`)
                         match line.split_once(" -- ") {
-                            Some((value, description)) => {
-                                values.push(carapace_rs::RawValue::described(value, description));
+                            Some((value, description)) => values.push(
+                                carapace_rs::RawValue::described(strip_ansi(value), description),
+                            ),
+                            None => {
+                                values.push(carapace_rs::RawValue::described(strip_ansi(&line), ""))
                             }
-                            None => values.push(carapace_rs::RawValue::described(line, "")),
                         }
                     }
                     Action::raw(values).nospace(['/', '=', '@', ':', '.', ','])
@@ -82,17 +86,44 @@ fn unquote(line: &str) -> String {
     out
 }
 
-/// Strip ANSI SGR sequences (port of Go `stripansi.Strip`).
+/// Strip ANSI escape sequences (port of Go `stripansi.Strip`): CSI
+/// sequences (`ESC [ params final-byte`) and OSC sequences (`ESC ] ...
+/// BEL` or `ESC \`).
 fn strip_ansi(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
     let mut rest = line;
     while let Some(pos) = rest.find('\x1b') {
         out.push_str(&rest[..pos]);
         rest = &rest[pos + 1..];
-        if let Some(sequence) = rest.strip_prefix('[').and_then(|s| s.split_once('m')) {
-            rest = sequence.1;
-        } else {
-            out.push('\x1b');
+        let mut chars = rest.chars();
+        match chars.next() {
+            Some('[') => {
+                let consumed = rest[1..]
+                    .char_indices()
+                    .find(|(_, c)| !c.is_ascii_digit() && *c != ';' && *c != ':');
+                match consumed {
+                    // the final byte terminates the sequence
+                    Some((index, _)) => rest = &rest[1 + index + 1..],
+                    None => {
+                        out.push('\x1b');
+                    }
+                }
+            }
+            Some(']') => {
+                // terminated by BEL or ST (ESC \)
+                match rest.find('\x07') {
+                    Some(end) => rest = &rest[end + 1..],
+                    None => match rest.find("\x1b\\") {
+                        Some(end) => rest = &rest[end + 2..],
+                        None => {
+                            out.push('\x1b');
+                        }
+                    },
+                }
+            }
+            _ => {
+                out.push('\x1b');
+            }
         }
     }
     out.push_str(rest);

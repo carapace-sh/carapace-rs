@@ -34,13 +34,23 @@ where
 }
 
 /// User config directory (`XDG_CONFIG_HOME` or `$HOME/.config`),
-/// resolved from the context environment.
+/// resolved from the context environment (the context's environment is
+/// what spawned commands see, Go `xdg.UserConfigDir` reads the process
+/// environment — identical in production, consistent in the sandbox).
 pub(crate) fn config_dir(context: &carapace_rs::Context) -> Option<std::path::PathBuf> {
-    match context.lookup_env("XDG_CONFIG_HOME") {
-        Some(dir) if !dir.is_empty() => Some(std::path::PathBuf::from(dir)),
-        // honors XDG_CONFIG_HOME/HOME on unix; platform directory elsewhere
-        _ => dirs::config_dir(),
+    if let Some(dir) = context.lookup_env("XDG_CONFIG_HOME") {
+        if !dir.is_empty() {
+            return Some(std::path::PathBuf::from(dir));
+        }
     }
+    #[cfg(unix)]
+    if let Some(home) = context.lookup_env("HOME") {
+        if !home.is_empty() {
+            return Some(std::path::PathBuf::from(home).join(".config"));
+        }
+    }
+    // platform directory elsewhere (not env-driven)
+    dirs::config_dir()
 }
 
 /// Create an empty file (and its parent directories) if it does not exist.
@@ -167,11 +177,15 @@ where
                     let lines: Vec<&str> = text.lines().collect();
                     let mut action = Action::values(lines.iter().copied());
                     for line in &lines {
-                        if !line.is_empty()
-                            && line[..line.len() - 1].contains(['/', '=', '@', ':', '.', ','])
-                        {
-                            action = action.nospace([]);
-                            break;
+                        if !line.is_empty() {
+                            // everything but the last character (Go slices
+                            // bytes; here the boundary must stay a char
+                            // boundary or multi-byte output panics)
+                            let last = line.chars().last().map_or(0, char::len_utf8);
+                            if line[..line.len() - last].contains(['/', '=', '@', ':', '.', ',']) {
+                                action = action.nospace([]);
+                                break;
+                            }
                         }
                     }
                     action

@@ -30,16 +30,37 @@ where
                 joined = joined.strip_suffix("\"\"").unwrap_or(&joined).to_owned();
             }
 
-            let snippet_path = std::env::temp_dir().join(format!(
-                "carapace-bridge_bash_{}",
-                std::time::SystemTime::now()
+            // unique file created atomically (Go `os.CreateTemp`):
+            // `create_new` fails when the name is taken, following
+            // symlinks is not a concern since the file is fresh
+            let mut snippet_path = None;
+            for attempt in 0..64u32 {
+                let nanos = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos()
-            ));
-            if let Err(error) = std::fs::write(&snippet_path, BASH_SNIPPET) {
-                return Action::message(error.to_string());
+                    .map(|duration| duration.as_nanos())
+                    .unwrap_or_default();
+                let candidate =
+                    std::env::temp_dir().join(format!("carapace-bridge_bash_{nanos}_{attempt}"));
+                match std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(&candidate)
+                {
+                    Ok(mut file) => {
+                        use std::io::Write;
+                        if let Err(error) = file.write_all(BASH_SNIPPET.as_bytes()) {
+                            return Action::message(error.to_string());
+                        }
+                        snippet_path = Some(candidate);
+                        break;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(error) => return Action::message(error.to_string()),
+                }
             }
+            let Some(snippet_path) = snippet_path else {
+                return Action::message("could not create snippet file".to_owned());
+            };
 
             let mut context = c.clone();
             context.env.insert("COMP_LINE".to_owned(), joined);
@@ -67,7 +88,8 @@ where
                             Some((value, description)) => {
                                 values.push(carapace_rs::RawValue::described(
                                     value.trim(),
-                                    description.trim().trim_end_matches(')'),
+                                    // Go: TrimSpace(TrimSuffix(desc, ")))
+                                    description.trim_end_matches(')').trim(),
                                 ));
                             }
                             None => {

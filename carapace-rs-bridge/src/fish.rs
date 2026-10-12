@@ -25,9 +25,14 @@ where
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
 
+            // fish-quote the config dir (Go `%[1]q`): a raw path breaks
+            // the snippet on apostrophes
+            let quoted_dir = carapace_rs_shlex::quote_word(
+                &fish_config_dir.to_string_lossy(),
+                carapace_rs_shlex::Format::Fish,
+            );
             let snippet = format!(
-                "source '{}/config.fish';complete --do-complete=\"{}\"",
-                fish_config_dir.display(),
+                "source {quoted_dir}/config.fish;complete --do-complete=\"{}\"",
                 carapace_rs_shlex::join(&args, carapace_rs_shlex::Format::Fish)
                     .replace('\\', "\\\\")
                     .replace('"', "\\\"")

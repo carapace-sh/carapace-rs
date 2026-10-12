@@ -54,8 +54,12 @@ fn traverse_command(
         for (key, value) in &template.env {
             context.env.insert(key.clone(), value.clone());
         }
-        context.dir = template.dir.clone();
-        context.mock = template.mock.clone();
+        // the template overrides the process state only when set: an
+        // unseeded traverse keeps the process working directory
+        if !template.dir.as_os_str().is_empty() {
+            context.dir = template.dir.clone();
+        }
+        context.mock = template.mock.clone().or(context.mock);
         // the flags derive from the merged environment map (the env is
         // their single source of truth)
         context.config = crate::config::Flags::from_env_map(&context.env);

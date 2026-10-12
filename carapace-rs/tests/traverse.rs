@@ -522,86 +522,9 @@ fn implicit_uids_on_flags_and_subcommands() {
 }
 
 #[test]
-fn probe_interspersed_parse() {
-    let cmd = Command::new("app")
-        .flag(Flag {
-            id: "bool".into(),
-            name: "bool".into(),
-            shorthand: Some('b'),
-            ..Default::default()
-        })
-        .positional(Positional {
-            name: "pos1".into(),
-            completion: Some(Action::values(["p1"])),
-            ..Default::default()
-        })
-        .positional(Positional {
-            name: "pos2".into(),
-            completion: Some(Action::values(["p2"])),
-            ..Default::default()
-        })
-        .interspersed(false);
-    let parsed = carapace_rs::traverse::parse::parse(
-        &cmd,
-        &["--bool".to_string(), "p1".to_string(), "--".to_string()],
-    );
-    println!(
-        "PROBE positionals={:?} dash={}",
-        parsed.positionals, parsed.dash
-    );
-}
-
-#[test]
-fn probe_prefix_modifier() {
-    let a = Action::values(["p1"]).prefix("--persistentFlag=");
-    let invoked = a.invoke(&carapace_rs::Context::default().value("--persistentFlag="));
-    println!(
-        "PROBE prefix out={:?}",
-        invoked
-            .values
-            .iter()
-            .map(|v| v.value.clone())
-            .collect::<Vec<_>>()
-    );
-    let b = Action::values(["p1"]);
-    let wrapped = Action::callback(move |c| {
-        let invoked = b.invoke(c);
-        let mut action = invoked.to_action();
-        if action.meta.usage.as_deref().is_none_or(str::is_empty) {
-            action.meta.usage = Some("usage".to_owned());
-        }
-        action
-    })
-    .prefix("--persistentFlag=");
-    let invoked2 = wrapped.invoke(&carapace_rs::Context::default().value("--persistentFlag="));
-    println!(
-        "PROBE wrapped out={:?}",
-        invoked2
-            .values
-            .iter()
-            .map(|v| v.value.clone())
-            .collect::<Vec<_>>()
-    );
-}
-
-#[test]
-fn probe_shlex_redirect() {
-    for input in ["pos1>", "pos1>subdir/", "pos1>subdir/file1.txt --b"] {
-        let c = carapace_rs_shlex::complete(input, carapace_rs::Format::Bash);
-        println!(
-            "PROBE input={input:?} words={:?} current={:?} redirect={}",
-            c.words, c.current_word, c.is_redirect
-        );
-    }
-}
-
-#[test]
-fn probe_for_path_colors() {
-    let context = carapace_rs::Context::default();
-    for p in ["dirA/", "dirC/", "file5.go", "missing.txt"] {
-        println!(
-            "PROBE for_path {p:?} = {:?}",
-            carapace_rs::shell::for_path(&context, p)
-        );
-    }
+fn traverse_keeps_the_process_working_directory() {
+    // an unseeded traverse completes relative to the process cwd (the
+    // template's empty dir must not blank it)
+    let completion = traverse(&app(), vec!["".to_string()]);
+    assert_eq!(completion.context.dir, std::env::current_dir().unwrap());
 }

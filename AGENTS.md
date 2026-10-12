@@ -67,7 +67,9 @@ per Go test file. Cobra-only surfaces are adapted: `Standalone` hides the
 help flag, the `PreRun` plugin command is attached statically, and the
 `compat` topic (cobra's `RegisterFlagCompletionFunc`/`ValidArgsFunction`
 directives) stays a bare command because the directive semantics are covered
-by the cobra bridge tests in `carapace-rs-bridge`.
+by the cobra bridge tests in `carapace-rs-bridge`. Snippet golden fixtures
+live in `carapace-rs-clap/examples/example/_test/` and are asserted by
+`tests/example_snippets.rs`; regenerate them via the example binary.
 
 ## Design Decisions
 

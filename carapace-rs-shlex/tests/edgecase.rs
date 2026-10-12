@@ -397,3 +397,17 @@ fn cmd_quote_word_caret() {
 fn cmd_quote_word_multiple_quotes() {
     assert_eq!(quote_word(r#"a"b"c"#, Format::Cmd), "\"a\"^\"b\"^\"c\"");
 }
+
+#[test]
+fn triple_quotes_are_part_of_the_raw_value() {
+    // Go appends the opening and closing triple-quote runes to RawValue;
+    // spans derive from it
+    let tokens = split("echo \"\"\"hello\"\"\"", Format::Xonsh).unwrap();
+    let word = tokens.iter().find(|t| t.value == "hello").unwrap();
+    assert_eq!(word.raw_value, "\"\"\"hello\"\"\"");
+    assert_eq!(word.span.end - word.span.start, 11);
+
+    let tokens = split("echo '''hello'''", Format::Xonsh).unwrap();
+    let word = tokens.iter().find(|t| t.value == "hello").unwrap();
+    assert_eq!(word.raw_value, "'''hello'''");
+}

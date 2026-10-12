@@ -112,7 +112,10 @@ impl Tokenizer {
                 consumed: Some(peek1),
             };
         }
-        TripleQuote::Yes
+        // the peeked runes belong to the raw value (Go appends r1/r2)
+        TripleQuote::Yes {
+            quotes: [peek1, peek2],
+        }
     }
 
     /// Examine the current token's value for a raw string prefix (r/R with
@@ -162,7 +165,10 @@ impl Tokenizer {
                 consumed: Some(peek1),
             };
         }
-        TripleClose::Closed
+        // the peeked runes belong to the raw value (Go appends r1/r2)
+        TripleClose::Closed {
+            quotes: [peek1, peek2],
+        }
     }
 
     fn check_block_comment_opener(&mut self, first_rune: char, token: &mut Token) -> bool {
@@ -287,14 +293,14 @@ impl Tokenizer {
                             token.kind = TokenType::Word;
                             token.wordbreak_index = token.value.len();
                             match self.check_triple_quote(next_rune.unwrap()) {
-                                TripleQuote::Yes => {
+                                TripleQuote::Yes { quotes } => {
+                                    token.raw_value.push(quotes[0]);
+                                    token.raw_value.push(quotes[1]);
                                     self.triple_quote_rune = next_rune;
                                     if self.check_raw_prefix(&token) {
                                         self.raw_quote = true;
-                                        self.state = LexerState::QuotingTripleEscaping;
-                                    } else {
-                                        self.state = LexerState::QuotingTripleEscaping;
                                     }
+                                    self.state = LexerState::QuotingTripleEscaping;
                                 }
                                 TripleQuote::No { consumed: Some(c) } => {
                                     token.raw_value.push(c);
@@ -312,7 +318,9 @@ impl Tokenizer {
                             token.kind = TokenType::Word;
                             token.wordbreak_index = token.value.len();
                             match self.check_triple_quote(next_rune.unwrap()) {
-                                TripleQuote::Yes => {
+                                TripleQuote::Yes { quotes } => {
+                                    token.raw_value.push(quotes[0]);
+                                    token.raw_value.push(quotes[1]);
                                     self.triple_quote_rune = next_rune;
                                     self.state = LexerState::QuotingTriple;
                                 }
@@ -405,7 +413,9 @@ impl Tokenizer {
                         RuneClass::EscapingQuote => {
                             token.wordbreak_index = token.value.len();
                             match self.check_triple_quote(next_rune.unwrap()) {
-                                TripleQuote::Yes => {
+                                TripleQuote::Yes { quotes } => {
+                                    token.raw_value.push(quotes[0]);
+                                    token.raw_value.push(quotes[1]);
                                     self.triple_quote_rune = next_rune;
                                     if self.check_raw_prefix(&token) {
                                         self.raw_quote = true;
@@ -429,7 +439,9 @@ impl Tokenizer {
                         RuneClass::NonEscapingQuote => {
                             token.wordbreak_index = token.value.len();
                             match self.check_triple_quote(next_rune.unwrap()) {
-                                TripleQuote::Yes => {
+                                TripleQuote::Yes { quotes } => {
+                                    token.raw_value.push(quotes[0]);
+                                    token.raw_value.push(quotes[1]);
                                     self.triple_quote_rune = next_rune;
                                     self.state = LexerState::QuotingTriple;
                                 }
@@ -619,36 +631,35 @@ impl Tokenizer {
                         }
                     }
                 }
-                LexerState::QuotingTriple => {
-                    match next_rune_type {
-                        RuneClass::Eof => {
-                            return Some(token);
-                        }
-                        RuneClass::NonEscapingQuote | RuneClass::EscapingQuote
-                            if next_rune == self.triple_quote_rune =>
-                        {
-                            match self.check_triple_close() {
-                                TripleClose::Closed => {
-                                    // the two closing runes already appended
-                                    self.raw_quote = false;
-                                    self.triple_quote_rune = None;
-                                    self.state = LexerState::InWord;
-                                }
-                                TripleClose::NotClosed { consumed: Some(c) } => {
-                                    token.raw_value.push(c);
-                                    token.add(next_rune.unwrap());
-                                    token.add(c);
-                                }
-                                TripleClose::NotClosed { consumed: None } => {
-                                    token.add(next_rune.unwrap());
-                                }
+                LexerState::QuotingTriple => match next_rune_type {
+                    RuneClass::Eof => {
+                        return Some(token);
+                    }
+                    RuneClass::NonEscapingQuote | RuneClass::EscapingQuote
+                        if next_rune == self.triple_quote_rune =>
+                    {
+                        match self.check_triple_close() {
+                            TripleClose::Closed { quotes } => {
+                                token.raw_value.push(quotes[0]);
+                                token.raw_value.push(quotes[1]);
+                                self.raw_quote = false;
+                                self.triple_quote_rune = None;
+                                self.state = LexerState::InWord;
+                            }
+                            TripleClose::NotClosed { consumed: Some(c) } => {
+                                token.raw_value.push(c);
+                                token.add(next_rune.unwrap());
+                                token.add(c);
+                            }
+                            TripleClose::NotClosed { consumed: None } => {
+                                token.add(next_rune.unwrap());
                             }
                         }
-                        _ => {
-                            token.add(next_rune.unwrap());
-                        }
                     }
-                }
+                    _ => {
+                        token.add(next_rune.unwrap());
+                    }
+                },
                 LexerState::QuotingTripleEscaping => match next_rune_type {
                     RuneClass::Eof => {
                         return Some(token);
@@ -657,7 +668,9 @@ impl Tokenizer {
                         if next_rune == self.triple_quote_rune =>
                     {
                         match self.check_triple_close() {
-                            TripleClose::Closed => {
+                            TripleClose::Closed { quotes } => {
+                                token.raw_value.push(quotes[0]);
+                                token.raw_value.push(quotes[1]);
                                 self.raw_quote = false;
                                 self.triple_quote_rune = None;
                                 self.state = LexerState::InWord;
@@ -866,13 +879,23 @@ impl Tokenizer {
 }
 
 enum TripleQuote {
-    Yes,
-    No { consumed: Option<char> },
+    /// triple quote matched: the two peeked runes belong to the raw value
+    Yes {
+        quotes: [char; 2],
+    },
+    No {
+        consumed: Option<char>,
+    },
 }
 
 enum TripleClose {
-    Closed,
-    NotClosed { consumed: Option<char> },
+    /// triple close matched: the two peeked runes belong to the raw value
+    Closed {
+        quotes: [char; 2],
+    },
+    NotClosed {
+        consumed: Option<char>,
+    },
 }
 
 /// Lexer skipping whitespace and comments, yielding word and wordbreak

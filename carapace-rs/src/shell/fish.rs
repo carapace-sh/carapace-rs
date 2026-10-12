@@ -1,6 +1,6 @@
 //! Fish value formatting (port of Go `internal/shell/fish/action.go`).
 
-use super::trimmed_description;
+use super::{Flags, trimmed_description};
 use crate::value::RawValues;
 
 /// Remove newline, carriage return and tab (would break the line format).
@@ -11,14 +11,14 @@ fn sanitize(value: &str) -> String {
 /// Format values for fish: `value\tdescription` lines joined by newline.
 ///
 /// Fish has no nospace mechanism; every completion gets a trailing space.
-pub fn action_raw_values(values: &RawValues) -> String {
+pub fn action_raw_values(values: &RawValues, flags: &Flags) -> String {
     values
         .iter()
         .map(|value| {
             format!(
                 "{}\t{}",
                 sanitize(&value.value),
-                trimmed_description(&value.description)
+                trimmed_description(&value.description, flags.description_length)
             )
         })
         .collect::<Vec<_>>()

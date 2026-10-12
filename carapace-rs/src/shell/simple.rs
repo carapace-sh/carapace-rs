@@ -1,7 +1,7 @@
 //! Simple line-based formatters: oil, tcsh, cmd-clink, ion, bash-ble.
 
 use super::trimmed_description;
-use super::{common_display_prefix, common_value_prefix, matches_nospace};
+use super::{Flags, common_display_prefix, common_value_prefix, matches_nospace};
 use crate::meta::Meta;
 use crate::value::{RawValue, RawValues};
 
@@ -13,8 +13,13 @@ pub mod oil {
         value.replace(['\n', '\t'], "")
     }
 
-    pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) -> String {
-        let _ = current_word;
+    pub fn action_raw_values(
+        current_word: &str,
+        meta: &Meta,
+        values: &RawValues,
+        flags: &Flags,
+    ) -> String {
+        let _ = (current_word, flags);
         values
             .iter()
             .map(|value| {
@@ -28,7 +33,10 @@ pub mod oil {
                     format!(
                         "{} ({})",
                         value.value,
-                        sanitize(&trimmed_description(&value.description))
+                        sanitize(&trimmed_description(
+                            &value.description,
+                            flags.description_length,
+                        ))
                     )
                 } else {
                     value.value
@@ -97,7 +105,12 @@ pub mod tcsh {
         result
     }
 
-    pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) -> String {
+    pub fn action_raw_values(
+        current_word: &str,
+        meta: &Meta,
+        values: &RawValues,
+        flags: &Flags,
+    ) -> String {
         let _ = meta;
         let mut last_segment = current_word.to_owned();
         if let Ok(wordbreaks) = std::env::var("COMP_WORDBREAKS") {
@@ -127,7 +140,11 @@ pub mod tcsh {
                     quoter(&sanitize(&value.value))
                 } else {
                     let description = quoter(
-                        &sanitize(&trimmed_description(&value.description)).replace(' ', "_"),
+                        &sanitize(&trimmed_description(
+                            &value.description,
+                            flags.description_length,
+                        ))
+                        .replace(' ', "_"),
                     );
                     format!("{}_({})", quoter(&sanitize(&value.value)), description)
                 }
@@ -172,8 +189,13 @@ pub mod cmd_clink {
         words
     }
 
-    pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) -> String {
-        let _ = current_word;
+    pub fn action_raw_values(
+        current_word: &str,
+        meta: &Meta,
+        values: &RawValues,
+        flags: &Flags,
+    ) -> String {
+        let _ = (current_word, flags);
         values
             .iter()
             .map(|value| {
@@ -186,7 +208,10 @@ pub mod cmd_clink {
                     "{}\t{}\t{}\t{}",
                     sanitize(&value.value),
                     sanitize(&value.display),
-                    sanitize(&trimmed_description(&value.description)),
+                    sanitize(&trimmed_description(
+                        &value.description,
+                        flags.description_length
+                    )),
                     append_char
                 )
             })
@@ -255,7 +280,12 @@ pub mod ion {
         display: String,
     }
 
-    pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -> String {
+    pub fn action_raw_values(
+        _current_word: &str,
+        meta: &Meta,
+        values: &RawValues,
+        _flags: &Flags,
+    ) -> String {
         let suggestions: Vec<Suggestion> = values
             .iter()
             .map(|value| {
@@ -277,7 +307,12 @@ pub mod ion {
 pub mod bash_ble {
     use super::*;
 
-    pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -> String {
+    pub fn action_raw_values(
+        _current_word: &str,
+        meta: &Meta,
+        values: &RawValues,
+        flags: &Flags,
+    ) -> String {
         values
             .iter()
             .map(|value| {
@@ -292,7 +327,7 @@ pub mod bash_ble {
                     value.display,
                     "",
                     suffix,
-                    trimmed_description(&value.description)
+                    trimmed_description(&value.description, flags.description_length)
                 )
             })
             .collect::<Vec<_>>()

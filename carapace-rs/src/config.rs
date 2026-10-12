@@ -196,8 +196,14 @@ pub struct Flags {
     pub nospace: Option<String>,
     /// `CARAPACE_COLOR`/`NO_COLOR`/`CLICOLOR`: styling disabled.
     pub color_disabled: bool,
+    /// `CARAPACE_TOOLTIP` (powershell tooltips, default enabled).
+    pub tooltip: bool,
     /// `CARAPACE_DESCRIPTION_LENGTH` (default 80).
     pub description_length: usize,
+    /// `CARAPACE_MATCH`: prefix matching is case-insensitive.
+    pub case_insensitive: bool,
+    /// `CARAPACE_EXPERIMENTAL`: experimental features (tabdance uids).
+    pub experimental: bool,
 }
 
 impl Default for Flags {
@@ -209,7 +215,10 @@ impl Default for Flags {
             unfiltered: false,
             nospace: None,
             color_disabled: false,
+            tooltip: true,
             description_length: 80,
+            case_insensitive: false,
+            experimental: false,
         }
     }
 }
@@ -235,9 +244,12 @@ impl Flags {
                 Some(value) => value == "0",
                 None => flag("NO_COLOR") || var("CLICOLOR").is_some_and(|v| v == "0"),
             },
+            tooltip: !var("CARAPACE_TOOLTIP").is_some_and(|v| v.is_empty() || v == "0"),
             description_length: var("CARAPACE_DESCRIPTION_LENGTH")
                 .and_then(|value| value.parse().ok())
                 .unwrap_or(80),
+            case_insensitive: matches!(var("CARAPACE_MATCH"), Some("CASE_INSENSITIVE") | Some("1")),
+            experimental: flag("CARAPACE_EXPERIMENTAL"),
         }
     }
 
@@ -275,17 +287,9 @@ pub fn experimental() -> bool {
     flag("CARAPACE_EXPERIMENTAL")
 }
 
-/// Whether prefix matching is case-insensitive (`CARAPACE_MATCH`).
-pub fn case_insensitive() -> bool {
-    matches!(
-        std::env::var("CARAPACE_MATCH").as_deref(),
-        Ok("CASE_INSENSITIVE") | Ok("1")
-    )
-}
-
 /// Case-aware prefix test (port of `pkg/match.HasPrefix`).
-pub fn has_prefix(value: &str, prefix: &str) -> bool {
-    if case_insensitive() {
+pub fn has_prefix(value: &str, prefix: &str, case_insensitive: bool) -> bool {
+    if case_insensitive {
         value.to_lowercase().starts_with(&prefix.to_lowercase())
     } else {
         value.starts_with(prefix)
@@ -293,8 +297,8 @@ pub fn has_prefix(value: &str, prefix: &str) -> bool {
 }
 
 /// Case-aware prefix strip (port of `pkg/match.TrimPrefix`).
-pub fn trim_prefix<'a>(value: &'a str, prefix: &str) -> &'a str {
-    if has_prefix(value, prefix) {
+pub fn trim_prefix<'a>(value: &'a str, prefix: &str, case_insensitive: bool) -> &'a str {
+    if has_prefix(value, prefix, case_insensitive) {
         &value[prefix.len()..]
     } else {
         value
@@ -304,14 +308,6 @@ pub fn trim_prefix<'a>(value: &'a str, prefix: &str) -> &'a str {
 /// Look up a custom style by name from the style configuration.
 pub fn custom_style(name: &str) -> Option<String> {
     styles().custom.get(name).cloned()
-}
-
-/// Description display length (default 80).
-pub fn description_length() -> usize {
-    std::env::var("CARAPACE_DESCRIPTION_LENGTH")
-        .ok()
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(80)
 }
 
 /// The style for a log level name (Go `style.ForLogLevel`).

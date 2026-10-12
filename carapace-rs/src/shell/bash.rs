@@ -3,7 +3,9 @@
 use crate::meta::Meta;
 use crate::value::{RawValue, RawValues};
 
-use super::{common_display_prefix, common_value_prefix, matches_nospace, trimmed_description};
+use super::{
+    Flags, common_display_prefix, common_value_prefix, matches_nospace, trimmed_description,
+};
 
 /// Bash-specific inputs collected during patching.
 #[derive(Clone, Debug, Default)]
@@ -85,6 +87,7 @@ pub fn action_raw_values(
     meta: &Meta,
     values: &RawValues,
     context: &Context,
+    flags: &Flags,
 ) -> String {
     let mut values: Vec<RawValue> = values
         .iter()
@@ -114,13 +117,19 @@ pub fn action_raw_values(
                 // prevent insertion of partial display values by spacing one
                 values[0].display = format!(" {}", values[0].display);
             }
-            return render(meta, &values, context, true);
+            return render(meta, &values, context, true, flags);
         }
     }
-    render(meta, &values, context, false)
+    render(meta, &values, context, false, flags)
 }
 
-fn render(meta: &Meta, values: &[RawValue], context: &Context, forced_nospace: bool) -> String {
+fn render(
+    meta: &Meta,
+    values: &[RawValue],
+    context: &Context,
+    forced_nospace: bool,
+    flags: &Flags,
+) -> String {
     let mut nospace = forced_nospace;
     let list_mode = context.comp_type == COMP_TYPE_LIST_SUCCESSIVE_TABS && values.len() > 1;
     let rendered: Vec<String> = values
@@ -145,7 +154,10 @@ fn render(meta: &Meta, values: &[RawValue], context: &Context, forced_nospace: b
                     format!(
                         "{} ({})",
                         display,
-                        display_replacer(&sanitize(&trimmed_description(&value.description)))
+                        display_replacer(&sanitize(&trimmed_description(
+                            &value.description,
+                            flags.description_length,
+                        )))
                     )
                 }
             }

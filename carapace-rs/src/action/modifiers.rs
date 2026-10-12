@@ -42,9 +42,10 @@ impl Action {
     pub fn prefix(self, prefix: impl Into<String>) -> Self {
         let prefix = prefix.into();
         Self::callback(move |c| {
-            let value = if crate::config::has_prefix(&c.value, &prefix) {
-                crate::config::trim_prefix(&c.value, &prefix).to_owned()
-            } else if crate::config::has_prefix(&prefix, &c.value) {
+            let case_insensitive = c.config.case_insensitive;
+            let value = if crate::config::has_prefix(&c.value, &prefix, case_insensitive) {
+                crate::config::trim_prefix(&c.value, &prefix, case_insensitive).to_owned()
+            } else if crate::config::has_prefix(&prefix, &c.value, case_insensitive) {
                 String::new()
             } else {
                 return Self::raw(Vec::new());

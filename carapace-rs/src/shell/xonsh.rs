@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use super::trimmed_description;
+use super::{Flags, trimmed_description};
 use crate::meta::Meta;
 use crate::shell::style::Style;
 use crate::value::RawValues;
@@ -51,7 +51,12 @@ struct RichCompletion {
 }
 
 /// Format values for xonsh as a JSON array of RichCompletions.
-pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -> String {
+pub fn action_raw_values(
+    _current_word: &str,
+    meta: &Meta,
+    values: &RawValues,
+    flags: &Flags,
+) -> String {
     let records: Vec<RichCompletion> = values
         .iter()
         .map(|value| {
@@ -71,7 +76,7 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
             RichCompletion {
                 value: quoted,
                 display: sanitize(&value.display),
-                description: trimmed_description(&value.description),
+                description: trimmed_description(&value.description, flags.description_length),
                 style: convert_style(&value.style),
             }
         })

@@ -168,7 +168,9 @@ impl Shell {
         }
 
         if !flags.unfiltered {
-            values.retain(|value| crate::config::has_prefix(&value.value, current_word));
+            values.retain(|value| {
+                crate::config::has_prefix(&value.value, current_word, flags.case_insensitive)
+            });
         }
 
         if flags.merge_flags.unwrap_or(false) || (*self == Self::Zsh && flags.merge_flags.is_none())
@@ -196,8 +198,8 @@ impl Shell {
 
         // experimental mode (CARAPACE_EXPERIMENTAL and tabdance on PATH)
         // keeps uids and queries for tabdance; they are stripped otherwise
-        if experimental_with_tabdance() {
-            return self.format(current_word, &meta, &values, bash_context);
+        if flags.experimental && experimental_with_tabdance() {
+            return self.format(current_word, &meta, &values, bash_context, flags);
         }
         for value in &mut values {
             value.uid = None;
@@ -205,7 +207,7 @@ impl Shell {
         unique(&mut values);
         meta.queries.clear();
 
-        self.format(current_word, &meta, &values, bash_context)
+        self.format(current_word, &meta, &values, bash_context, flags)
     }
 
     /// The per-shell formatter dispatch (shared by both value paths).
@@ -215,20 +217,23 @@ impl Shell {
         meta: &Meta,
         values: &RawValues,
         bash_context: &bash::Context,
+        flags: &crate::config::Flags,
     ) -> String {
         match self {
-            Self::Bash => bash::action_raw_values(current_word, meta, values, bash_context),
-            Self::BashBle => simple::bash_ble::action_raw_values(current_word, meta, values),
-            Self::CmdClink => simple::cmd_clink::action_raw_values(current_word, meta, values),
-            Self::Ion => simple::ion::action_raw_values(current_word, meta, values),
-            Self::Oil => simple::oil::action_raw_values(current_word, meta, values),
-            Self::Tcsh => simple::tcsh::action_raw_values(current_word, meta, values),
-            Self::Elvish => elvish::action_raw_values(current_word, meta, values),
-            Self::Fish => fish::action_raw_values(values),
-            Self::Nushell => nushell::action_raw_values(current_word, meta, values),
-            Self::PowerShell => powershell::action_raw_values(current_word, meta, values),
-            Self::Xonsh => xonsh::action_raw_values(current_word, meta, values),
-            Self::Zsh => zsh::action_raw_values(current_word, meta, values),
+            Self::Bash => bash::action_raw_values(current_word, meta, values, bash_context, flags),
+            Self::BashBle => simple::bash_ble::action_raw_values(current_word, meta, values, flags),
+            Self::CmdClink => {
+                simple::cmd_clink::action_raw_values(current_word, meta, values, flags)
+            }
+            Self::Ion => simple::ion::action_raw_values(current_word, meta, values, flags),
+            Self::Oil => simple::oil::action_raw_values(current_word, meta, values, flags),
+            Self::Tcsh => simple::tcsh::action_raw_values(current_word, meta, values, flags),
+            Self::Elvish => elvish::action_raw_values(current_word, meta, values, flags),
+            Self::Fish => fish::action_raw_values(values, flags),
+            Self::Nushell => nushell::action_raw_values(current_word, meta, values, flags),
+            Self::PowerShell => powershell::action_raw_values(current_word, meta, values, flags),
+            Self::Xonsh => xonsh::action_raw_values(current_word, meta, values, flags),
+            Self::Zsh => zsh::action_raw_values(current_word, meta, values, flags),
             Self::Export => crate::export::Export::from_parts(meta, values).to_json(),
         }
     }
@@ -252,6 +257,8 @@ impl Shell {
         }
     }
 }
+
+pub use crate::config::Flags;
 
 /// The parent pid of the process, from `/proc/{pid}/stat`.
 fn process_parent(pid: u32) -> Option<u32> {
@@ -535,9 +542,9 @@ pub(crate) fn matches_nospace(meta: &Meta, value: &RawValue) -> bool {
         .any(|suffix| *suffix == '*' || value.value.ends_with(*suffix))
 }
 
-/// Description trimmed per `CARAPACE_DESCRIPTION_LENGTH` (default 80).
-pub fn trimmed_description(description: &str) -> String {
-    let max_length = crate::config::description_length();
+/// Description trimmed to `max_length` runes plus an ellipsis
+/// (`CARAPACE_DESCRIPTION_LENGTH`, default 80).
+pub fn trimmed_description(description: &str, max_length: usize) -> String {
     let first_line = description.split('\n').next().unwrap_or_default();
     let trimmed = first_line.trim();
     let runes: Vec<char> = trimmed.chars().collect();

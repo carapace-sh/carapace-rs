@@ -4,7 +4,7 @@ use crate::meta::Meta;
 use crate::shell::sgr;
 use crate::value::RawValues;
 
-use super::matches_nospace;
+use super::{Flags, matches_nospace};
 
 /// Remove newline, carriage return and tab.
 fn sanitize(value: &str) -> String {
@@ -191,7 +191,12 @@ fn message(meta: &Meta) -> String {
 /// Format values for zsh: `zstyle\001message\001noprefix\001tag-groups\001`.
 ///
 /// Each tag group is `tag\003displays\003values`, groups separated by `\002`.
-pub fn action_raw_values(current_word: &str, meta: &Meta, values: &RawValues) -> String {
+pub fn action_raw_values(
+    current_word: &str,
+    meta: &Meta,
+    values: &RawValues,
+    _flags: &Flags,
+) -> String {
     let state = quoting_state(&raw_current_word(current_word));
     let mut noprefix = false;
 

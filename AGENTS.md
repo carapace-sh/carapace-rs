@@ -121,9 +121,11 @@ These are settled; don't relitigate without cause, and preserve them when refact
    completion flags ride the `Context` as `config::Flags` (parsed from the context
    env map, re-derived at every traverse level from the merged environment);
    `Shell::value_with` takes them as a parameter, `Shell::value` defaults to the
-   process environment. Known leftovers kept process-global: description-length
-   trimming and case-insensitive matching inside formatters/prefix modifiers, and
-   `CARAPACE_EXPERIMENTAL` (needs a `look_path` check).
+   process environment. Formatters receive the flags through the dispatch
+   (description-length trimming, color disable, tooltips, match mode).
+   Shell-provided variables (`CARAPACE_COMPLINE`, `CARAPACE_ZSH_HASH_DIRS`,
+   `COMP_*`) stay process-side; the `look_path` check for tabdance stays
+   process-global.
 10. **One conflated type became two.** Go's `Action` conflates lazy and materialized;
    here `Action::invoke(&Context) -> InvokedAction` splits them. Modifiers compose via
    `map_invoked`.
@@ -203,10 +205,11 @@ names aligned with Go so specs port mechanically.
   JSON.
 - The `Sandbox` holds no process-global state; tests run in parallel. `CARAPACE_*`
   flags travel on the sandbox context (`sandbox.env(...)`), so no process mutation
-  is needed for them. Any test that must mutate process environment (`COMP_*` for
-  entry-point tests, `SHELL`, `XDG_*`) must hold its binary's `env_lock()` for the
-  whole test — unlocked env mutation has caused flaky races repeatedly (e.g.
-  `patch()` unsetting `COMP_*` mid-run of a parallel test).
+  is needed for them. Any test that must mutate process environment (`COMP_*`/
+  `CARAPACE_COMPLINE` for entry-point and shell-dispatch tests, `PATH` for the
+  tabdance `look_path`, `XDG_*`) must hold its binary's `env_lock()` for the whole
+  test — unlocked env mutation has caused flaky races repeatedly (e.g. `patch()`
+  unsetting `COMP_*` mid-run of a parallel test).
 - External tools in tests (fish, zsh, bash) are exercised through real binaries or
   mocked replies; never assume a tool is installed without a guard.
 - Flag-value completers return **bare values** (`"dev"`); the attached form

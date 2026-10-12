@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use super::trimmed_description;
+use super::{Flags, trimmed_description};
 use crate::meta::Meta;
 use crate::shell::sgr;
 use crate::value::RawValues;
@@ -36,20 +36,15 @@ struct CompletionResult {
     tool_tip: String,
 }
 
-fn color_disabled() -> bool {
-    std::env::var("CARAPACE_COLOR").is_ok_and(|value| value == "disabled")
-}
-
-fn tooltip_enabled() -> bool {
-    std::env::var("CARAPACE_TOOLTIP")
-        .map(|value| value != "0" && !value.is_empty())
-        .unwrap_or(true)
-}
-
 /// Format values for PowerShell as a JSON array of CompletionResults.
-pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -> String {
-    let nocolor = color_disabled();
-    let tooltip_enabled = tooltip_enabled();
+pub fn action_raw_values(
+    _current_word: &str,
+    meta: &Meta,
+    values: &RawValues,
+    flags: &Flags,
+) -> String {
+    let nocolor = flags.color_disabled;
+    let tooltip_enabled = flags.tooltip;
 
     let results: Vec<CompletionResult> = values
         .iter()
@@ -76,13 +71,13 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
             let mut description = sanitize(&value.description);
             if tooltip_enabled && !description.is_empty() {
                 tooltip = if nocolor {
-                    trimmed_description(&description)
+                    trimmed_description(&description, flags.description_length)
                 } else {
                     format!(
                         "`e[{}m`e[{}m{}`e[21;22;23;24;25;29;39;49m",
                         sgr("default"),
                         sgr("underlined"),
-                        trimmed_description(&description)
+                        trimmed_description(&description, flags.description_length)
                     )
                 };
                 description = String::new();
@@ -91,8 +86,10 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
             if nocolor {
                 list_item_text = sanitize(&value.display);
                 if !description.is_empty() {
-                    list_item_text =
-                        format!("{list_item_text} ({})", trimmed_description(&description));
+                    list_item_text = format!(
+                        "{list_item_text} ({})",
+                        trimmed_description(&description, flags.description_length)
+                    );
                 }
             } else {
                 list_item_text = format!(
@@ -105,7 +102,7 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
                         "`e[{}m `e[{}m({})`e[21;22;23;24;25;29;39;49m",
                         sgr("default"),
                         sgr("underlined"),
-                        trimmed_description(&description)
+                        trimmed_description(&description, flags.description_length)
                     ));
                 }
                 list_item_text.push_str("`e[0m");

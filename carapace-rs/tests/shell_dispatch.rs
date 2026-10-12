@@ -14,6 +14,14 @@ fn clear_compline() {
     unsafe { std::env::remove_var("CARAPACE_COMPLINE") };
 }
 
+/// Explicit flags for [`Shell::value_with`] (the `CARAPACE_*` flags travel
+/// with the completion instead of the process environment).
+fn flags(f: impl FnOnce(&mut carapace_rs::config::Flags)) -> carapace_rs::config::Flags {
+    let mut flags = carapace_rs::config::Flags::default();
+    f(&mut flags);
+    flags
+}
+
 fn values() -> carapace_rs::RawValues {
     vec![
         RawValue::described("apple", "a fruit"),
@@ -385,17 +393,17 @@ fn xonsh_quoting_and_style() {
 fn powershell_json_results() {
     let _guard = env_lock();
     clear_compline();
-    unsafe { std::env::set_var("CARAPACE_COLOR", "disabled") };
     let values = vec![
         RawValue::described("plain", "the tip"),
         RawValue::new("sp ace"),
         RawValue::new(""),
     ];
-    let output = Shell::PowerShell.value(
+    let output = Shell::PowerShell.value_with(
         "",
         &Meta::default(),
         &values,
         &carapace_rs::shell::bash::Context::default(),
+        &flags(|f| f.color_disabled = true),
     );
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
     assert_eq!(json.as_array().unwrap().len(), 2);
@@ -404,24 +412,21 @@ fn powershell_json_results() {
     assert_eq!(json[0]["ToolTip"], "the tip");
     // with tooltip enabled the description moves to the tooltip
     assert_eq!(json[0]["ListItemText"], "plain");
-    unsafe { std::env::remove_var("CARAPACE_COLOR") };
 }
 
 #[test]
 fn powershell_styled_tooltip_by_default() {
-    let _guard = env_lock();
     clear_compline();
-    unsafe { std::env::remove_var("CARAPACE_COLOR") };
     let values = vec![RawValue::described("plain", "the tip")];
-    let output = Shell::PowerShell.value(
+    let output = Shell::PowerShell.value_with(
         "",
         &Meta::default(),
         &values,
         &carapace_rs::shell::bash::Context::default(),
+        &flags(|_| {}),
     );
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
     assert!(json[0]["ToolTip"].as_str().unwrap().contains("`e["));
-    unsafe { std::env::remove_var("CARAPACE_COLOR") };
 }
 
 #[test]
@@ -558,7 +563,7 @@ fn zsh_noprefix_flag_in_output() {
     clear_compline();
 
     let meta = carapace_rs::Meta::default().no_prefix(['p']);
-    let output = zsh::action_raw_values("a", &meta, &values());
+    let output = zsh::action_raw_values("a", &meta, &values(), &flags(|_| {}));
     let sections: Vec<&str> = output.split('\u{1}').collect();
     assert_eq!(
         sections[2], "true",
@@ -566,12 +571,12 @@ fn zsh_noprefix_flag_in_output() {
     );
 
     let meta = carapace_rs::Meta::default().no_prefix(['z']);
-    let output = zsh::action_raw_values("a", &meta, &values());
+    let output = zsh::action_raw_values("a", &meta, &values(), &flags(|_| {}));
     let sections: Vec<&str> = output.split('\u{1}').collect();
     assert_eq!(sections[2], "false", "no value starts with z");
 
     let meta = carapace_rs::Meta::default();
-    let output = zsh::action_raw_values("a", &meta, &values());
+    let output = zsh::action_raw_values("a", &meta, &values(), &flags(|_| {}));
     let sections: Vec<&str> = output.split('\u{1}').collect();
     assert_eq!(sections[2], "false", "unset no-prefix never matches");
 }
@@ -584,7 +589,12 @@ fn zsh_raw_current_word_keeps_quoted_spaces() {
     let _guard = env_lock();
     unsafe { std::env::set_var("CARAPACE_COMPLINE", "cmd 'a b") };
 
-    let output = zsh::action_raw_values("a b", &carapace_rs::Meta::default(), &values());
+    let output = zsh::action_raw_values(
+        "a b",
+        &carapace_rs::Meta::default(),
+        &values(),
+        &flags(|_| {}),
+    );
     let sections: Vec<&str> = output.split('\u{1}').collect();
     // values end with the closing quote (Quoting state)
     assert!(
@@ -595,7 +605,12 @@ fn zsh_raw_current_word_keeps_quoted_spaces() {
     unsafe { std::env::remove_var("CARAPACE_COMPLINE") };
 
     // without compline the state is default (no quote suffix)
-    let output = zsh::action_raw_values("a", &carapace_rs::Meta::default(), &values());
+    let output = zsh::action_raw_values(
+        "a",
+        &carapace_rs::Meta::default(),
+        &values(),
+        &flags(|_| {}),
+    );
     let sections: Vec<&str> = output.split('\u{1}').collect();
     assert!(
         !sections[3].contains("apple'"),
@@ -695,17 +710,18 @@ fn export_strips_uids_and_queries_unless_experimental() {
         ..Default::default()
     };
 
-    let export = |meta: &Meta, values: &Vec<RawValue>| {
-        Shell::Export.value(
+    let export = |meta: &Meta, values: &Vec<RawValue>, flags: &carapace_rs::config::Flags| {
+        Shell::Export.value_with(
             "",
             meta,
             values,
             &carapace_rs::shell::bash::Context::default(),
+            flags,
         )
     };
 
     // default: uids and queries are stripped, empty fields omitted
-    let output = export(&meta, &vec![value.clone()]);
+    let output = export(&meta, &vec![value.clone()], &flags(|_| {}));
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
     assert!(parsed["values"][0].get("uid").is_none(), "{output}");
     assert!(parsed.get("queries").is_none(), "{output}");
@@ -717,7 +733,11 @@ fn export_strips_uids_and_queries_unless_experimental() {
     std::fs::create_dir_all(&empty_dir).unwrap();
     let saved_path = std::env::var("PATH").unwrap_or_default();
     unsafe { std::env::set_var("PATH", &empty_dir) };
-    let output = export(&meta, &vec![value.clone()]);
+    let output = export(
+        &meta,
+        &vec![value.clone()],
+        &flags(|f| f.experimental = true),
+    );
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
     assert!(parsed["values"][0].get("uid").is_none(), "{output}");
 
@@ -729,12 +749,11 @@ fn export_strips_uids_and_queries_unless_experimental() {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     }
-    let output = export(&meta, &vec![value]);
+    let output = export(&meta, &vec![value], &flags(|f| f.experimental = true));
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
     assert_eq!(parsed["values"][0]["uid"], "test://host/entry", "{output}");
     assert_eq!(parsed["queries"][0], "file:///tmp", "{output}");
 
-    unsafe { std::env::remove_var("CARAPACE_EXPERIMENTAL") };
     unsafe { std::env::set_var("PATH", saved_path) };
     std::fs::remove_dir_all(empty_dir).unwrap();
 }

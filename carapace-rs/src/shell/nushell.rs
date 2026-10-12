@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use super::trimmed_description;
+use super::{Flags, trimmed_description};
 use crate::meta::Meta;
 use crate::shell::style::Style;
 use crate::value::RawValues;
@@ -93,7 +93,12 @@ struct Record {
 }
 
 /// Format values for nushell as a JSON array of records.
-pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -> String {
+pub fn action_raw_values(
+    _current_word: &str,
+    meta: &Meta,
+    values: &RawValues,
+    flags: &Flags,
+) -> String {
     let records: Vec<Record> = values
         .iter()
         .map(|value| {
@@ -112,7 +117,7 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
             Record {
                 value: quoted,
                 display: sanitize(&value.display),
-                description: trimmed_description(&value.description),
+                description: trimmed_description(&value.description, flags.description_length),
                 style: convert_style(&value.style),
             }
         })

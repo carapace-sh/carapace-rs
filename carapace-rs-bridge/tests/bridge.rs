@@ -259,3 +259,86 @@ fn inshellisense_bridge_includes_flags_for_flag_words() {
     assert!(values.contains(&"-f".to_string()), "{values:?}");
     assert!(!values.contains(&"one".to_string()), "{values:?}");
 }
+
+#[test]
+fn cobra_bridge_error_directive() {
+    let mut sandbox = Sandbox::new("bridge-cobra-error");
+    sandbox.reply("git", &["__complete", ""]).with(":1\n");
+
+    let run = sandbox.run(
+        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        &[""],
+    );
+    let output = run.output();
+    assert!(output.contains("values\":[]"), "{}", output);
+}
+
+#[test]
+fn cobra_bridge_nofilecomp_directive_skips_file_fallback() {
+    let mut sandbox = Sandbox::new("bridge-cobra-nofilecomp");
+    sandbox.reply("git", &["__complete", ""]).with(":4\n");
+
+    let run = sandbox.run(
+        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        &[""],
+    );
+    let output = run.output();
+    // no values and no file fallback
+    assert!(output.contains("values\":[]"), "{}", output);
+}
+
+#[test]
+fn cobra_bridge_filterfileext_directive() {
+    let mut sandbox = Sandbox::new("bridge-cobra-filterext");
+    sandbox.files([("main.go", ""), ("README.md", ""), ("subdir/x", "")]);
+    sandbox
+        .reply("git", &["__complete", ""])
+        .with("go\nmod\n:8\n");
+
+    let run = sandbox.run(
+        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        &[""],
+    );
+    let output = run.output();
+    assert!(output.contains("main.go"), "{}", output);
+    assert!(output.contains("subdir/"), "{}", output);
+    // `README.md` does not match the `.mod` extension filter
+    assert!(!output.contains("README.md"), "{}", output);
+}
+
+#[test]
+fn cobra_bridge_filterdirs_directive() {
+    let mut sandbox = Sandbox::new("bridge-cobra-filterdirs");
+    sandbox.files([("subdir/file1.txt", "")]);
+    sandbox.reply("git", &["__complete", ""]).with(":16\n");
+
+    let run = sandbox.run(
+        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        &[""],
+    );
+    let output = run.output();
+    assert!(
+        output.contains("subdir/") && !output.contains("file1.txt"),
+        "{}",
+        output
+    );
+}
+
+#[test]
+fn cobra_bridge_with_values_and_directive() {
+    let mut sandbox = Sandbox::new("bridge-cobra-values-directive");
+    sandbox
+        .reply("git", &["__complete", ""])
+        .with("one\ntwo\n:4\n");
+
+    let run = sandbox.run(
+        || cli().positional_any_completion(bridge::cobra::action(&["git"])),
+        &[""],
+    );
+    let output = run.output();
+    assert!(
+        output.contains("\"one\"") && output.contains("\"two\""),
+        "{}",
+        output
+    );
+}

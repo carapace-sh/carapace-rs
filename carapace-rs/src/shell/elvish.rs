@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use super::trimmed_description;
+use super::{Flags, trimmed_description};
 use crate::meta::Meta;
 use crate::value::RawValues;
 
@@ -46,7 +46,12 @@ struct ComplexCandidate {
 }
 
 /// Format values for elvish as a JSON completion object.
-pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -> String {
+pub fn action_raw_values(
+    _current_word: &str,
+    meta: &Meta,
+    values: &RawValues,
+    flags: &Flags,
+) -> String {
     // Go falls back to the configured styles; unparseable ones keep "default"
     let carapace_styles = crate::config::styles().carapace;
     let value_style = fallback_style(&carapace_styles.value);
@@ -68,7 +73,10 @@ pub fn action_raw_values(_current_word: &str, meta: &Meta, values: &RawValues) -
             ComplexCandidate {
                 value: sanitize(&value.value),
                 display: sanitize(&value.display),
-                description: trimmed_description(&sanitize(&value.description)),
+                description: trimmed_description(
+                    &sanitize(&value.description),
+                    flags.description_length,
+                ),
                 code_suffix: suffix.to_owned(),
                 style,
             }

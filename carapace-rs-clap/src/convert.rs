@@ -77,12 +77,15 @@ fn convert_command(
         }
     }
     // persistent flags flow down to subcommands with their converted
-    // completion (Go's shared flag object lookup)
+    // completion (Go's shared flag object lookup); clap's native
+    // `global(true)` marks persistence just like the adapter's own
+    // `ArgPersistent` extension (clap propagates globals at parse time,
+    // not in the built tree, so the model must copy them)
     let mut persistent: Vec<(String, Flag)> = inherited.to_vec();
     for flag in &model.flags {
         let marked = cmd.get_arguments().any(|arg| {
             !arg.is_positional()
-                && arg.get::<crate::completer::ArgPersistent>().is_some()
+                && (arg.get::<crate::completer::ArgPersistent>().is_some() || arg.is_global_set())
                 && (arg.get_id().as_str() == flag.name
                     || arg.get_long() == Some(flag.name.as_str()))
         });
@@ -188,7 +191,10 @@ fn wrap_pre_invoke(model: &mut Command, hooks: &[PreInvokeHook]) {
     }
     let wrap = |action: Action, hooks: &[PreInvokeHook]| {
         let mut action = action;
-        for hook in hooks {
+        // wrap from the innermost hook out, so the first hook (the
+        // ancestor) is the outermost and runs first (Go `preinvoke`:
+        // parent's hook receives the child-wrapped action)
+        for hook in hooks.iter().rev() {
             let hook = hook.clone();
             action = Action::callback(move |c| hook(c, action.clone()));
         }
@@ -243,15 +249,25 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
         Some(range) => {
             let min = range.min_values();
             let max = range.max_values();
-            let optional = takes_value && min == 0;
+            // the optional (optarg) shape is exactly one optional value
+            // (`0..=1`), pflag's `NoOptDefVal` analog: it never consumes
+            // the next argument, values bind only through `=`. Wider
+            // `0..N` ranges are variadic: the engine's lookahead consumes
+            // values until the next flag-lookalike.
+            let optional = takes_value && min == 0 && max == 1;
             let nargs = if max == usize::MAX {
                 if min >= 1 {
                     Nargs::AtLeastOne
                 } else {
                     Nargs::Any
                 }
-            } else {
+            } else if min == max {
                 Nargs::Exact(max)
+            } else {
+                // bounded variadic (e.g. `2..=4`) loses its minimum: the
+                // model has no bounded-variadic shape, so values consume
+                // greedily until the next flag-lookalike
+                Nargs::Any
             };
             (nargs, optional)
         }
@@ -259,7 +275,7 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
     };
 
     let mut aliases: Vec<String> = arg
-        .get_aliases()
+        .get_all_aliases()
         .into_iter()
         .flatten()
         .map(String::from)

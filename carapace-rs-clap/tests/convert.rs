@@ -449,3 +449,116 @@ fn flag_completion_merges_per_key_and_matches_names() {
         vec!["verbose-alias"]
     );
 }
+
+#[test]
+fn converts_visible_aliases() {
+    // clap's `get_aliases()` returns hidden aliases only; visible aliases
+    // are user-facing flag spellings and must be known to the model (Go
+    // resolves alias spellings for lookup and changed-tracking, while
+    // flag-name completion only offers the longhand and shorthand)
+    let cmd = Command::new("app").arg(
+        Arg::new("verbose")
+            .long("verbose")
+            .visible_alias("loud")
+            .alias("quiet")
+            .action(ArgAction::SetTrue),
+    );
+
+    let model = to_model(&mut cmd.clone());
+    let verbose = model.lookup_long("verbose").unwrap();
+    assert!(verbose.aliases.contains(&"loud".to_owned()));
+    assert!(verbose.aliases.contains(&"quiet".to_owned()));
+
+    // alias spellings resolve to the flag and count as given
+    assert!(model.lookup_long("loud").is_some());
+    let completion = carapace_rs::traverse(
+        &model,
+        vec!["--loud".to_owned(), "--verbose".to_owned(), "".to_owned()],
+    );
+    assert_eq!(
+        completion
+            .context
+            .parsed_flags
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["verbose"]
+    );
+}
+
+#[test]
+fn global_args_are_inherited_by_subcommands() {
+    // clap propagates global args at parse time, not in the built tree;
+    // the model must copy them down like cobra persistent flags
+    let cmd = Command::new("app")
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .global(true)
+                .action(ArgAction::SetTrue),
+        )
+        .subcommand(Command::new("sub"));
+
+    let model = to_model(&mut cmd.clone());
+    let sub = model.lookup_subcommand("sub").unwrap();
+    assert!(sub.lookup_long("verbose").is_some());
+}
+
+#[test]
+fn variadic_flag_consumes_values() {
+    // `num_args(0..)` is variadic, not an optarg: it consumes values until
+    // the next flag-lookalike
+    let cmd = Command::new("app").arg(
+        Arg::new("set")
+            .long("set")
+            .action(ArgAction::Set)
+            .num_args(0..),
+    );
+
+    let model = to_model(&mut cmd.clone());
+    let flag = model.lookup_long("set").unwrap();
+    assert!(flag.takes_value);
+    assert!(!flag.optional);
+    assert_eq!(flag.nargs, Nargs::Any);
+}
+
+#[test]
+fn pre_invoke_hooks_nest_ancestors_outermost() {
+    // Go `storage.preinvoke`: the parent's hook wraps the child's, so
+    // ancestors run first and the command's own hook sees their result
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let order = Arc::new(AtomicUsize::new(0));
+    let parent_seen = order.clone();
+    let own_seen = order.clone();
+
+    let mut cmd = Command::new("app").subcommand(
+        Command::new("sub")
+            .arg(Arg::new("name").long("name").action(ArgAction::Set))
+            .pre_invoke(Arc::new(move |_: &carapace_rs::Context, action| {
+                let seen = own_seen.clone();
+                Action::callback(move |c| {
+                    let invoked = action.clone().invoke(c);
+                    assert_eq!(seen.fetch_add(1, Ordering::SeqCst), 1);
+                    invoked.into()
+                })
+            })),
+    );
+    cmd.clone()
+        .pre_invoke(Arc::new(move |_: &carapace_rs::Context, action| {
+            let seen = parent_seen.clone();
+            Action::callback(move |c| {
+                let invoked = action.clone().invoke(c);
+                assert_eq!(seen.fetch_add(1, Ordering::SeqCst), 0);
+                invoked.into()
+            })
+        }));
+
+    let model = to_model(&mut cmd);
+    let completion = carapace_rs::traverse(
+        &model,
+        vec!["sub".to_owned(), "--name".to_owned(), "".to_owned()],
+    );
+    let _ = completion.action.invoke(&Context::default());
+}

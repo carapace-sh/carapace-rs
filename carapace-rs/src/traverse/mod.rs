@@ -477,7 +477,6 @@ pub fn action_flags(cmd: &Command, path: &[String]) -> Action {
             }
         } else {
             // flags group with `.` (Go `batch.ToA().MultiParts(".")`)
-            let action = action;
             Action::callback(move |c| action.invoke(c).to_multiparts_a(&["."]))
         }
     })

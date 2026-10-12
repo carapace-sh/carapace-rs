@@ -72,8 +72,9 @@ stays a bare command because the directive semantics are covered by the
 cobra bridge tests in `carapace-rs-bridge`. Deliberately unported (no Go
 test coverage, no clap-native equivalent): the `flag` command's `--optarg`
 `PreRun` toggling of `NoOptDefVal`. Snippet golden fixtures live in
-`carapace-rs-clap/examples/example/_test/` and are asserted by
-`tests/example_snippets.rs`; regenerate them via the example binary.
+`carapace-rs-clap/examples/example/_test/` (including the export shell's
+command-structure JSON) and are asserted by `tests/example_snippets.rs`;
+regenerate them via the example binary.
 
 ## Design Decisions
 

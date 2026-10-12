@@ -25,6 +25,21 @@ const FIXTURES: &[(Shell, &str)] = &[
 ];
 
 #[test]
+fn export_snippet_matches_fixture() {
+    let snippet = carapace_rs_clap::snippet(cmd::root_cmd, Shell::Export);
+    let fixture = std::fs::read_to_string(format!(
+        "{}/examples/example/_test/export.json",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .unwrap();
+    assert_eq!(
+        snippet,
+        fixture.trim_end_matches('\n'),
+        "export snippet mismatch"
+    );
+}
+
+#[test]
 fn snippets_match_fixtures() {
     for (shell, file) in FIXTURES {
         let snippet = carapace_rs_clap::snippet(cmd::root_cmd, *shell);

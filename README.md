@@ -61,11 +61,12 @@ demo _carapace zsh > ~/.zfunc/_demo    # zsh
 demo _carapace fish | source           # fish
 ```
 
-A runnable demo lives in `carapace-rs-clap/examples/demo.rs`:
+A runnable example with a wide command tree (groups, persistent flags,
+optargs, every action modifier) lives in `carapace-rs-clap/examples/example/`:
 
 ```bash
-cargo run -p carapace-rs-clap --example demo -- _carapace bash demo --profile ""
-cargo run -p carapace-rs-clap --example demo -- _carapace export demo ""
+cargo run -p carapace-rs-clap --example example -- _carapace bash example --profile ""
+cargo run -p carapace-rs-clap --example example -- _carapace export example ""
 ```
 
 The word list after the shell mirrors the generated snippets: the command

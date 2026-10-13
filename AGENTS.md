@@ -31,11 +31,11 @@ cargo fmt                     # format; cargo fmt --check must be clean
 cargo clippy --workspace      # must be warning-free
 ```
 
-Run the demo binary to try completions end to end:
+Run the example binary to try completions end to end:
 
 ```bash
-cargo run -p carapace-rs-clap --example demo -- _carapace bash demo --profile ""
-cargo run -p carapace-rs-clap --example demo -- _carapace spec
+cargo run -p carapace-rs-clap --example example -- _carapace bash example --profile ""
+cargo run -p carapace-rs-clap --example example -- _carapace spec
 ```
 
 ## Workspace Layout

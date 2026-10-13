@@ -98,7 +98,6 @@ pub fn cmd() -> Command {
     ])
 }
 
-#[allow(non_snake_case)]
 pub fn batch() -> Action {
     carapace_rs::batch(vec![
         Action::values_described([("A", "description of A"), ("B", "description of first B")]),
@@ -110,7 +109,6 @@ pub fn batch() -> Action {
     ])
 }
 
-#[allow(non_snake_case)]
 pub fn cache() -> Action {
     Action::callback(|_| Action::values([current_time()])).cache(
         "example/cmd/modifier.go:cache",
@@ -119,7 +117,6 @@ pub fn cache() -> Action {
     )
 }
 
-#[allow(non_snake_case)]
 pub fn cache_key() -> Action {
     Action::multiparts("/", |c| match c.parts.len() {
         0 => Action::values(["one", "two"]).suffix("/"),
@@ -135,29 +132,24 @@ pub fn cache_key() -> Action {
     })
 }
 
-#[allow(non_snake_case)]
 pub fn chdir() -> Action {
     Action::files(Vec::<String>::new()).chdir(std::env::temp_dir().to_string_lossy().into_owned())
 }
 
-#[allow(non_snake_case)]
 pub fn chdirf() -> Action {
     Action::files(Vec::<String>::new())
         .chdir_f(|c| carapace_rs::traverse::git::git_work_tree(c).unwrap_or_else(|error| error))
 }
 
-#[allow(non_snake_case)]
 pub fn filter() -> Action {
     Action::values_described([("1", "one"), ("2", "two"), ("3", "three"), ("4", "four")])
         .filter(["2", "4"])
 }
 
-#[allow(non_snake_case)]
 pub fn filterargs() -> Action {
     Action::values(["one", "two", "three"]).filter_args()
 }
 
-#[allow(non_snake_case)]
 pub fn filterparts() -> Action {
     Action::multiparts(",", |_| {
         Action::values(["one", "two", "three"])
@@ -166,7 +158,6 @@ pub fn filterparts() -> Action {
     })
 }
 
-#[allow(non_snake_case)]
 pub fn invoke() -> Action {
     Action::callback(|c| {
         let mut context = c.clone();
@@ -184,12 +175,10 @@ pub fn invoke() -> Action {
     })
 }
 
-#[allow(non_snake_case)]
 pub fn list() -> Action {
     Action::values(["one", "two", "three"]).list(",")
 }
 
-#[allow(non_snake_case)]
 pub fn multiparts() -> Action {
     values_multiparts(
         Action::values([
@@ -207,7 +196,6 @@ fn values_multiparts(action: Action, divider: &'static str) -> Action {
     Action::callback(move |c| action.clone().invoke(c).to_multiparts_a(&[divider]))
 }
 
-#[allow(non_snake_case)]
 pub fn multipartsp() -> Action {
     Action::styled_values_described([
         ("keys/<key>", "key example", ""),
@@ -228,38 +216,31 @@ pub fn multipartsp() -> Action {
     })
 }
 
-#[allow(non_snake_case)]
 pub fn nospace() -> Action {
     Action::values(["one,", "two/", "three"]).nospace([',', '/'])
 }
 
-#[allow(non_snake_case)]
 pub fn noprefix() -> Action {
     Action::values(["--", "---", "one--", "one---"]).no_prefix(['-'])
 }
 
-#[allow(non_snake_case)]
 pub fn prefix() -> Action {
     Action::files(Vec::<String>::new()).prefix("file://")
 }
 
-#[allow(non_snake_case)]
 pub fn retain() -> Action {
     Action::values_described([("1", "one"), ("2", "two"), ("3", "three"), ("4", "four")])
         .retain(["2", "4"])
 }
 
-#[allow(non_snake_case)]
 pub fn shift() -> Action {
     Action::callback(|c| Action::message(format!("{:?}", c.args))).shift(1)
 }
 
-#[allow(non_snake_case)]
 pub fn split() -> Action {
     Action::callback(|_| execute_embedded(split_cmd())).split(carapace_rs::Format::Bash)
 }
 
-#[allow(non_snake_case)]
 pub fn splitp() -> Action {
     Action::callback(|_| execute_embedded(split_cmd())).split_p(carapace_rs::Format::Bash)
 }
@@ -287,12 +268,10 @@ fn split_cmd() -> Command {
         ])
 }
 
-#[allow(non_snake_case)]
 pub fn style() -> Action {
     Action::values(["one", "two"]).style("green")
 }
 
-#[allow(non_snake_case)]
 pub fn stylef() -> Action {
     Action::values(["one", "two", "three"]).style_f(|_, value| match value.value.as_str() {
         "one" => "green".to_owned(),
@@ -301,7 +280,6 @@ pub fn stylef() -> Action {
     })
 }
 
-#[allow(non_snake_case)]
 pub fn styler() -> Action {
     // Go's StyleR reads the style at invocation time; the context-aware
     // style_f closure is the runtime-configurable equivalent
@@ -313,12 +291,10 @@ pub fn styler() -> Action {
     })
 }
 
-#[allow(non_snake_case)]
 pub fn suffix() -> Action {
     Action::values(["apple", "melon", "orange"]).suffix("juice")
 }
 
-#[allow(non_snake_case)]
 pub fn suppress() -> Action {
     carapace_rs::batch(vec![
         Action::message("unexpected error"),
@@ -327,12 +303,10 @@ pub fn suppress() -> Action {
     .suppress(["ignored"])
 }
 
-#[allow(non_snake_case)]
 pub fn tag() -> Action {
     Action::values(["192.168.1.1", "127.0.0.1"]).tag("interfaces")
 }
 
-#[allow(non_snake_case)]
 pub fn tagf() -> Action {
     Action::values(["one.png", "two.gif", "three.txt", "four.md"])
         .style_f(|c, value| carapace_rs::shell::for_path_ext(c, &value.value))
@@ -353,7 +327,6 @@ pub fn tagf() -> Action {
         })
 }
 
-#[allow(non_snake_case)]
 pub fn timeout() -> Action {
     Action::callback(|_| {
         std::thread::sleep(std::time::Duration::from_secs(3));
@@ -362,17 +335,14 @@ pub fn timeout() -> Action {
     .timeout(2, Action::message("timeout exceeded"))
 }
 
-#[allow(non_snake_case)]
 pub fn unique() -> Action {
     Action::values(["one", "two", "two", "three", "three", "three"]).unique()
 }
 
-#[allow(non_snake_case)]
 pub fn uniquelist() -> Action {
     Action::values(["one", "two", "three"]).unique_list(",")
 }
 
-#[allow(non_snake_case)]
 pub fn uniquelistf() -> Action {
     Action::multiparts_n(":", 2, |c| match c.parts.len() {
         0 => Action::values(["one", "two", "three"]),
@@ -381,7 +351,6 @@ pub fn uniquelistf() -> Action {
     .unique_list_f(",", |s| s.split(':').next().unwrap_or_default().to_owned())
 }
 
-#[allow(non_snake_case)]
 pub fn unless() -> Action {
     Action::multiparts_n(":", 2, |c| match c.parts.len() {
         0 => Action::values(["true", "false"]).suffix(":"),
@@ -395,13 +364,11 @@ pub fn unless() -> Action {
     })
 }
 
-#[allow(non_snake_case)]
 pub fn unlessf() -> Action {
     Action::values(["./local", "~/home", "/abs", "one", "two", "three"])
         .unless_f(carapace_rs::condition::completing_path)
 }
 
-#[allow(non_snake_case)]
 pub fn usage_action() -> Action {
     Action::values(Vec::<String>::new()).usage("explicit usage")
 }

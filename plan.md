@@ -127,7 +127,10 @@ All settled decisions hold; two are strained:
 
 - [ ] missing bridges vs Go: argcomplete, aws, bpaf, click, complete, gcloud,
       jj, kingpin, kitten, powershell, symfony, typer, urfavecli, yargs.
-- [ ] spec macros: `$message`, `$spec`, shell macros, custom/external macros.
+- [ ] spec macros: `$message`, `$spec`, shell macros, custom/external macros
+      — done except **custom in-process macros** (Go `AddMacro`/`AddMacroI`/
+      `AddMacroV`); the external `_carapace macro` protocol covers
+      cross-binary macros.
 - [ ] clap: `value_delimiter`, remaining `ValueHint`s, command-level
       `allow_hyphen_values`, subcommand short flags, bounded nargs.
 - [ ] shlex: document the sanctioned divergences in AGENTS.md (cmd tokenizer).

@@ -14,7 +14,11 @@ pub mod fish;
 pub mod inshellisense;
 pub mod jj;
 pub mod kingpin;
+pub mod powershell;
 pub mod shell;
+pub mod symfony;
+pub mod typer;
+pub mod urfavecli;
 pub mod yargs;
 pub mod zsh;
 
@@ -36,6 +40,11 @@ where
         "complete" => complete::action(command),
         "jj" => jj::action(command),
         "kingpin" => kingpin::action(command),
+        "powershell" => powershell::action(command),
+        "symfony" => symfony::action(command),
+        "typer" => typer::action(command),
+        "urfavecli" => urfavecli::action(command),
+        "urfavecli_v1" => urfavecli::urfavecli_v1(command),
         "yargs" => yargs::action(command),
         "fish" => fish::action(command),
         "bash" => shell::bash(command),

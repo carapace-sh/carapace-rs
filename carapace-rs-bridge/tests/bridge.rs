@@ -685,3 +685,125 @@ fn bpaf_bridge_reverses_fish_output() {
         ]
     );
 }
+
+#[test]
+fn typer_bridge_reads_typer_complete_args() {
+    let (path_dir, _guard) = fake_on_path("faketyper");
+    let _ = path_dir;
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("typer"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key("faketyper", &[]),
+            "one\tfirst-description\n\n".to_owned(),
+        )]),
+    };
+    let invoked =
+        bridge::typer::action(["faketyper"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let described: Vec<(String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.description.clone()))
+        .collect();
+    assert_eq!(
+        described,
+        vec![("one".to_owned(), "first-description".to_owned())]
+    );
+}
+
+#[test]
+fn urfavecli_bridge_parses_shell_completions() {
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("urfavecli"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "fakecli",
+                &[String::new(), "--generate-shell-completion".to_owned()],
+            ),
+            "one:first\n\n".to_owned(),
+        )]),
+    };
+    let invoked =
+        bridge::urfavecli::action(["fakecli"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let described: Vec<(String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.description.clone()))
+        .collect();
+    assert_eq!(described, vec![("one".to_owned(), "first".to_owned())]);
+    assert!(!invoked.meta.nospace.is_empty(), "{:?}", invoked.meta);
+}
+
+#[test]
+fn urfavecli_v1_bridge_reads_bash_completions() {
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("urfavecli-v1"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "fakecli",
+                &[String::new(), "--generate-bash-completion".to_owned()],
+            ),
+            "one\ntwo\n\n".to_owned(),
+        )]),
+    };
+    let invoked = bridge::urfavecli::urfavecli_v1(["fakecli"])
+        .invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    // the split keeps one empty element (Go `lines[:len(lines)-1]`)
+    assert_eq!(
+        values,
+        vec!["one".to_owned(), "two".to_owned(), String::new()]
+    );
+}
+
+#[test]
+fn symfony_bridge_parses_tab_descriptions() {
+    let (path_dir, _guard) = fake_on_path("fakesymfony");
+    let _ = path_dir;
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("symfony"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "fakesymfony",
+                &[
+                    "_complete".to_owned(),
+                    "--no-interaction".to_owned(),
+                    "-s".to_owned(),
+                    "zsh".to_owned(),
+                    "-c".to_owned(),
+                    "1".to_owned(),
+                    "-ifakesymfony".to_owned(),
+                ],
+            ),
+            "one\tfirst-description\n".to_owned(),
+        )]),
+    };
+    let invoked = bridge::symfony::action(["fakesymfony"])
+        .invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let described: Vec<(String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.description.clone()))
+        .collect();
+    assert_eq!(
+        described,
+        vec![("one".to_owned(), "first-description".to_owned())]
+    );
+}
+
+#[test]
+fn aws_bridge_reads_completer_output() {
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("aws"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key("aws_completer", &[]),
+            "ec2 \ns3 \n\n".to_owned(),
+        )]),
+    };
+    let invoked = bridge::aws::action(["aws"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    // the v1 space suffix is stripped; the split keeps one empty element
+    assert_eq!(
+        values,
+        vec!["ec2".to_owned(), "s3".to_owned(), String::new()]
+    );
+}

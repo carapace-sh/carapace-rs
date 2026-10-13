@@ -3,7 +3,7 @@ resolver = "3"
 members = ["carapace-rs-shlex", "carapace-rs", "carapace-rs-clap", "carapace-rs-testkit", "carapace-rs-spec", "carapace-rs-bridge"]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.0.3"
 edition = "2024"
 rust-version = "1.85"
 

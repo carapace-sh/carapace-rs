@@ -11,10 +11,10 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-carapace-rs = { path = "../carapace-rs", version = "0.0.1" }
+carapace-rs = { path = "../carapace-rs", version = "0.0.3" }
 serde_json = "1"
 dirs = "6"
-carapace-rs-shlex = { path = "../carapace-rs-shlex", version = "0.0.1" }
+carapace-rs-shlex = { path = "../carapace-rs-shlex", version = "0.0.3" }
 
 [dev-dependencies]
 carapace-rs-clap = { path = "../carapace-rs-clap" }

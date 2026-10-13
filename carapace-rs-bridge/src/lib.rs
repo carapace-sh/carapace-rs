@@ -4,6 +4,7 @@
 //! Bridges spawn the external completer, parse its output conventions
 //! and convert them into [`Action`]s.
 
+pub mod argcomplete;
 pub mod cobra;
 pub mod fish;
 pub mod inshellisense;
@@ -21,6 +22,7 @@ where
     S: AsRef<str>,
 {
     match name {
+        "argcomplete" => argcomplete::action(command),
         "fish" => fish::action(command),
         "bash" => shell::bash(command),
         "zsh" => zsh::action(command),
@@ -51,6 +53,22 @@ pub(crate) fn config_dir(context: &carapace_rs::Context) -> Option<std::path::Pa
     }
     // platform directory elsewhere (not env-driven)
     dirs::config_dir()
+}
+
+/// Find an executable on the PATH (Go `exec.LookPath`).
+pub(crate) fn look_path(program: &str) -> Option<std::path::PathBuf> {
+    let path = std::env::var("PATH").ok()?;
+    std::env::split_paths(&path).find_map(|dir| {
+        let candidate = dir.join(program);
+        let with_ext = if cfg!(windows) {
+            dir.join(format!("{program}.exe"))
+        } else {
+            candidate.clone()
+        };
+        [candidate, with_ext]
+            .into_iter()
+            .find(|path| path.is_file())
+    })
 }
 
 /// Create an empty file (and its parent directories) if it does not exist.

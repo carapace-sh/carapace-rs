@@ -49,7 +49,16 @@ where
                         let description = fields.next().unwrap_or_default().to_owned();
                         values.push(carapace_rs::RawValue::described(value, description));
                     }
-                    Action::raw(values).nospace(['/', '=', '@', ':', '.', ','])
+                    Action::raw(values)
+                        .style_f(|context, value| {
+                            // assume `--flag=value` results are optargs
+                            let path = match value.value.strip_prefix("--") {
+                                Some(rest) if rest.contains('=') => rest.split_once('=').unwrap().1,
+                                _ => value.value.as_str(),
+                            };
+                            carapace_rs::shell::for_path(context, path)
+                        })
+                        .nospace(['/', '=', '@', ':', '.', ','])
                 }
                 Err(error) => Action::message(error),
             }

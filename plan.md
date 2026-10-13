@@ -47,12 +47,18 @@ All settled decisions hold; two are strained:
       (`$nospace`, `$filter`, `$style`, ...) instead of "unsupported macro".
 - [x] spec: error visibly on unsupported flag keys (multi-char shorthand)
       instead of silently dropping flags.
-- [ ] spec: envsubst (`$VAR`/`${VAR}`) in entries; `C_ARGn`/`C_VALUE` exports.
+- [x] spec: envsubst (`$VAR`/`${VAR}`) in entries; `C_ARGn`/`C_VALUE` exports.
+      Repeatable flags now accumulate their values across occurrences (pflag
+      slice semantics) so `C_FLAG_<NAME>` joins them with `,`.
 - [x] bridge: cobra directive-error paths match Go (`ActionValues()` on
       unparseable directive and ShellCompDirectiveError).
-- [ ] bridge: fish/zsh/bash/inshellisense missing `style.ForPath` styling.
+- [x] bridge: fish/zsh/bash/inshellisense missing `style.ForPath` styling
+      (`for_path`/`for_path_ext` applied via `style_f`, Go parity incl. the
+      fish `--flag=value` optarg heuristic; inshellisense test added).
 - [x] shlex: triple-quote runes missing from `raw_value`/`span` (xonsh).
-- [ ] shlex: variable detection gated on format (cmd/powershell have none in Go).
+- [x] shlex: variable detection gated on format (cmd/powershell have none in Go)
+      — already the case (`variable.rs` returns `None` for cmd/powershell;
+      oil rides bash like Go; tested in `tests/edgecase.rs`).
 
 ## Low priority / hygiene
 
@@ -69,11 +75,37 @@ All settled decisions hold; two are strained:
       leaves trailing whitespace.
 - [x] bridge zsh: strip ANSI only from the value part; handle non-SGR CSI
       sequences.
-- [ ] `Shell::detect()` has no Windows support (cmd-clink detection).
-- [ ] `entry.rs`: `style set` swallows I/O errors; `args[2]` dropped silently
-      in the ≥3-arg completion arm.
-- [ ] `serde_yaml` is archived upstream — plan a migration.
-- [ ] expose only Go-public `TokenSliceExt` methods; fix `lexer.rs:8` doc link.
+- [x] `Shell::detect()` has no Windows support (cmd-clink detection).
+      Refactored detection into `shell/ps.rs`: the `/proc` walk (unix, incl.
+      the Termux linker resolution) and a `CreateToolhelp32Snapshot` walk
+      (windows, via a target-gated `windows-sys` dependency) both feed a
+      shared `classify_shell`; `detect()` works on both platforms.
+- [x] `entry.rs`: `style set` swallows I/O errors; `args[2]` dropped silently
+      in the ≥3-arg completion arm. `style_set` now returns its errors (Go
+      `style.Set` reports them on stderr; a test covers the unwritable-dir
+      path). The `args[2]` drop is Go parity: Go's `complete()` also drops
+      the command name (`traverse(cmd, args[2:])`) and the entry comment
+      documents this.
+- [x] `serde_yaml` is archived upstream — plan a migration (recorded below;
+      execution deliberately deferred until the fork landscape settles).
+
+      **Migration plan.** Usage is small and isolated: `carapace-rs-spec`
+      only uses `serde_yaml::from_str`, `to_string` and `Value`/`Mapping`
+      (`src/lib.rs:63`, `src/marshal.rs:10`). Preferred path: switch to the
+      drop-in fork `serde_yaml_ng` (same API, actively maintained, MIT) —
+      a one-line dependency change plus round-trip re-verification of the
+      existing spec tests (`yaml_round_trip`, `hidden_flags_survive_round_trip`,
+      `persistent_flags_round_trip_and_inherit`). Fallback if that fork
+      stalls: a thin serde deserializer/serializer over `saphyr-parser`,
+      kept behind the `spec` feature (DD18) so the default build stays
+      unaffected. Do NOT adopt `serde_yml` (libyml dependency has open
+      soundness issues). Acceptance: `cargo test -p carapace-rs-spec` and
+      the `_carapace spec` snippet tests pass unchanged, no YAML-format
+      drift in the dumped specs.
+- [x] expose only Go-public `TokenSliceExt` methods; fix `lexer.rs:8` doc link.
+      `pipelines`/`current_token`/`words_with_substitutions` (Go-unexported)
+      moved to a separate `#[doc(hidden)] pub trait TokenSliceInternals`;
+      `TokenSliceExt` now carries only the five Go-exported methods.
 
 ## Test infrastructure
 

@@ -391,3 +391,126 @@ completion:
     let invoked = any.invoke(&Context::default().value("src/"));
     assert!(invoked.meta.nospace.contains(&'/'), "{:?}", invoked.meta);
 }
+
+#[test]
+fn entries_envsubst_with_c_exports() {
+    // Go `action.Parse` exports C_ARG<n>, C_VALUE and C_FLAG_<NAME> on
+    // the context before substituting the entries
+    let yaml = r#"
+name: mycmd
+completion:
+  positionalany: ["arg=${C_ARG0:-unset} value=${C_VALUE}", "${C_ARG0:-default}${C_VALUE:-none}"]
+"#;
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+
+    // completing the second positional: arg0 and value are exported
+    let completion = carapace_rs::traverse(&model, vec!["first".to_owned(), "".to_owned()]);
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .iter()
+        .map(|value| value.value.clone())
+        .collect();
+    assert!(
+        values.contains(&"arg=first value=".to_owned()),
+        "{values:?}"
+    );
+    // C_ARG0 substitutes, the empty C_VALUE takes its default
+    assert!(values.contains(&"firstnone".to_owned()), "{values:?}");
+
+    // flag exports: set flags appear uppercase, repeatables joined with ,
+    let yaml = r#"
+name: mycmd
+flags:
+  -f, --file=: input file
+  --tag*=: repeatable
+completion:
+  flag:
+    file: ["file=${C_FLAG_FILE:-unset}"]
+    tag: ["tag=${C_FLAG_FILE:-unset}${C_FLAG_TAG:-none}"]
+"#;
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+    let completion = carapace_rs::traverse(
+        &model,
+        vec![
+            "--file=dev".to_owned(),
+            "--tag=a".to_owned(),
+            "--tag=b".to_owned(),
+            "--file=".to_owned(),
+        ],
+    );
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .iter()
+        .map(|value| value.value.clone())
+        .collect();
+    // flag-value candidates are completed with the flag prefix reattached
+    assert!(values.contains(&"--file=file=dev".to_owned()), "{values:?}");
+
+    let completion = carapace_rs::traverse(
+        &model,
+        vec![
+            "--file=dev".to_owned(),
+            "--tag=a".to_owned(),
+            "--tag=b".to_owned(),
+            "--tag=".to_owned(),
+        ],
+    );
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .iter()
+        .map(|value| value.value.clone())
+        .collect();
+    assert!(
+        values.contains(&"--tag=tag=deva,b".to_owned()),
+        "{values:?}"
+    );
+
+    // unset flag falls back to the default
+    let completion = carapace_rs::traverse(&model, vec!["--file=".to_owned()]);
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .iter()
+        .map(|value| value.value.clone())
+        .collect();
+    assert!(
+        values.contains(&"--file=file=unset".to_owned()),
+        "{values:?}"
+    );
+}
+
+#[test]
+fn envsubst_escape_and_error_degrade_to_message() {
+    let yaml = r#"
+name: mycmd
+completion:
+  positionalany: ["pre${!C_VALUE}", "${}"]
+"#;
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+    let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
+    let invoked = completion.action.invoke(&completion.context);
+    let values: Vec<String> = invoked
+        .values
+        .iter()
+        .map(|value| value.value.clone())
+        .collect();
+    // the escaped form passes through verbatim
+    assert!(values.contains(&"pre${C_VALUE}".to_owned()), "{values:?}");
+    // a bad substitution degrades the entry to a message (Go semantics)
+    assert!(
+        invoked
+            .meta
+            .messages
+            .iter()
+            .any(|message| message.contains("bad substitution")),
+        "{:?}",
+        invoked.meta.messages
+    );
+}

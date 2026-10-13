@@ -5,7 +5,7 @@ use super::token::{LexerState, RuneClass, Token, TokenType};
 use super::wordbreak::WordbreakType;
 
 /// Turns an input string into a sequence of typed tokens. Whitespace and
-/// comments are skipped by the [`Lexer`](crate::Lexer) wrapper.
+/// comments are skipped by the crate-internal `Lexer` wrapper.
 pub(crate) struct Tokenizer {
     chars: Vec<char>,
     index: usize,

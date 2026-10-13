@@ -3,7 +3,7 @@
 use super::format::FormatImpl;
 use super::substitution::{count_unclosed_command_scopes, innermost_unclosed_command_scope};
 use super::token::{LexerState, Span, Token};
-use super::tokenslice::TokenSliceExt;
+use super::tokenslice::{TokenSliceExt, TokenSliceInternals};
 use super::variable::{Variable, variable_ref};
 use super::{Format, format::format_impl_for};
 

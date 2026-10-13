@@ -75,7 +75,7 @@ pub(crate) fn count_unclosed_command_scopes(tokens: &[Token]) -> usize {
 mod tests {
     use super::*;
     use crate::split;
-    use crate::tokenslice::TokenSliceExt;
+    use crate::tokenslice::{TokenSliceExt, TokenSliceInternals};
     use crate::{Format, complete};
 
     fn scope(s: &str) -> Option<usize> {

@@ -195,15 +195,67 @@ fn convert(spec: Spec, inherited: &[Flag]) -> Result<Command, String> {
 
 /// Build a completion action from a list of macro/value entries.
 ///
-/// Plain entries accumulate into values; macros merge in via batch. An
-/// entry may chain ` ||| ` modifiers; a modifier as the *first* part of
-/// an entry applies to the whole batch (Go `action.Parse`).
-fn values_action(entries: &[String]) -> Action {
+/// The entries are envsubst'ed at invocation time with `C_ARG<n>`,
+/// `C_VALUE` and `C_FLAG_<NAME>` exported onto the context (Go
+/// `action.Parse`); a substitution error degrades the entry to a
+/// message action. Plain entries accumulate into values; macros merge
+/// in via batch. An entry may chain ` ||| ` modifiers; a modifier as
+/// the *first* part of an entry applies to the whole batch (Go
+/// `action.Parse`).
+pub(crate) fn values_action(entries: &[String]) -> Action {
+    let entries: Vec<String> = entries.to_vec();
+    Action::callback(move |c| {
+        // Go's `action.Parse` sets the exports on the invocation context
+        // so macros and nested actions see them too
+        let mut context = c.clone();
+        let args = context.args.clone();
+        for (index, arg) in args.iter().enumerate() {
+            context.env.insert(format!("C_ARG{index}"), arg.clone());
+        }
+        let value = context.value.clone();
+        context.env.insert("C_VALUE".to_owned(), value);
+        let parsed_flags = context.parsed_flags.clone();
+        for (flag, values) in parsed_flags {
+            context
+                .env
+                .insert(format!("C_FLAG_{}", flag.to_uppercase()), values.join(","));
+        }
+
+        let substituted: Vec<Result<String, String>> = entries
+            .iter()
+            .map(|entry| {
+                context
+                    .envsubst(entry)
+                    .map_err(|error| format!("{error}: {entry:?}"))
+            })
+            .collect();
+        build_values_action(&substituted)
+            .invoke(&context)
+            .to_action()
+    })
+}
+
+/// Assemble the substituted entries into the batch action (Go
+/// `action.Parse`'s ` ||| ` split and batch composition).
+fn build_values_action(entries: &[Result<String, String>]) -> Action {
     let mut base: Option<Action> = None;
     let mut values: Vec<RawValue> = Vec::new();
     let mut batch_modifiers: Vec<Box<dyn Fn(Action) -> Action + Send + Sync>> = Vec::new();
 
     for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(message) => {
+                base = Some(match base {
+                    Some(existing) => {
+                        let merged = carapace_rs::batch(vec![existing, Action::message(message)]);
+                        Action::callback(move |c| merged.invoke(c).to_action())
+                    }
+                    None => Action::message(message),
+                });
+                continue;
+            }
+        };
         let mut parts = entry.split(" ||| ");
         let first = parts.next().unwrap_or_default();
         if first.starts_with('$') && macro_resolve::is_batch_modifier(first) {

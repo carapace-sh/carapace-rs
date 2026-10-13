@@ -359,3 +359,37 @@ fn cobra_bridge_with_values_and_directive() {
         output
     );
 }
+
+#[test]
+fn inshellisense_bridge_styles_files() {
+    // Go `StyleF(style.ForPathExt).Tag("files")`: file suggestions are
+    // styled by extension from LS_COLORS
+    let mock = carapace_rs::mock::Mock {
+        dir: std::env::temp_dir(),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "inshellisense",
+                &["complete".to_owned(), "bridgeish  ".to_owned()],
+            ),
+            r#"{"suggestions":[
+                {"name":"img.png","allNames":["img.png"],"description":"a file","icon":"\ud83d\udcc0"}
+            ]}"#
+            .to_owned(),
+        )]),
+    };
+    let invoked = bridge::inshellisense::action(["bridgeish"]).invoke(
+        &carapace_rs::Context::new([""])
+            .env("LS_COLORS", "*.png=01;35")
+            .mock(mock),
+    );
+
+    let styled: Vec<(String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.style.clone()))
+        .collect();
+    assert_eq!(
+        styled,
+        vec![("img.png".to_owned(), "magenta bold".to_owned())]
+    );
+}

@@ -24,6 +24,8 @@ mod verify;
 pub use completion::{CompletionContext, complete};
 pub use token::{LexerState, Span, Token, TokenType};
 pub use tokenslice::TokenSliceExt;
+#[doc(hidden)]
+pub use tokenslice::TokenSliceInternals;
 pub use wordbreak::WordbreakType;
 
 /// The bash COMP_WORDBREAKS default.
@@ -225,7 +227,7 @@ mod tests {
 // ported from Go completion_test.go (TestComplete)
 #[cfg(test)]
 mod completion_tests {
-    use super::tokenslice::TokenSliceExt;
+    use super::tokenslice::TokenSliceInternals;
     use super::*;
 
     struct Case {

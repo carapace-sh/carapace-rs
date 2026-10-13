@@ -28,8 +28,10 @@ pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<
         && args.get(2).map(String::as_str) == Some("set")
     {
         if let (Some(name), Some(style)) = (args.get(3), args.get(4)) {
-            style_set(name, style);
-            return Some(String::new());
+            return Some(match style_set(name, style) {
+                Ok(()) => String::new(),
+                Err(error) => error,
+            });
         }
         return Some("usage: _carapace style set <name> <style>".to_owned());
     }
@@ -141,8 +143,10 @@ pub fn execute_embedded(cmd: clap::Command) -> carapace_rs::Action {
     carapace_rs::Action::execute(std::sync::Arc::new(model))
 }
 
-/// Merge a style entry into the user's `styles.json`.
-fn style_set(name: &str, style: &str) {
+/// Merge a style entry into the user's `styles.json`. I/O errors surface
+/// to the caller instead of being swallowed (Go `style.Set` reports the
+/// error on stderr).
+fn style_set(name: &str, style: &str) -> Result<(), String> {
     let Some(config_dir) = std::env::var("XDG_CONFIG_HOME")
         .ok()
         .filter(|dir| !dir.is_empty())
@@ -154,18 +158,19 @@ fn style_set(name: &str, style: &str) {
         })
         .map(|dir| dir.join("carapace"))
     else {
-        return;
+        return Err("failed to resolve config dir".to_owned());
     };
     let path = config_dir.join("styles.json");
+    // a missing or unreadable file only means the defaults apply
     let mut styles: std::collections::HashMap<String, String> = std::fs::read_to_string(&path)
         .ok()
         .and_then(|content| serde_json::from_str(&content).ok())
         .unwrap_or_default();
     styles.insert(name.to_owned(), style.to_owned());
-    if let Ok(json) = serde_json::to_string_pretty(&styles) {
-        let _ = std::fs::create_dir_all(&config_dir);
-        let _ = std::fs::write(&path, json);
-    }
+    let json = serde_json::to_string_pretty(&styles).map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&config_dir).map_err(|error| error.to_string())?;
+    std::fs::write(&path, json).map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 /// Generate the shell integration snippet for the command.

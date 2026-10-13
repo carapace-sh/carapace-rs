@@ -1,6 +1,8 @@
 mod common;
 
-use carapace_rs_shlex::{Format, LexerState, TokenSliceExt, TokenType, WordbreakType, split};
+use carapace_rs_shlex::{
+    Format, LexerState, TokenSliceExt, TokenSliceInternals, TokenType, WordbreakType, split,
+};
 use common::{pipeline_count, split_words};
 
 fn words_of(input: &str) -> Vec<String> {

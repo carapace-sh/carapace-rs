@@ -7,6 +7,7 @@ pub mod fish;
 pub mod lscolors;
 pub mod nushell;
 pub mod powershell;
+mod ps;
 pub mod simple;
 pub mod style;
 pub mod xonsh;
@@ -55,53 +56,11 @@ impl Shell {
     }
 
     /// Detect the shell from the parent process chain (Go
-    /// `ps.DetermineShell`): walk `/proc` upward and match the first
-    /// executable belonging to a known shell. Bash is reported as
+    /// `ps.DetermineShell`): walk the process tree upward and match the
+    /// first executable belonging to a known shell. Bash is reported as
     /// bash-ble when ble.sh is attached.
-    ///
-    /// Returns `None` on non-unix platforms (the `/proc` walk is the only
-    /// supported source here).
     pub fn detect() -> Option<Self> {
-        let mut pid = std::process::id();
-        loop {
-            pid = process_parent(pid)?;
-            let mut name = process_name(pid);
-            if matches!(name.as_str(), "linker" | "linker64") {
-                // Termux rewrites execve through the system linker; the
-                // real binary is the first cmdline entry
-                name = std::fs::read_to_string(format!("/proc/{pid}/cmdline").as_str())
-                    .ok()
-                    .and_then(|data| {
-                        data.split('\0')
-                            .next()
-                            .map(|path| path.rsplit('/').next().unwrap_or(path).to_owned())
-                    })
-                    .unwrap_or(name);
-            }
-            let trimmed = name.trim_end_matches(".exe");
-            let base = trimmed.split('-').next().unwrap_or(trimmed);
-            match base {
-                "bash" => {
-                    return Some(if is_ble() { Self::BashBle } else { Self::Bash });
-                }
-                "cmd" => return Some(Self::CmdClink),
-                "elvish" => return Some(Self::Elvish),
-                "fish" => return Some(Self::Fish),
-                "ion" => return Some(Self::Ion),
-                "nu" => return Some(Self::Nushell),
-                "oil" | "osh" => return Some(Self::Oil),
-                "powershell" | "pwsh" => return Some(Self::PowerShell),
-                "tcsh" => return Some(Self::Tcsh),
-                "xonsh" => return Some(Self::Xonsh),
-                "zsh" => return Some(Self::Zsh),
-                _ => {
-                    if name.contains("xonsh-wrapped") {
-                        // nix packaged version
-                        return Some(Self::Xonsh);
-                    }
-                }
-            }
-        }
+        ps::parents(std::process::id()).find_map(|name| classify_shell(&name))
     }
 
     /// The shell's name (Go's shell identifier).
@@ -261,6 +220,32 @@ impl Shell {
 pub use crate::config::Flags;
 
 /// The parent pid of the process, from `/proc/{pid}/stat`.
+/// Classify an ancestor executable name (Go `ps.DetermineShell`'s
+/// switch): the `.exe` suffix is stripped and a `-` suffix (e.g.
+/// `bash-5.2`) is trimmed before matching.
+fn classify_shell(name: &str) -> Option<Shell> {
+    let trimmed = name.trim_end_matches(".exe");
+    let base = trimmed.split('-').next().unwrap_or(trimmed);
+    match base {
+        "bash" => Some(if is_ble() {
+            Shell::BashBle
+        } else {
+            Shell::Bash
+        }),
+        "cmd" => Some(Shell::CmdClink),
+        "elvish" => Some(Shell::Elvish),
+        "fish" => Some(Shell::Fish),
+        "ion" => Some(Shell::Ion),
+        "nu" => Some(Shell::Nushell),
+        "oil" | "osh" => Some(Shell::Oil),
+        "powershell" | "pwsh" => Some(Shell::PowerShell),
+        "tcsh" => Some(Shell::Tcsh),
+        "xonsh" => Some(Shell::Xonsh),
+        "zsh" => Some(Shell::Zsh),
+        _ => name.contains("xonsh-wrapped").then_some(Shell::Xonsh),
+    }
+}
+
 fn process_parent(pid: u32) -> Option<u32> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
     // the comm field is parenthesized and may contain spaces

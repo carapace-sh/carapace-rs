@@ -5,6 +5,7 @@
 
 use super::format::FormatImpl;
 use super::token::RuneClass;
+use super::tokenslice::TokenSliceInternals;
 use super::{Format, TokenSliceExt, TokenType, WordbreakType, complete, split};
 
 // --- bash (verify_bash_test.go) ---

@@ -4,16 +4,12 @@
 use super::wordbreak::WordbreakType;
 use crate::token::{LexerState, Token, TokenType};
 
-/// Helpers over a token slice (port of the `TokenSlice` methods in
-/// `tokenslice.go`).
+/// Helpers over a token slice (port of the exported `TokenSlice` methods
+/// in `tokenslice.go`).
 pub trait TokenSliceExt {
     /// The tokens of the last (current) pipeline: pipeline delimiters split
     /// pipelines; substitution scopes protect their content.
     fn current_pipeline(&self) -> Vec<Token>;
-
-    /// The pipelines of the token slice: pipeline delimiters split
-    /// pipelines; substitution scopes protect their content.
-    fn pipelines(&self) -> Vec<Vec<Token>>;
 
     /// Merge tokens into words: adjoining tokens concatenate.
     fn words(&self) -> Vec<Token>;
@@ -21,47 +17,32 @@ pub trait TokenSliceExt {
     /// The word values of the slice.
     fn strings(&self) -> Vec<String>;
 
-    /// The last word of the slice.
-    fn current_token(&self) -> Option<Token>;
-
     /// Remove redirect operators and their targets.
     fn filter_redirects(&self) -> Vec<Token>;
-
-    /// Merge tokens into words, treating closed substitution scopes as
-    /// single words; unclosed scopes are left as separate tokens.
-    fn words_with_substitutions(&self) -> Vec<Token>;
 
     /// The wordbreak prefix of the last token: the raw text from the last
     /// word boundary (or opening quote) up to the cursor.
     fn wordbreak_prefix(&self) -> String;
 }
 
-impl TokenSliceExt for [Token] {
-    fn pipelines(&self) -> Vec<Vec<Token>> {
-        let mut pipelines: Vec<Vec<Token>> = Vec::new();
-        let mut pipeline: Vec<Token> = Vec::new();
-        let mut depth: usize = 0;
-        for token in self {
-            if token.wordbreak_type == WordbreakType::SubstitutionOpen {
-                depth += 1;
-                pipeline.push(token.clone());
-            } else if token.wordbreak_type == WordbreakType::SubstitutionClose {
-                depth = depth.saturating_sub(1);
-                pipeline.push(token.clone());
-            } else if depth > 0 {
-                pipeline.push(token.clone());
-            } else if token.kind == TokenType::Wordbreak
-                && token.wordbreak_type.is_pipeline_delimiter()
-            {
-                pipelines.push(std::mem::take(&mut pipeline));
-            } else {
-                pipeline.push(token.clone());
-            }
-        }
-        pipelines.push(pipeline);
-        pipelines
-    }
+/// Internal helpers matching Go's unexported `TokenSlice` methods
+/// (`pipelines`, `currentToken`, `wordsWithSubstitutions`); not part of
+/// the crate's public API.
+#[doc(hidden)] // ported internal (Go-unexported); reachable for tests, not API
+pub trait TokenSliceInternals {
+    /// The pipelines of the token slice: pipeline delimiters split
+    /// pipelines; substitution scopes protect their content.
+    fn pipelines(&self) -> Vec<Vec<Token>>;
 
+    /// The last word of the slice.
+    fn current_token(&self) -> Option<Token>;
+
+    /// Merge tokens into words, treating closed substitution scopes as
+    /// single words; unclosed scopes are left as separate tokens.
+    fn words_with_substitutions(&self) -> Vec<Token>;
+}
+
+impl TokenSliceExt for [Token] {
     fn current_pipeline(&self) -> Vec<Token> {
         let mut pipelines = self.pipelines();
         pipelines.pop().unwrap_or_default()
@@ -89,10 +70,6 @@ impl TokenSliceExt for [Token] {
         self.iter().map(|t| t.value.clone()).collect()
     }
 
-    fn current_token(&self) -> Option<Token> {
-        self.last().cloned()
-    }
-
     fn filter_redirects(&self) -> Vec<Token> {
         let mut filtered = Vec::new();
         for (index, token) in self.iter().enumerate() {
@@ -114,6 +91,92 @@ impl TokenSliceExt for [Token] {
             filtered.push(token.clone());
         }
         filtered
+    }
+
+    fn wordbreak_prefix(&self) -> String {
+        if self.is_empty() {
+            return String::new();
+        }
+        let mut found = false;
+        let mut prefix = String::new();
+
+        let last = self.last().unwrap();
+        match last.state {
+            LexerState::Quoting
+            | LexerState::QuotingEscaping
+            | LexerState::EscapingQuoted
+            | LexerState::QuotingTriple
+            | LexerState::QuotingTripleEscaping => {
+                // bash handles the last opening quote as a wordbreak when
+                // in quoting state: add the value up to the opening quote
+                found = true;
+                prefix = last.value[..last.wordbreak_index.min(last.value.len())].to_owned();
+            }
+            _ => {}
+        }
+
+        for index in (0..self.len().saturating_sub(1)).rev() {
+            let token = &self[index];
+            if !token.adjoins(&self[index + 1]) {
+                break;
+            }
+
+            if token.kind == TokenType::Wordbreak && token.value == "@" {
+                if !found {
+                    found = true;
+                    continue;
+                }
+                // @ after a boundary: skip if adjacent to another wordbreak,
+                // include if between two word tokens (e.g. user@host)
+                let previous_is_wordbreak =
+                    index > 0 && self[index - 1].kind == TokenType::Wordbreak;
+                let next_is_wordbreak =
+                    index + 1 < self.len() && self[index + 1].kind == TokenType::Wordbreak;
+                if previous_is_wordbreak || next_is_wordbreak {
+                    continue;
+                }
+            }
+
+            if !found && token.kind == TokenType::Wordbreak {
+                found = true;
+            }
+
+            if found {
+                prefix = token.value.clone() + &prefix;
+            }
+        }
+        prefix
+    }
+}
+
+impl TokenSliceInternals for [Token] {
+    fn pipelines(&self) -> Vec<Vec<Token>> {
+        let mut pipelines: Vec<Vec<Token>> = Vec::new();
+        let mut pipeline: Vec<Token> = Vec::new();
+        let mut depth: usize = 0;
+        for token in self {
+            if token.wordbreak_type == WordbreakType::SubstitutionOpen {
+                depth += 1;
+                pipeline.push(token.clone());
+            } else if token.wordbreak_type == WordbreakType::SubstitutionClose {
+                depth = depth.saturating_sub(1);
+                pipeline.push(token.clone());
+            } else if depth > 0 {
+                pipeline.push(token.clone());
+            } else if token.kind == TokenType::Wordbreak
+                && token.wordbreak_type.is_pipeline_delimiter()
+            {
+                pipelines.push(std::mem::take(&mut pipeline));
+            } else {
+                pipeline.push(token.clone());
+            }
+        }
+        pipelines.push(pipeline);
+        pipelines
+    }
+
+    fn current_token(&self) -> Option<Token> {
+        self.last().cloned()
     }
 
     fn words_with_substitutions(&self) -> Vec<Token> {
@@ -187,67 +250,9 @@ impl TokenSliceExt for [Token] {
         // unclosed substitution: don't append the partial word
         words
     }
-
-    fn wordbreak_prefix(&self) -> String {
-        if self.is_empty() {
-            return String::new();
-        }
-        let mut found = false;
-        let mut prefix = String::new();
-
-        let last = self.last().unwrap();
-        match last.state {
-            LexerState::Quoting
-            | LexerState::QuotingEscaping
-            | LexerState::EscapingQuoted
-            | LexerState::QuotingTriple
-            | LexerState::QuotingTripleEscaping => {
-                // bash handles the last opening quote as a wordbreak when
-                // in quoting state: add the value up to the opening quote
-                found = true;
-                prefix = last.value[..last.wordbreak_index.min(last.value.len())].to_owned();
-            }
-            _ => {}
-        }
-
-        for index in (0..self.len().saturating_sub(1)).rev() {
-            let token = &self[index];
-            if !token.adjoins(&self[index + 1]) {
-                break;
-            }
-
-            if token.kind == TokenType::Wordbreak && token.value == "@" {
-                if !found {
-                    found = true;
-                    continue;
-                }
-                // @ after a boundary: skip if adjacent to another wordbreak,
-                // include if between two word tokens (e.g. user@host)
-                let previous_is_wordbreak =
-                    index > 0 && self[index - 1].kind == TokenType::Wordbreak;
-                let next_is_wordbreak =
-                    index + 1 < self.len() && self[index + 1].kind == TokenType::Wordbreak;
-                if previous_is_wordbreak || next_is_wordbreak {
-                    continue;
-                }
-            }
-
-            if !found && token.kind == TokenType::Wordbreak {
-                found = true;
-            }
-
-            if found {
-                prefix = token.value.clone() + &prefix;
-            }
-        }
-        prefix
-    }
 }
 
 impl TokenSliceExt for Vec<Token> {
-    fn pipelines(&self) -> Vec<Vec<Token>> {
-        self.as_slice().pipelines()
-    }
     fn current_pipeline(&self) -> Vec<Token> {
         self.as_slice().current_pipeline()
     }
@@ -257,17 +262,23 @@ impl TokenSliceExt for Vec<Token> {
     fn strings(&self) -> Vec<String> {
         self.as_slice().strings()
     }
-    fn current_token(&self) -> Option<Token> {
-        self.as_slice().current_token()
-    }
     fn filter_redirects(&self) -> Vec<Token> {
         self.as_slice().filter_redirects()
     }
-    fn words_with_substitutions(&self) -> Vec<Token> {
-        self.as_slice().words_with_substitutions()
-    }
     fn wordbreak_prefix(&self) -> String {
         self.as_slice().wordbreak_prefix()
+    }
+}
+
+impl TokenSliceInternals for Vec<Token> {
+    fn pipelines(&self) -> Vec<Vec<Token>> {
+        self.as_slice().pipelines()
+    }
+    fn current_token(&self) -> Option<Token> {
+        self.as_slice().current_token()
+    }
+    fn words_with_substitutions(&self) -> Vec<Token> {
+        self.as_slice().words_with_substitutions()
     }
 }
 

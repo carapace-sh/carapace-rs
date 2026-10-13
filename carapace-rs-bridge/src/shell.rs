@@ -100,7 +100,9 @@ where
                     let action = if values.is_empty() {
                         Action::files(Vec::<String>::new())
                     } else {
-                        Action::raw(values)
+                        Action::raw(values).style_f(|context, value| {
+                            carapace_rs::shell::for_path(context, &value.value)
+                        })
                     };
                     action.nospace(['/', '=', '@', ':', '.', ','])
                 }

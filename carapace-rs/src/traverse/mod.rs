@@ -214,6 +214,19 @@ fn traverse_command(
         context.args = parsed.positionals.clone();
         context.parsed_flags = template.parsed_flags.clone();
         for (name, values) in parsed.flags.iter() {
+            // repeatable flags accumulate values across occurrences (pflag
+            // slice semantics); others keep the last occurrence only
+            let repeatable = cmd.lookup_id(name).is_some_and(|flag| flag.repeatable);
+            if repeatable {
+                if let Some(existing) = context
+                    .parsed_flags
+                    .iter_mut()
+                    .find(|(flag, _)| flag == name)
+                {
+                    existing.1.extend(values.iter().cloned());
+                    continue;
+                }
+            }
             context.parsed_flags.retain(|(flag, _)| flag != name);
             context.parsed_flags.push((name.clone(), values.clone()));
         }

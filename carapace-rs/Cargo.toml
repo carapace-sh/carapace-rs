@@ -17,3 +17,6 @@ carapace-rs-shlex = { path = "../carapace-rs-shlex", version = "0.0.3" }
 dirs = "6"
 libc = "0.2.190"
 regex = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Diagnostics_ToolHelp", "Win32_Foundation"] }

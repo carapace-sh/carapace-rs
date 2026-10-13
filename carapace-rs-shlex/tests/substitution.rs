@@ -3,7 +3,9 @@
 
 mod common;
 
-use carapace_rs_shlex::{Format, TokenSliceExt, TokenType, WordbreakType, complete, split};
+use carapace_rs_shlex::{
+    Format, TokenSliceExt, TokenSliceInternals, TokenType, WordbreakType, complete, split,
+};
 
 fn substitution_words(s: &str, format: Format) -> Vec<String> {
     split(s, format)

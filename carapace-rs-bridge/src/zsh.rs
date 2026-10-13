@@ -54,7 +54,11 @@ where
                             }
                         }
                     }
-                    Action::raw(values).nospace(['/', '=', '@', ':', '.', ','])
+                    Action::raw(values)
+                        .style_f(|context, value| {
+                            carapace_rs::shell::for_path(context, &value.value)
+                        })
+                        .nospace(['/', '=', '@', ':', '.', ','])
                 }
                 Err(error) => Action::message(error),
             }

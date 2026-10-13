@@ -232,6 +232,39 @@ fn carapace_unknown_shell_yields_nothing() {
 }
 
 #[test]
+fn style_set_surfaces_io_errors() {
+    // an unwritable config dir must surface an error, not succeed silently
+    let _lock = env_lock();
+    let blocker = std::env::temp_dir().join(format!("carapace-styleblock-{}", std::process::id()));
+    let previous = std::env::var("XDG_CONFIG_HOME").ok();
+    // XDG_CONFIG_HOME points at a regular file, so create_dir_all must fail
+    std::fs::write(&blocker, "x").unwrap();
+    unsafe { std::env::set_var("XDG_CONFIG_HOME", &blocker) };
+
+    let output = carapace_rs_clap::complete(
+        factory,
+        &[
+            "_carapace".to_string(),
+            "style".to_string(),
+            "set".to_string(),
+            "carapace.Error".to_string(),
+            "magenta".to_string(),
+        ],
+    );
+    match previous {
+        Some(value) => unsafe { std::env::set_var("XDG_CONFIG_HOME", value) },
+        None => unsafe { std::env::remove_var("XDG_CONFIG_HOME") },
+    }
+
+    assert!(
+        output.as_ref().is_some_and(|o| !o.is_empty()),
+        "expected an error message, got {:?}",
+        output
+    );
+    std::fs::remove_dir_all(&blocker).ok();
+}
+
+#[test]
 fn style_set_persists_to_styles_json() {
     let _lock = env_lock();
     let dir = std::env::temp_dir().join(format!("carapace-styleset-{}", std::process::id()));

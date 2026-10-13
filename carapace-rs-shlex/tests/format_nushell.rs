@@ -1,6 +1,6 @@
 mod common;
 
-use carapace_rs_shlex::{Format, LexerState, TokenSliceExt, complete, split};
+use carapace_rs_shlex::{Format, LexerState, TokenSliceExt, TokenSliceInternals, complete, split};
 use common::{filtered_pipeline_words, pipeline_count, split_words};
 
 fn escape_test(input: &str, want: &str) {

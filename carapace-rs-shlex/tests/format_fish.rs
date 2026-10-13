@@ -1,7 +1,7 @@
 mod common;
 
 use carapace_rs_shlex::{
-    Format, LexerState, TokenSliceExt, TokenType, complete, quote_word, split,
+    Format, LexerState, TokenSliceExt, TokenSliceInternals, TokenType, complete, quote_word, split,
 };
 use common::{pipeline_count, split_words};
 

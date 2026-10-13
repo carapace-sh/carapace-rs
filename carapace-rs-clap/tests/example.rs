@@ -263,6 +263,55 @@ mod flag {
     use super::*;
 
     #[test]
+    fn completes_flag_values_by_shape() {
+        let sandbox = Sandbox::new("example-flag-values");
+
+        // typed single value, next-argument and attached forms
+        sandbox
+            .run(cmd::root_cmd, &["flag", "--Int", ""])
+            .expect(Action::values(["1", "2", "3"]).usage("Int"));
+        sandbox.run(cmd::root_cmd, &["flag", "--Int="]).expect(
+            Action::values(["1", "2", "3"])
+                .prefix("--Int=")
+                .usage("Int"),
+        );
+        sandbox.run(cmd::root_cmd, &["flag", "--Duration="]).expect(
+            Action::values(["1h", "2m", "3s"])
+                .prefix("--Duration=")
+                .usage("Duration"),
+        );
+
+        // delimited multi-value chains the last element onto the prefix
+        sandbox
+            .run(cmd::root_cmd, &["flag", "--IntSlice=1,"])
+            .expect(
+                Action::values(["1", "2", "3"])
+                    .prefix("--IntSlice=1,")
+                    .usage("IntSlice"),
+            );
+
+        // non-delimited multi-value completes full values
+        sandbox
+            .run(cmd::root_cmd, &["flag", "--StringArray="])
+            .expect(
+                Action::values(["1", "2", "3"])
+                    .prefix("--StringArray=")
+                    .usage("StringArray"),
+            );
+
+        // boolean flags are optional values: attached filtering works
+        sandbox.run(cmd::root_cmd, &["flag", "--Bool=t"]).expect(
+            Action::styled_values([("true", "green")])
+                .prefix("--Bool=")
+                .usage("Bool"),
+        );
+        // ... and they never consume the next argument
+        sandbox.run(cmd::root_cmd, &["flag", "--Bool", ""]).expect(
+            Action::values_described([("disabled", "flag parsing disabled")]).tag("commands"),
+        );
+    }
+
+    #[test]
     fn completes_dash_arguments() {
         let sandbox = Sandbox::new("example-flag-dash");
         sandbox

@@ -393,3 +393,53 @@ fn inshellisense_bridge_styles_files() {
         vec![("img.png".to_owned(), "magenta bold".to_owned())]
     );
 }
+
+#[test]
+fn carapace_bin_bridge_imports_export_json() {
+    // Go bridge.ActionCarapaceBin: `carapace <cmd> export "" <args...>`
+    let mock = carapace_rs::mock::Mock {
+        dir: std::env::temp_dir(),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "carapace",
+                &[
+                    "git".to_owned(),
+                    "export".to_owned(),
+                    String::new(),
+                    String::new(),
+                ],
+            ),
+            r#"{"version":"v0.7.0","messages":[],"noprefix":"","nospace":"","usage":"","values":[{"value":"commit","display":"commit","description":"record changes"}]}"#
+                .to_owned(),
+        )]),
+    };
+    let invoked = bridge::carapace_bin(["git"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    assert_eq!(values, vec!["commit".to_owned()]);
+}
+
+#[test]
+fn carapace_bin_bridge_falls_back_to_files_on_empty_output() {
+    let mock = carapace_rs::mock::Mock {
+        dir: std::env::temp_dir(),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "carapace",
+                &[
+                    "git".to_owned(),
+                    "export".to_owned(),
+                    String::new(),
+                    String::new(),
+                ],
+            ),
+            String::new(),
+        )]),
+    };
+    let invoked = bridge::carapace_bin(["git"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    // the fallback completes real files
+    assert!(
+        !invoked.values.is_empty() && invoked.values.iter().all(|v| v.tag == "files"),
+        "{:?}",
+        invoked.values
+    );
+}

@@ -139,3 +139,110 @@ fn cmd_clink_patch_honors_caret_escape() {
     unsafe { std::env::remove_var("CARAPACE_COMPLINE") };
     assert_eq!(patched, vec!["one two"]);
 }
+
+#[test]
+fn bash_patch_passes_through_without_comp_line() {
+    let _guard = env_lock();
+    for name in ["COMP_LINE", "COMP_POINT", "COMP_TYPE", "COMP_WORDBREAKS"] {
+        unsafe { std::env::remove_var(name) };
+    }
+    let patched = carapace_rs::shell::bash::patch(vec!["myapp".into(), "arg".into()]);
+    match patched {
+        carapace_rs::shell::bash::Patch::Patched {
+            args,
+            wordbreak_prefix,
+            comp_type,
+        } => {
+            assert_eq!(args, vec!["myapp".to_owned(), "arg".to_owned()]);
+            assert_eq!(wordbreak_prefix, "");
+            assert_eq!(comp_type, "");
+        }
+        other => panic!("expected Patched, got {other:?}"),
+    }
+}
+
+#[test]
+fn bash_patch_relexes_and_drops_binary() {
+    let _guard = env_lock();
+    unsafe { std::env::set_var("COMP_LINE", "myapp --flag \"a b\" tail") };
+    unsafe { std::env::set_var("COMP_POINT", "27") };
+    let patched = carapace_rs::shell::bash::patch(vec!["ignored".into()]);
+    match patched {
+        carapace_rs::shell::bash::Patch::Patched { args, .. } => {
+            assert_eq!(
+                args,
+                vec!["--flag".to_owned(), "a b".to_owned(), "tail".to_owned()]
+            );
+        }
+        other => panic!("expected Patched, got {other:?}"),
+    }
+}
+
+#[test]
+fn bash_patch_reports_redirect_target() {
+    let _guard = env_lock();
+    unsafe { std::env::set_var("COMP_LINE", "myapp sub > ") };
+    unsafe { std::env::set_var("COMP_POINT", "12") };
+    let patched = carapace_rs::shell::bash::patch(vec!["ignored".into()]);
+    assert!(matches!(patched, carapace_rs::shell::bash::Patch::Redirect));
+}
+
+#[test]
+fn bash_patch_truncates_at_comp_point() {
+    let _guard = env_lock();
+    unsafe { std::env::set_var("COMP_LINE", "myapp one two") };
+    unsafe { std::env::set_var("COMP_POINT", "9") };
+    let patched = carapace_rs::shell::bash::patch(vec!["ignored".into()]);
+    match patched {
+        carapace_rs::shell::bash::Patch::Patched { args, .. } => {
+            assert_eq!(args, vec!["one".to_owned()]);
+        }
+        other => panic!("expected Patched, got {other:?}"),
+    }
+}
+
+#[test]
+fn bash_patch_recovers_trailing_partial_token() {
+    let _guard = env_lock();
+    unsafe { std::env::set_var("COMP_LINE", "myapp \"a b") };
+    unsafe { std::env::set_var("COMP_POINT", "10") };
+    let patched = carapace_rs::shell::bash::patch(vec!["ignored".into()]);
+    match patched {
+        carapace_rs::shell::bash::Patch::Patched { args, .. } => {
+            assert_eq!(args, vec!["a b".to_owned()]);
+        }
+        other => panic!("expected Patched, got {other:?}"),
+    }
+}
+
+#[test]
+fn bash_patch_extracts_wordbreak_prefix_and_comp_type() {
+    let _guard = env_lock();
+    unsafe { std::env::set_var("COMP_LINE", "myapp --profile=dev") };
+    unsafe { std::env::set_var("COMP_POINT", "19") };
+    unsafe { std::env::set_var("COMP_WORDBREAKS", " =") };
+    unsafe { std::env::set_var("COMP_TYPE", "63") };
+    let patched = carapace_rs::shell::bash::patch(vec!["ignored".into()]);
+    match patched {
+        carapace_rs::shell::bash::Patch::Patched {
+            args,
+            wordbreak_prefix,
+            comp_type,
+        } => {
+            assert_eq!(args, vec!["--profile=dev".to_owned()]);
+            assert_eq!(wordbreak_prefix, "--profile=");
+            assert_eq!(comp_type, "63");
+        }
+        other => panic!("expected Patched, got {other:?}"),
+    }
+}
+
+#[test]
+fn bash_patch_consumes_comp_env() {
+    let _guard = env_lock();
+    unsafe { std::env::set_var("COMP_LINE", "myapp one") };
+    unsafe { std::env::set_var("COMP_TYPE", "9") };
+    let _ = carapace_rs::shell::bash::patch(vec!["ignored".into()]);
+    assert!(std::env::var("COMP_LINE").is_err(), "COMP_LINE consumed");
+    assert!(std::env::var("COMP_TYPE").is_err(), "COMP_TYPE consumed");
+}

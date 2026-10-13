@@ -16,6 +16,9 @@ jobs:
     - name: shallow clone
       uses: actions/checkout@v4
 
+    - name: Install shells
+      run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends fish zsh
+
     - name: Build
       run: cargo build --verbose
 

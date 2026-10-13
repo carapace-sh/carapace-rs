@@ -60,6 +60,15 @@ fn fake_on_path(name: &str) -> (std::path::PathBuf, std::sync::MutexGuard<'stati
     (dir, guard)
 }
 
+/// Whether an external tool is installed (the fish/zsh bridges delegate to
+/// the real shells; CI installs them, local environments may not).
+fn tool_installed(tool: &str) -> bool {
+    std::process::Command::new(tool)
+        .arg("--version")
+        .output()
+        .is_ok_and(|output| output.status.success())
+}
+
 fn cli() -> Command {
     Command::new("outer").disable_help_subcommand(true).arg(
         Arg::new("rest")
@@ -93,6 +102,9 @@ fn carapace_rs_bridge_completes_git() {
 
 #[test]
 fn fish_bridge_uses_custom_config() {
+    if !tool_installed("fish") {
+        return;
+    }
     let dir = std::env::temp_dir().join(format!("carapace-fish-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("carapace/bridge/fish")).unwrap();
     std::fs::write(
@@ -182,6 +194,9 @@ fn clap_bridge_parses_lines_and_nospace() {
 
 #[test]
 fn zsh_bridge_uses_custom_config() {
+    if !tool_installed("zsh") {
+        return;
+    }
     let dir = std::env::temp_dir().join(format!("carapace-zsh-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("carapace/bridge/zsh")).unwrap();
     std::fs::write(

@@ -280,23 +280,39 @@ impl Action {
     pub fn executables() -> Self {
         Self::callback(|c| {
             let path = c.get_env("PATH");
-            let mut values = Vec::new();
-            let mut seen = std::collections::HashSet::new();
-            for dir in std::env::split_paths(&path) {
-                let Ok(entries) = std::fs::read_dir(dir) else {
-                    continue;
-                };
-                for entry in entries.flatten() {
-                    let name = entry.file_name().to_string_lossy().into_owned();
-                    if is_executable(&entry.path()) && seen.insert(name.clone()) {
-                        values.push(RawValue::new(name));
-                    }
-                }
-            }
-            sort_executables(&mut values);
-            Action::raw(values)
+            let dirs: Vec<String> = std::env::split_paths(&path)
+                .map(|dir| dir.to_string_lossy().into_owned())
+                .collect();
+            executables_in_dirs(dirs)
         })
     }
+
+    /// Completes executables in the given directories (Go
+    /// `ActionExecutables(dirs...)`).
+    pub fn executables_in(dirs: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let dirs: Vec<String> = dirs.into_iter().map(Into::into).collect();
+        Self::callback(move |_| executables_in_dirs(dirs.clone()))
+    }
+}
+
+/// The shared executable listing for [`Action::executables`] and
+/// [`Action::executables_in`].
+fn executables_in_dirs(dirs: Vec<String>) -> Action {
+    let mut values = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for dir in dirs {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if is_executable(&entry.path()) && seen.insert(name.clone()) {
+                values.push(RawValue::new(name));
+            }
+        }
+    }
+    sort_executables(&mut values);
+    Action::raw(values)
 }
 
 fn is_executable(path: &Path) -> bool {

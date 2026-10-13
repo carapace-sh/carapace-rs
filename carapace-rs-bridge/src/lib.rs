@@ -11,9 +11,11 @@ pub mod click;
 pub mod cobra;
 pub mod complete;
 pub mod fish;
+pub mod gcloud;
 pub mod inshellisense;
 pub mod jj;
 pub mod kingpin;
+pub mod kitten;
 pub mod powershell;
 pub mod shell;
 pub mod symfony;
@@ -39,6 +41,7 @@ where
         "click" => click::action(command),
         "complete" => complete::action(command),
         "jj" => jj::action(command),
+        "kitten" => kitten::action(command),
         "kingpin" => kingpin::action(command),
         "powershell" => powershell::action(command),
         "symfony" => symfony::action(command),
@@ -46,7 +49,9 @@ where
         "urfavecli" => urfavecli::action(command),
         "urfavecli_v1" => urfavecli::urfavecli_v1(command),
         "yargs" => yargs::action(command),
+        "argcomplete_v1" => argcomplete::v1(command),
         "fish" => fish::action(command),
+        "gcloud" => gcloud::action(command),
         "bash" => shell::bash(command),
         "zsh" => zsh::action(command),
         "carapace" => carapace(command),

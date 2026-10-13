@@ -807,3 +807,66 @@ fn aws_bridge_reads_completer_output() {
         vec!["ec2".to_owned(), "s3".to_owned(), String::new()]
     );
 }
+
+#[test]
+fn kitten_bridge_maps_match_groups() {
+    // the request JSON goes to stdin; the mock answers by command
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("kitten"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key("kitten", &["__complete__".to_owned(), "json".to_owned()]),
+            r#"[{"groups":[
+                {"title":"Options","no_trailing_space":true,"is_files":false,"matches":[
+                    {"word":"--flag","description":"a longhand"},
+                    {"word":"-f","description":"a shorthand"}]},
+                {"title":"Sub-commands","no_trailing_space":false,"is_files":false,"matches":[
+                    {"word":"run","description":"run it"}]}
+            ]}]"#
+                .to_owned(),
+        )]),
+    };
+    let invoked =
+        bridge::kitten::action(["kitty"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let tagged: Vec<(String, String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.description.clone(), v.tag.clone()))
+        .collect();
+    assert_eq!(
+        tagged,
+        vec![
+            (
+                "--flag".to_owned(),
+                "a longhand".to_owned(),
+                "longhand flags".to_owned()
+            ),
+            (
+                "-f".to_owned(),
+                "a shorthand".to_owned(),
+                "shorthand flags".to_owned()
+            ),
+            ("run".to_owned(), "run it".to_owned(), "commands".to_owned()),
+        ]
+    );
+    // the options group carries the nospace flag
+    assert!(!invoked.meta.nospace.is_empty(), "{:?}", invoked.meta);
+}
+
+#[test]
+fn gcloud_bridge_expands_dash_and_sets_update_check_env() {
+    let (_dir, _guard) = fake_on_path("gcloud");
+    // the v1 protocol runs through `sh -c` with fd redirections
+    let script = "gcloud 8>&1 9>&2 1>/dev/null 2>/dev/null";
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("gcloud"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key("sh", &["-c".to_owned(), script.to_owned()]),
+            "components \n\n".to_owned(),
+        )]),
+    };
+    let context = carapace_rs::Context::new([""]).mock(mock);
+    let invoked = bridge::gcloud::action(["gcloud"]).invoke(&context);
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    // the v1 protocol keeps the output verbatim (no space stripping)
+    assert_eq!(values, vec!["components ".to_owned()]);
+}

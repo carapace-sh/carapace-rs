@@ -231,6 +231,52 @@ impl Context {
         }
     }
 
+    /// Execute a command with this context's environment and directory,
+    /// feeding `stdin` to the child process.
+    ///
+    /// Mock replies ignore the stdin content (they answer by command).
+    pub fn execute_stdin<I, S>(
+        &self,
+        program: &str,
+        args: I,
+        stdin: &[u8],
+    ) -> Result<Vec<u8>, String>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        use std::io::Write;
+        let args: Vec<String> = args
+            .into_iter()
+            .map(|arg| arg.as_ref().to_owned())
+            .collect();
+        if let Some(reply) = self
+            .mock
+            .as_ref()
+            .and_then(|mock| mock.reply(program, &args))
+        {
+            return Ok(reply.into_bytes());
+        }
+        let mut command = std::process::Command::new(program);
+        command.args(&args).env_clear().envs(&self.env);
+        if !self.dir.as_os_str().is_empty() {
+            command.current_dir(&self.dir);
+        }
+        command.stdin(std::process::Stdio::piped());
+        let mut child = command.spawn().map_err(|error| error.to_string())?;
+        if let Some(mut pipe) = child.stdin.take() {
+            let _ = pipe.write_all(stdin);
+        }
+        let output = child
+            .wait_with_output()
+            .map_err(|error| error.to_string())?;
+        if output.status.success() {
+            Ok(output.stdout)
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).into_owned())
+        }
+    }
+
     /// Shift `n` arguments off the front of `args`.
     pub fn shifted(&self, n: usize) -> Self {
         let mut shifted = self.clone();

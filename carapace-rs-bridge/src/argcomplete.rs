@@ -148,6 +148,84 @@ fn create_temp_file() -> Option<(std::path::PathBuf, std::fs::File)> {
     None
 }
 
+/// Deprecated v1 protocol (fd 8/9 redirection, unavailable on
+/// powershell/windows): the completer writes candidates to fd 8, which
+/// the `sh -c` wrapper redirects to stdout (Go `ActionArgcompleteV1`).
+pub(crate) fn v1<I, S>(command: I) -> Action
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let command: Vec<String> = command
+        .into_iter()
+        .map(|arg| arg.as_ref().to_owned())
+        .collect();
+    Action::callback(move |c| {
+        if super::look_path(&command[0]).is_none() {
+            return Action::message(format!("command not found: {}", command[0]));
+        }
+
+        let mut args: Vec<String> = command[1..].to_vec();
+        args.extend(c.args.iter().cloned());
+        let mut current = c.value.clone();
+        let mut prefix = String::new();
+        if current.starts_with("--") {
+            if let Some((flag, _)) = current.split_once('=') {
+                prefix = format!("{flag}=");
+                args.push(flag.to_owned());
+                current = String::new();
+            } else {
+                current = "--".to_owned();
+            }
+        } else {
+            current = String::new();
+        }
+
+        let mut words = args.clone();
+        words.push(current);
+        let comp_line = format!("{} {}", command[0], words.join(" "));
+
+        let mut context = c.clone();
+        for (key, value) in [
+            ("_ARGCOMPLETE", "1"),
+            ("_ARGCOMPLETE_DFS", "\t"),
+            ("_ARGCOMPLETE_IFS", "\n"),
+            ("_ARGCOMPLETE_SHELL", "fish"),
+            ("_ARGCOMPLETE_SUPPRESS_SPACE", "1"),
+            ("COMP_LINE", comp_line.as_str()),
+            ("COMP_POINT", &comp_line.len().to_string()),
+        ] {
+            context.env.insert(key.to_owned(), value.to_owned());
+        }
+
+        let script = format!("{} 8>&1 9>&2 1>/dev/null 2>/dev/null", command[0]);
+        match context.execute("sh", ["-c", &script]) {
+            Err(error) => Action::message(error),
+            Ok(output) => {
+                let text = String::from_utf8_lossy(&output);
+                let (values, nospace) = parse_argcomplete_output(&text, c.value.starts_with('-'));
+
+                let optarg_value = c.value.split_once('=').map(|(_, value)| value.to_owned());
+                let inner = if values.is_empty() {
+                    Action::callback(move |context: &carapace_rs::Context| match &optarg_value {
+                        Some(value) => Action::files(Vec::<String>::new())
+                            .invoke(&context.clone().value(value.clone()))
+                            .to_action(),
+                        None => Action::files(Vec::<String>::new()),
+                    })
+                } else {
+                    Action::raw(values)
+                };
+                let mut action = inner.prefix(prefix);
+                if nospace {
+                    action = action.nospace([]);
+                }
+                action
+            }
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

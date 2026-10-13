@@ -266,49 +266,60 @@ mod flag {
     fn completes_flag_values_by_shape() {
         let sandbox = Sandbox::new("example-flag-values");
 
-        // typed single value, next-argument and attached forms
+        // single value: next-argument and attached forms
         sandbox
-            .run(cmd::root_cmd, &["flag", "--Int", ""])
-            .expect(Action::values(["1", "2", "3"]).usage("Int"));
-        sandbox.run(cmd::root_cmd, &["flag", "--Int="]).expect(
-            Action::values(["1", "2", "3"])
-                .prefix("--Int=")
-                .usage("Int"),
+            .run(cmd::root_cmd, &["flag", "--string", ""])
+            .expect(Action::values(["s1", "s2", "s3"]).usage("single value"));
+        sandbox.run(cmd::root_cmd, &["flag", "--string="]).expect(
+            Action::values(["s1", "s2", "s3"])
+                .prefix("--string=")
+                .usage("single value"),
         );
-        sandbox.run(cmd::root_cmd, &["flag", "--Duration="]).expect(
-            Action::values(["1h", "2m", "3s"])
-                .prefix("--Duration=")
-                .usage("Duration"),
-        );
+
+        // repeatable single value completes again after each occurrence
+        sandbox
+            .run(cmd::root_cmd, &["flag", "--repeat", "r1", "--repeat", ""])
+            .expect(Action::values(["r1", "r2", "r3"]).usage("repeatable single value"));
 
         // delimited multi-value chains the last element onto the prefix
+        sandbox.run(cmd::root_cmd, &["flag", "--slice=1,"]).expect(
+            Action::values(["v1", "v2", "v3"])
+                .prefix("--slice=1,")
+                .usage("delimited multi-value"),
+        );
+
+        // variadic multi-value keeps consuming until the next flag
         sandbox
-            .run(cmd::root_cmd, &["flag", "--IntSlice=1,"])
+            .run(cmd::root_cmd, &["flag", "--array", "a1", ""])
+            .expect(Action::values(["a1", "a2", "a3"]).usage("variadic multi-value"));
+
+        // optional value binds only through =
+        sandbox.run(cmd::root_cmd, &["flag", "--optarg="]).expect(
+            Action::values(["o1", "o2", "o3"])
+                .prefix("--optarg=")
+                .usage("optional value"),
+        );
+        sandbox
+            .run(cmd::root_cmd, &["flag", "--optarg", ""])
             .expect(
-                Action::values(["1", "2", "3"])
-                    .prefix("--IntSlice=1,")
-                    .usage("IntSlice"),
+                Action::values_described([("disabled", "flag parsing disabled")]).tag("commands"),
             );
 
-        // non-delimited multi-value completes full values
-        sandbox
-            .run(cmd::root_cmd, &["flag", "--StringArray="])
-            .expect(
-                Action::values(["1", "2", "3"])
-                    .prefix("--StringArray=")
-                    .usage("StringArray"),
-            );
-
-        // boolean flags are optional values: attached filtering works
-        sandbox.run(cmd::root_cmd, &["flag", "--Bool=t"]).expect(
+        // boolean keywords for the valueless boolean
+        sandbox.run(cmd::root_cmd, &["flag", "--bool=t"]).expect(
             Action::styled_values([("true", "green")])
-                .prefix("--Bool=")
-                .usage("Bool"),
+                .prefix("--bool=")
+                .usage("valueless boolean"),
         );
-        // ... and they never consume the next argument
-        sandbox.run(cmd::root_cmd, &["flag", "--Bool", ""]).expect(
-            Action::values_described([("disabled", "flag parsing disabled")]).tag("commands"),
-        );
+
+        // the counter is valueless and repeatable
+        sandbox
+            .run(cmd::root_cmd, &["flag", "--count", "--count", "--c"])
+            .expect(
+                Action::values_described([("--count", "repeatable counter")])
+                    .tag("longhand flags")
+                    .nospace(['.']),
+            );
     }
 
     #[test]

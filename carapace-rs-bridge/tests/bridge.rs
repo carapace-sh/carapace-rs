@@ -60,15 +60,6 @@ fn fake_on_path(name: &str) -> (std::path::PathBuf, std::sync::MutexGuard<'stati
     (dir, guard)
 }
 
-/// Whether an external tool is installed (the fish/zsh bridges delegate to
-/// the real shells; CI installs them, local environments may not).
-fn tool_installed(tool: &str) -> bool {
-    std::process::Command::new(tool)
-        .arg("--version")
-        .output()
-        .is_ok_and(|output| output.status.success())
-}
-
 fn cli() -> Command {
     Command::new("outer").disable_help_subcommand(true).arg(
         Arg::new("rest")
@@ -101,10 +92,20 @@ fn carapace_rs_bridge_completes_git() {
 }
 
 #[test]
-fn fish_bridge_uses_custom_config() {
-    if !tool_installed("fish") {
-        return;
-    }
+fn fish_bridge_injects_custom_config() {
+    // the fish bridge delegates to the real `fish` binary; a fake on the
+    // PATH records the invocation and answers like fish would
+    let (path_dir, _guard) = fake_on_path("fish");
+    let record = std::env::temp_dir().join(format!("carapace-fish-record-{}", std::process::id()));
+    std::fs::write(
+        path_dir.join("fish"),
+        format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" > {}\nprintf 'one\\ttwo-description\\n'\n",
+            record.to_string_lossy()
+        ),
+    )
+    .unwrap();
+
     let dir = std::env::temp_dir().join(format!("carapace-fish-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("carapace/bridge/fish")).unwrap();
     std::fs::write(
@@ -120,6 +121,13 @@ fn fish_bridge_uses_custom_config() {
         &[""],
     );
     std::fs::remove_dir_all(&dir).ok();
+    let recorded = std::fs::read_to_string(&record).unwrap_or_default();
+    std::fs::remove_file(&record).ok();
+
+    // the fish snippet sources the bridge config and completes the command
+    assert!(recorded.contains("source "), "{recorded:?}");
+    assert!(recorded.contains("config.fish"), "{recorded:?}");
+    assert!(recorded.contains("--do-complete"), "{recorded:?}");
 
     let values = run.values();
     assert_eq!(values, vec!["one"]);
@@ -193,10 +201,21 @@ fn clap_bridge_parses_lines_and_nospace() {
 }
 
 #[test]
-fn zsh_bridge_uses_custom_config() {
-    if !tool_installed("zsh") {
-        return;
-    }
+fn zsh_bridge_injects_custom_config() {
+    // the zsh bridge delegates to the real `zsh` binary; a fake on the
+    // PATH records the invocation and answers like the capture script
+    let (path_dir, _guard) = fake_on_path("zsh");
+    let record = std::env::temp_dir().join(format!("carapace-zsh-record-{}", std::process::id()));
+    std::fs::write(
+        path_dir.join("zsh"),
+        format!(
+            "#!/bin/sh\nshift 3\nprintf '%s\\n' \"$*\" >> {}\nprintf '%s\\n' \"$CARAPACE_BRIDGE_CONFIG_HOME\" >> {}\nprintf 'one -- first value\\r\\n'\n",
+            record.to_string_lossy(),
+            record.to_string_lossy()
+        ),
+    )
+    .unwrap();
+
     let dir = std::env::temp_dir().join(format!("carapace-zsh-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("carapace/bridge/zsh")).unwrap();
     std::fs::write(
@@ -212,6 +231,15 @@ fn zsh_bridge_uses_custom_config() {
         &[""],
     );
     std::fs::remove_dir_all(&dir).ok();
+    let recorded = std::fs::read_to_string(&record).unwrap_or_default();
+    std::fs::remove_file(&record).ok();
+
+    // the capture invocation passes the command and the config home
+    assert!(recorded.contains("bridgezsh"), "{recorded:?}");
+    assert!(
+        recorded.contains(dir.to_string_lossy().as_ref()),
+        "{recorded:?}"
+    );
 
     let values = run.values();
     assert_eq!(values, vec!["one"]);

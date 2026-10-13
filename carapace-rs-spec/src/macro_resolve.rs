@@ -1,5 +1,4 @@
-//! Resolution of `$`-prefixed macros and tab-separated values.
-
+/// Resolution of `$`-prefixed macros and tab-separated values.
 use carapace_rs::Action;
 use carapace_rs::RawValue;
 
@@ -11,10 +10,108 @@ pub fn resolve(entry: &str) -> Action {
             "files" => Action::files(parse_args(args)),
             "directories" => Action::directories(),
             "executables" => Action::executables(),
+            "message" => Action::message(full_arg(args)),
+            "spec" => spec_action(&full_arg(args)),
+            "" | "bash" | "cmd" | "elvish" | "fish" | "nu" | "osh" | "pwsh" | "sh" | "xonsh"
+            | "zsh" => {
+                let shell = if name.is_empty() && cfg!(windows) {
+                    "cmd"
+                } else if name.is_empty() {
+                    "sh"
+                } else {
+                    name
+                };
+                shell_macro(shell, &full_arg(args))
+            }
             other => Action::message(format!("unsupported macro: {other}")),
         };
     }
     Action::raw(vec![parse_value(entry)])
+}
+
+/// The full macro argument (Go `MacroI` with a string parameter receives
+/// everything between the outer parentheses).
+fn full_arg(args: &str) -> String {
+    args.trim_start_matches('(')
+        .trim_end_matches(')')
+        .to_owned()
+}
+
+/// `$spec(path)`: load and execute a spec file (Go `ActionSpec`).
+fn spec_action(path: &str) -> Action {
+    let path = path.to_owned();
+    Action::callback(move |c| {
+        let abs = match c.abs(&path) {
+            Ok(abs) => abs,
+            Err(error) => return Action::message(error),
+        };
+        match std::fs::read_to_string(&abs) {
+            Ok(content) => match crate::from_yaml(&content) {
+                Ok(command) => Action::execute(std::sync::Arc::new(command)),
+                Err(error) => Action::message(error),
+            },
+            Err(error) => Action::message(error.to_string()),
+        }
+    })
+}
+
+/// Shell macros (`$sh(...)`, `$bash(...)`, ...): run the command with the
+/// positional arguments appended and complete each output line as a value
+/// (Go `core.go`'s `shell` helper).
+fn shell_macro(shell: &str, command: &str) -> Action {
+    let shell = shell.to_owned();
+    let command = command.to_owned();
+    Action::callback(move |c| {
+        let arguments: Vec<String> = c.args.clone();
+        let args = match shell_args(&shell, &command, &arguments) {
+            Ok(args) => args,
+            Err(error) => return Action::message(error),
+        };
+        match c.execute(&shell, &args) {
+            Ok(output) => {
+                let text = String::from_utf8_lossy(&output);
+                let values: Vec<RawValue> = text
+                    .lines()
+                    .filter(|line| !line.is_empty())
+                    .map(parse_value)
+                    .collect();
+                Action::raw(values)
+            }
+            Err(error) => Action::message(error),
+        }
+    })
+}
+
+/// Build the interpreter invocation for a shell macro (Go `shellArgs`).
+fn shell_args(shell: &str, command: &str, arguments: &[String]) -> Result<Vec<String>, String> {
+    #[cfg(windows)]
+    if !matches!(shell, "cmd" | "elvish" | "nu" | "pwsh" | "xonsh") {
+        return Err(format!("unsupported shell [windows]: {shell}"));
+    }
+    let mut args = vec!["-c".to_owned()];
+    match shell {
+        "cmd" => {
+            args[0] = "/c".to_owned();
+            args.push(command.to_owned());
+            args.extend(arguments.iter().cloned());
+        }
+        "nu" => {
+            args.push(format!(
+                "def --wrapped main [...args] {{ {command} }}; main {}",
+                carapace_rs_shlex::join(arguments, carapace_rs_shlex::Format::Nushell)
+            ));
+        }
+        "pwsh" => {
+            args.push(command.to_owned());
+            args.extend(arguments.iter().cloned());
+        }
+        _ => {
+            args.push(command.to_owned());
+            args.push("--".to_owned());
+            args.extend(arguments.iter().cloned());
+        }
+    }
+    Ok(args)
 }
 
 /// Parse a tab-separated value entry: `value\tdescription\tstyle`.

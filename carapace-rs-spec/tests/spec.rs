@@ -514,3 +514,74 @@ completion:
         invoked.meta.messages
     );
 }
+
+#[test]
+fn message_macro_surfaces_a_message() {
+    let yaml = r#"
+name: mycmd
+completion:
+  positionalany: ["$message(oops: something went wrong)"]
+"#;
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+    let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
+    let invoked = completion.action.invoke(&completion.context);
+    assert!(invoked.values.is_empty(), "{:?}", invoked.values);
+    assert!(
+        invoked
+            .meta
+            .messages
+            .iter()
+            .any(|m| m.contains("oops: something went wrong")),
+        "{:?}",
+        invoked.meta.messages
+    );
+}
+
+#[test]
+fn shell_macro_completes_command_output() {
+    // `$bash(...)` runs the command with the positional arguments appended
+    let yaml = "name: mycmd\ncompletion:\n  positionalany: [\"$bash(printf 'first\tfirst-description\\n')\"]\n";
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+    let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
+    let invoked = completion.action.invoke(&completion.context);
+    let described: Vec<(String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.description.clone()))
+        .collect();
+    assert_eq!(
+        described,
+        vec![("first".to_owned(), "first-description".to_owned())]
+    );
+}
+
+#[test]
+fn spec_macro_executes_a_nested_spec() {
+    let dir = std::env::temp_dir().join(format!("carapace-specmacro-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let nested = dir.join("nested.yaml");
+    std::fs::write(
+        &nested,
+        "name: inner\ncompletion:\n  positionalany: [\"nested-value\"]\n",
+    )
+    .unwrap();
+
+    let yaml = format!(
+        r#"
+name: mycmd
+completion:
+  positionalany: ["$spec({})"]
+"#,
+        nested.to_string_lossy()
+    );
+    let model = carapace_rs_spec::from_yaml(&yaml).unwrap();
+    let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
+    let invoked = completion.action.invoke(&completion.context);
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    assert!(
+        values.contains(&"nested-value".to_owned()),
+        "{values:?} messages={:?}",
+        invoked.meta.messages
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

@@ -30,11 +30,11 @@ pub fn snippet(binary: &str) -> String {
     format!(
         r#"function _{binary}_completion
   set --local data
-  IFS='' set data (echo (commandline -cp)'' | sed "s/ $/ ''/" | xargs {binary} _carapace fish 2>/dev/null)
+  IFS='' set data (echo (commandline -cp)'' | sed "s/ \$/ ''/" | xargs {binary} _carapace fish 2>/dev/null)
   if [ $status -eq 1 ]
-    IFS='' set data (echo (commandline -cp)"'" | sed "s/ $/ ''/" | xargs {binary} _carapace fish 2>/dev/null)
+    IFS='' set data (echo (commandline -cp)"'" | sed "s/ \$/ ''/" | xargs {binary} _carapace fish 2>/dev/null)
     if [ $status -eq 1 ]
-      IFS='' set data (echo (commandline -cp)'"' | sed "s/ $/ ''/" | xargs {binary} _carapace fish 2>/dev/null)
+      IFS='' set data (echo (commandline -cp)'"' | sed "s/ \$/ ''/" | xargs {binary} _carapace fish 2>/dev/null)
     end
   end
   echo $data

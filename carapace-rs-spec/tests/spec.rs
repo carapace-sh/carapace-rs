@@ -585,3 +585,66 @@ completion:
     );
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn external_macro_dispatches_to_binary() {
+    // `$binary.macro(...)` executes `<binary> _carapace macro <macro>
+    // <args...> <value>` and imports the export JSON (Go `ActionMacro`)
+    let yaml = r#"
+name: mycmd
+completion:
+  positionalany: ["$fake.bin.tools.echo(msg)"]
+"#;
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+    let mock = carapace_rs::mock::Mock {
+        dir: std::env::temp_dir(),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "fake",
+                &[
+                    "_carapace".to_owned(),
+                    "macro".to_owned(),
+                    "bin.tools.echo(msg)".to_owned(),
+                    String::new(),
+                ],
+            ),
+            r#"{"version":"v0.7.0","messages":[],"noprefix":"","nospace":"","usage":"","values":[{"value":"remote-value","display":"remote-value","description":"from remote"}]}"#
+                .to_owned(),
+        )]),
+    };
+    let completion =
+        carapace_rs::traverse_seeded(&model, vec!["".to_owned()], Context::default().mock(mock));
+    let invoked = completion.action.invoke(&completion.context);
+    let described: Vec<(String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.description.clone()))
+        .collect();
+    assert_eq!(
+        described,
+        vec![("remote-value".to_owned(), "from remote".to_owned())],
+        "messages={:?}",
+        invoked.meta.messages
+    );
+}
+
+#[test]
+fn deprecated_underscore_macro_is_a_message() {
+    let yaml = r#"
+name: mycmd
+completion:
+  positionalany: ["$_files"]
+"#;
+    let model = carapace_rs_spec::from_yaml(yaml).unwrap();
+    let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
+    let invoked = completion.action.invoke(&completion.context);
+    assert!(
+        invoked
+            .meta
+            .messages
+            .iter()
+            .any(|m| m.contains("deprecated") && m.contains("$carapace.files")),
+        "{:?}",
+        invoked.meta.messages
+    );
+}

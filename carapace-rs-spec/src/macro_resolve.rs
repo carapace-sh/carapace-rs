@@ -4,29 +4,74 @@ use carapace_rs::RawValue;
 
 /// Resolve a single completion entry into an action.
 pub fn resolve(entry: &str) -> Action {
-    if let Some(macro_entry) = entry.strip_prefix('$') {
-        let (name, args) = split_macro(macro_entry);
-        return match name {
-            "files" => Action::files(parse_args(args)),
-            "directories" => Action::directories(),
-            "executables" => Action::executables(),
-            "message" => Action::message(full_arg(args)),
-            "spec" => spec_action(&full_arg(args)),
-            "" | "bash" | "cmd" | "elvish" | "fish" | "nu" | "osh" | "pwsh" | "sh" | "xonsh"
-            | "zsh" => {
-                let shell = if name.is_empty() && cfg!(windows) {
-                    "cmd"
-                } else if name.is_empty() {
-                    "sh"
-                } else {
-                    name
-                };
-                shell_macro(shell, &full_arg(args))
-            }
-            other => Action::message(format!("unsupported macro: {other}")),
-        };
+    let Some(_) = entry.strip_prefix('$') else {
+        return Action::raw(vec![parse_value(entry)]);
+    };
+
+    // the own-executable prefix (`$myexe.files(...)`) is the internal
+    // macro namespace (Go `ActionMacro`'s `prefix` handling)
+    let mut entry = entry.to_owned();
+    if let Some(exe) = std::env::current_exe().ok().and_then(|path| {
+        path.file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+    }) {
+        let prefix = format!("${exe}.");
+        if let Some(rest) = entry.strip_prefix(&prefix) {
+            entry = format!("$_{rest}");
+        }
     }
-    Action::raw(vec![parse_value(entry)])
+
+    let macro_entry = &entry[1..];
+    let (name, args) = split_macro(macro_entry);
+
+    if name.starts_with('_') && !name.starts_with("_.") {
+        return Action::message(format!(
+            "\"$_\" deprecated: replace ${name} with $carapace.{}",
+            name.strip_prefix('_').unwrap_or(name)
+        ));
+    }
+
+    // a dotted macro belongs to another binary (Go's external macro
+    // protocol): `<binary> _carapace macro <macro> <args...> <value>`
+    if !name.starts_with("_.") && name.contains('.') {
+        let (binary, macro_name) = macro_entry.split_once('.').unwrap();
+        let (binary, macro_name) = (binary.to_owned(), macro_name.to_owned());
+        return Action::callback(move |c| {
+            let mut remote_args = vec![
+                "_carapace".to_owned(),
+                "macro".to_owned(),
+                macro_name.clone(),
+            ];
+            remote_args.extend(c.args.iter().cloned());
+            remote_args.push(c.value.clone());
+            match c.execute(&binary, &remote_args) {
+                Ok(output) => Action::import(&String::from_utf8_lossy(&output)),
+                Err(error) => Action::message(error),
+            }
+        });
+    }
+
+    // internal macros accept the `_.` namespace prefix (Go `macros.Lookup`)
+    let name = name.strip_prefix("_.").unwrap_or(name);
+    match name {
+        "files" => Action::files(parse_args(args)),
+        "directories" => Action::directories(),
+        "executables" => Action::executables(),
+        "message" => Action::message(full_arg(args)),
+        "spec" => spec_action(&full_arg(args)),
+        "" | "bash" | "cmd" | "elvish" | "fish" | "nu" | "osh" | "pwsh" | "sh" | "xonsh"
+        | "zsh" => {
+            let shell = if name.is_empty() && cfg!(windows) {
+                "cmd"
+            } else if name.is_empty() {
+                "sh"
+            } else {
+                name
+            };
+            shell_macro(shell, &full_arg(args))
+        }
+        other => Action::message(format!("unsupported macro: {other}")),
+    }
 }
 
 /// The full macro argument (Go `MacroI` with a string parameter receives

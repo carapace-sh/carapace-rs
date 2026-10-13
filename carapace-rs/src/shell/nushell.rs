@@ -14,7 +14,7 @@ fn sanitize(value: &str) -> String {
 /// Patch arguments passed unprocessed by nushell: dequote quoted strings
 /// and trim backtick strings (port of Go `nushell.Patch`).
 ///
-/// see https://www.nushell.sh/book/working_with_strings.html
+/// see <https://www.nushell.sh/book/working_with_strings.html>
 pub fn patch(args: Vec<String>) -> Vec<String> {
     let patched: Vec<String> = args
         .into_iter()

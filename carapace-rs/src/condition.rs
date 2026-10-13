@@ -8,8 +8,8 @@ pub fn completing_path(context: &Context) -> bool {
     has_path_prefix(&context.value)
 }
 
-/// Like [`completing_path`](Self::completing_path) but also true when the
-/// value contains a `/` (Go `CompletingPathS`).
+/// Like [`completing_path`] but also true when the value contains a `/`
+/// (Go `CompletingPathS`).
 pub fn completing_path_s(context: &Context) -> bool {
     completing_path(context) || context.value.contains('/')
 }

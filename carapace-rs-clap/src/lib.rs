@@ -78,7 +78,7 @@ pub fn positional_completion(
 /// Define completion for the positional arguments after `--`, in order
 /// (port of Go `DashCompletion`): the Nth action completes the Nth dash
 /// argument, entries beyond the defined ones fall back to
-/// [`dash_any_completion`]. A later call replaces the whole list.
+/// [`Carapace::dash_any_completion`]. A later call replaces the whole list.
 pub fn dash_completion(
     cmd: &mut clap::Command,
     actions: impl IntoIterator<Item = carapace_rs::Action>,

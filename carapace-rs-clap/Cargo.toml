@@ -11,8 +11,8 @@ keywords = ["clap", "completion", "shell", "carapace"]
 categories.workspace = true
 
 [dependencies]
-carapace-rs = { path = "../carapace-rs", version = "0.1.0" }
-carapace-rs-spec = { path = "../carapace-rs-spec", version = "0.1.0", optional = true }
+carapace-rs = { path = "../carapace-rs", version = "0.0.1" }
+carapace-rs-spec = { path = "../carapace-rs-spec", version = "0.0.1", optional = true }
 serde_json = "1"
 clap = { version = "4.6", default-features = false, features = ["std", "help", "usage", "error-context", "unstable-ext"] }
 
@@ -21,5 +21,5 @@ default = ["spec"]
 spec = ["dep:carapace-rs-spec"]
 
 [dev-dependencies]
-carapace-rs-testkit = { path = "../carapace-rs-testkit", version = "0.1.0" }
+carapace-rs-testkit = { path = "../carapace-rs-testkit", version = "0.0.1" }
 clap = { version = "4.6", features = ["derive"] }

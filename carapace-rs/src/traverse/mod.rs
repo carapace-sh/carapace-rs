@@ -1,7 +1,7 @@
 //! The completion engine: argument traversal and completion resolution.
 //!
 //! Direct port of Go carapace's `traverse.go` state machine over the
-//! normalized [`Command`](crate::model::Command) model.
+//! normalized [`Command`] model.
 
 mod lookup;
 pub mod parse;

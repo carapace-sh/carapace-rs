@@ -250,8 +250,10 @@ names aligned with Go so specs port mechanically.
   mechanism `completer!`/`command_completer!` build on; they are `macro_rules!`
   exported from carapace-rs-clap, so that one dependency covers derive usage.
 - `_carapace` entry handles: snippet output (0/1 args), completion (2+ args), `style
-  set`, and `spec` (YAML dump, behind the default-on `spec` feature). Unknown
-  shells return `None` so the program runs normally.
+  set`, `macro` (custom macros registered via `carapace_rs_spec::add_macro`;
+  the ≥2-arg invocation emits export JSON for the external `$<exe>.<name>`
+  protocol), and `spec` (YAML dump, behind the default-on `spec` feature).
+  Unknown shells return `None` so the program runs normally.
 
 ## shlex: sanctioned divergences from Go carapace-shlex
 

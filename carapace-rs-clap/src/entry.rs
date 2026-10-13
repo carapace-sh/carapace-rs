@@ -23,6 +23,12 @@ pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<
         let model = crate::to_model(&mut cmd);
         return Some(carapace_rs_spec::to_yaml(&model));
     }
+    // _carapace macro [name [words...]]: run a registered custom macro
+    // (Go `spec.Register`'s macro subcommand; the external `$<exe>.name`
+    // protocol consumes the export output)
+    if args.get(1).map(String::as_str) == Some("macro") {
+        return Some(macro_subcommand(&args[2..]));
+    }
     // _carapace style set <name> <style>: persist to styles.json
     if args.get(1).map(String::as_str) == Some("style")
         && args.get(2).map(String::as_str) == Some("set")
@@ -141,6 +147,58 @@ pub fn execute_embedded(cmd: clap::Command) -> carapace_rs::Action {
     let mut cmd = cmd;
     let model = crate::to_model(&mut cmd);
     carapace_rs::Action::execute(std::sync::Arc::new(model))
+}
+
+/// Handle the `_carapace macro` subcommand (Go `register.go`): list the
+/// registered macros, report a signature placeholder, or run one and emit
+/// its result as export JSON.
+fn macro_subcommand(args: &[String]) -> String {
+    match args.len() {
+        0 => {
+            let exe = std::env::current_exe()
+                .ok()
+                .and_then(|path| {
+                    path.file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                })
+                .unwrap_or_default();
+            let entries: Vec<serde_json::Value> = carapace_rs_spec::macro_names()
+                .iter()
+                .map(|name| {
+                    serde_json::json!({
+                        "name": format!("{exe}.{name}"),
+                        "signature": "\u{2014}",
+                        "description": carapace_rs_spec::macro_description(name)
+                            .unwrap_or_default(),
+                    })
+                })
+                .collect();
+            format!(
+                "{{\"macros\":{}}}",
+                serde_json::to_string(&entries).unwrap_or_default()
+            )
+        }
+        1 => {
+            // the Rust macro functions have no typed signature; Go prints
+            // the em dash placeholder when none exists
+            match carapace_rs_spec::macro_description(&args[0]) {
+                Some(_) => "\u{2014}".to_owned(),
+                None => format!("unknown macro: {}", args[0]),
+            }
+        }
+        _ => {
+            let (value, words) = args[1..].split_last().expect("len >= 2");
+            match carapace_rs_spec::invoke_macro(&args[0], words, value) {
+                Some(action) => {
+                    let context = carapace_rs::Context::new(args[1..].to_vec());
+                    let invoked = action.invoke(&context);
+                    carapace_rs::export::Export::from_parts(&invoked.meta, &invoked.values)
+                        .to_json()
+                }
+                None => format!("unknown macro: {}", args[0]),
+            }
+        }
+    }
 }
 
 /// Merge a style entry into the user's `styles.json`. I/O errors surface

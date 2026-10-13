@@ -495,3 +495,54 @@ fn bash_completes_inside_quoted_whitespace() {
 
     assert!(output.contains("ab c1"), "{output:?}");
 }
+
+#[test]
+fn macro_subcommand_lists_and_runs_registered_macros() {
+    // Go `spec.Register`'s `_carapace macro` subcommand: the external
+    // `$<exe>.<name>(...)` protocol consumes the export JSON
+    carapace_rs_spec::add_macro(
+        "entry.testecho",
+        "echoes args as a message",
+        "$entry.testecho(a)",
+        |args, value| {
+            let mut words: Vec<String> = args.to_vec();
+            words.push(value.to_owned());
+            Action::message(words.join(" "))
+        },
+    );
+
+    // listing includes the executable-prefixed name
+    let listing =
+        carapace_rs_clap::complete(factory, &["_carapace".to_string(), "macro".to_string()])
+            .expect("macro listing");
+    assert!(listing.contains("entry.testecho"), "{listing}");
+    assert!(listing.contains("echoes args as a message"), "{listing}");
+
+    // running the macro exports the action result
+    let output = carapace_rs_clap::complete(
+        factory,
+        &[
+            "_carapace".to_string(),
+            "macro".to_string(),
+            "entry.testecho".to_string(),
+            "one".to_string(),
+            "two".to_string(),
+        ],
+    )
+    .expect("macro invocation");
+    let export: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(export["messages"][0].as_str(), Some("one two"), "{output}");
+
+    // unknown macros are reported
+    let output = carapace_rs_clap::complete(
+        factory,
+        &[
+            "_carapace".to_string(),
+            "macro".to_string(),
+            "nosuch.macro".to_string(),
+            "".to_string(),
+        ],
+    )
+    .expect("macro invocation");
+    assert!(output.contains("unknown macro"), "{output}");
+}

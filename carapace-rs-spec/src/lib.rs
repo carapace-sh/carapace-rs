@@ -4,9 +4,13 @@
 //! tree, resolving `$`-prefixed macros into completion actions.
 
 mod flagkey;
+mod macro_registry;
 mod macro_resolve;
 mod marshal;
 
+pub use macro_registry::{
+    Macro, MacroFn, MacroMap, add_macro, invoke_macro, macro_description, macro_names,
+};
 pub use marshal::to_yaml;
 
 use carapace_rs::model::{Command, Flag, Positional};

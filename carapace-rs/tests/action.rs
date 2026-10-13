@@ -1,9 +1,10 @@
-use carapace_rs::{Action, Context};
+use carapace_rs::{Action, Context, RawValue};
 
 #[test]
 fn values_invoke() {
     let invoked = Action::values(["a", "b", "c"]).invoke(&Context::default());
-    let values: Vec<&str> = invoked.values.iter().map(|v| v.value.as_str()).collect();
+    let export = invoked.to_export();
+    let values: Vec<&str> = export.values.iter().map(|v| v.value.as_str()).collect();
     assert_eq!(values, vec!["a", "b", "c"]);
 }
 
@@ -11,9 +12,9 @@ fn values_invoke() {
 fn values_described() {
     let invoked =
         Action::values_described([("a", "first"), ("b", "second")]).invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "a");
-    assert_eq!(invoked.values[0].display, "a");
-    assert_eq!(invoked.values[0].description, "first");
+    assert_eq!(invoked.to_export().values[0].value, "a");
+    assert_eq!(invoked.to_export().values[0].display, "a");
+    assert_eq!(invoked.to_export().values[0].description, "first");
 }
 
 #[test]
@@ -46,13 +47,13 @@ fn prefix_and_suffix() {
         .clone()
         .prefix("water")
         .invoke(&Context::default().value(""));
-    assert_eq!(values(invoked), vec!["watermelon", "waterdrop"]);
+    assert_eq!(values(invoked), vec!["waterdrop", "watermelon"]);
 
     // prefix mismatch suppresses all values
     let invoked = action
         .prefix("water")
         .invoke(&Context::default().value("salt"));
-    assert!(invoked.values.is_empty());
+    assert!(invoked.to_export().values.is_empty());
 }
 
 #[test]
@@ -60,7 +61,7 @@ fn prefix_filters_by_current_value() {
     let action = Action::values(["melon", "drop"]).prefix("water");
     // filtering by the current value happens later in the shell dispatch
     let invoked = action.invoke(&Context::default().value("waterme"));
-    assert_eq!(values(invoked), vec!["watermelon", "waterdrop"]);
+    assert_eq!(values(invoked), vec!["waterdrop", "watermelon"]);
 }
 
 #[test]
@@ -77,8 +78,14 @@ fn style_and_tag() {
         .style("blue")
         .tag("letters")
         .invoke(&Context::default());
-    assert!(invoked.values.iter().all(|v| v.style == "blue"));
-    assert!(invoked.values.iter().all(|v| v.tag == "letters"));
+    assert!(invoked.to_export().values.iter().all(|v| v.style == "blue"));
+    assert!(
+        invoked
+            .to_export()
+            .values
+            .iter()
+            .all(|v| v.tag == "letters")
+    );
 }
 
 #[test]
@@ -98,8 +105,8 @@ fn callback_is_lazy() {
 #[test]
 fn message() {
     let invoked = Action::message("nothing here").invoke(&Context::default());
-    assert_eq!(invoked.meta.messages, vec!["nothing here"]);
-    assert!(invoked.values.is_empty());
+    assert_eq!(invoked.to_export().meta.messages, vec!["nothing here"]);
+    assert!(invoked.to_export().values.is_empty());
 }
 
 #[test]
@@ -110,6 +117,7 @@ fn unless() {
             .clone()
             .unless(true)
             .invoke(&Context::default())
+            .to_export()
             .values
             .is_empty()
     );
@@ -125,6 +133,7 @@ fn unless_f() {
     assert!(
         action
             .invoke(&Context::default().args(["arg"]))
+            .to_export()
             .values
             .is_empty()
     );
@@ -136,7 +145,7 @@ fn shift() {
     let action = Action::callback(|c| Action::values(c.args.clone()));
     let context = Context::default().args(["one", "two", "three"]);
     let invoked = action.shift(1).invoke(&context);
-    assert_eq!(values(invoked), vec!["two", "three"]);
+    assert_eq!(values(invoked), vec!["three", "two"]);
 }
 
 #[test]
@@ -144,11 +153,11 @@ fn nospace() {
     let invoked = Action::values(["a/"])
         .nospace(['/'])
         .invoke(&Context::default());
-    assert_eq!(invoked.meta.nospace, vec!['/']);
+    assert_eq!(invoked.to_export().meta.nospace, "/");
     let invoked = Action::values(["a"])
         .nospace([])
         .invoke(&Context::default());
-    assert_eq!(invoked.meta.nospace, vec!['*']);
+    assert_eq!(invoked.to_export().meta.nospace, "*");
 }
 
 #[test]
@@ -173,14 +182,14 @@ fn list() {
     let action = Action::values(["one", "two", "three"]).list(",");
     // filtering by the current value happens later in the shell dispatch
     let invoked = action.invoke(&Context::default().value("one,t"));
-    assert_eq!(values(invoked), vec!["one,one", "one,two", "one,three"]);
+    assert_eq!(values(invoked), vec!["one,one", "one,three", "one,two"]);
 }
 
 #[test]
 fn unique_list() {
     let action = Action::values(["one", "two", "three"]).unique_list(",");
     let invoked = action.invoke(&Context::default().value("one,t"));
-    assert_eq!(values(invoked), vec!["one,two", "one,three"]);
+    assert_eq!(values(invoked), vec!["one,three", "one,two"]);
     let invoked = action.invoke(&Context::default().value("one,three,t"));
     assert_eq!(values(invoked), vec!["one,three,two"]);
 }
@@ -190,9 +199,9 @@ fn chained_meta_merges_through_callbacks() {
     let invoked = Action::callback(|_| Action::message("inner").nospace([':']))
         .usage("outer usage")
         .invoke(&Context::default());
-    assert_eq!(invoked.meta.messages, vec!["inner"]);
-    assert_eq!(invoked.meta.usage.as_deref(), Some("outer usage"));
-    assert_eq!(invoked.meta.nospace, vec![':']);
+    assert_eq!(invoked.to_export().meta.messages, vec!["inner"]);
+    assert_eq!(invoked.to_export().meta.usage, "outer usage");
+    assert_eq!(invoked.to_export().meta.nospace, ":");
 }
 
 #[test]
@@ -219,10 +228,18 @@ fn unique_keeps_distinct_uids() {
     // deduplication is by (value, uid): same value with different uid
     // survives, same value with no uid collapses
     let action = Action::callback(|_| {
-        let mut invoked = Action::values(["a", "a"]).invoke(&Context::default());
-        invoked.values[0].uid = Some("u1".to_owned());
-        invoked.values[1].uid = Some("u2".to_owned());
-        invoked.to_action()
+        Action::raw(vec![
+            RawValue {
+                value: "a".to_owned(),
+                uid: Some("u1".to_owned()),
+                ..Default::default()
+            },
+            RawValue {
+                value: "a".to_owned(),
+                uid: Some("u2".to_owned()),
+                ..Default::default()
+            },
+        ])
     });
     assert_eq!(
         values(action.unique().invoke(&Context::default())),
@@ -235,7 +252,7 @@ fn usage_sets_meta() {
     let invoked = Action::values(["a"])
         .usage("explicit usage")
         .invoke(&Context::default());
-    assert_eq!(invoked.meta.usage.as_deref(), Some("explicit usage"));
+    assert_eq!(invoked.to_export().meta.usage, "explicit usage");
 }
 
 #[test]
@@ -272,8 +289,8 @@ fn chdir_scopes_files_completion() {
     let invoked = Action::files(Vec::<String>::new())
         .chdir("notadir")
         .invoke(&context);
-    assert!(invoked.values.is_empty());
-    assert!(!invoked.meta.messages.is_empty());
+    assert!(invoked.to_export().values.is_empty());
+    assert!(!invoked.to_export().meta.messages.is_empty());
 
     std::fs::remove_dir_all(base).unwrap();
 }
@@ -289,14 +306,15 @@ fn files_completion_marks_directories_nospace() {
 
     let context = Context::default().dir(base.clone()).value("");
     let invoked = Action::files(Vec::<String>::new()).invoke(&context);
-    assert!(invoked.meta.nospace.contains(&'/'));
-    let dir = invoked
+    assert!(invoked.to_export().meta.nospace.contains('/'));
+    let export = invoked.to_export();
+    let dir = export
         .values
         .iter()
         .find(|value| value.value == "subdir/")
         .unwrap();
     assert_eq!(dir.nospace, Some(true));
-    let file = invoked
+    let file = export
         .values
         .iter()
         .find(|value| value.value == "file1.txt")
@@ -335,13 +353,37 @@ fn invoked_modifiers_preserve_messages() {
     // the message only materializes on invocation (lazy two-phase API)
     assert!(action.is_callback());
     assert_eq!(
-        action.invoke(&Context::default()).meta.messages,
+        action.invoke(&Context::default()).to_export().meta.messages,
         vec!["skipcache"]
     );
 }
 
 fn values(invoked: carapace_rs::InvokedAction) -> Vec<String> {
-    invoked.values.into_iter().map(|v| v.value).collect()
+    // the export wire format sorts values (Go MarshalJSON); assertions
+    // compare in that order
+    let mut values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
+    values.sort();
+    values
+}
+
+/// Parse the `key=value` pairs of an export query URL string.
+fn query_opts(query: &str) -> Vec<(String, String)> {
+    let (_, query) = query.split_once('?').unwrap_or((query, ""));
+    query
+        .split('&')
+        .filter(|pair| !pair.is_empty())
+        .map(|pair| {
+            pair.split_once('=')
+                .map_or((pair.to_owned(), String::new()), |(key, value)| {
+                    (key.to_owned(), value.to_owned())
+                })
+        })
+        .collect()
 }
 
 #[test]
@@ -353,43 +395,50 @@ fn files_carry_file_uids_and_query() {
 
     let context = Context::default().dir(base.clone()).value("f");
     let invoked = Action::files(Vec::<String>::new()).invoke(&context);
-    let value = invoked
+    let export = invoked.to_export();
+    let value = export
         .values
         .iter()
         .find(|value| value.value == "file1.txt")
         .unwrap();
     let abs = context.abs("file1.txt").unwrap();
     assert_eq!(
-        value.uid.as_deref(),
-        Some(format!("file://{}", carapace_rs::uid::path_escape(&abs)).as_str())
+        value.uid,
+        format!("file://{}", carapace_rs::uid::path_escape(&abs))
     );
 
     // the query annotation records scheme/host, the context directory and
-    // the completed value (Go's C_DIR/C_VALUE opts)
-    let query = &invoked.meta.queries[0];
-    assert_eq!(query.scheme, "file");
-    assert_eq!(query.host, "files");
+    // the completed value (Go's C_DIR/C_VALUE opts); in the export wire
+    // format queries are uid-style URL strings with `key=value` pairs
+    let query = &export.meta.queries[0];
+    assert!(query.starts_with("file://files?"), "{query}");
+    let opts = query_opts(query);
     let c_dir = context.abs(&base.to_string_lossy()).unwrap();
-    let c_dir_index = query.opts.iter().position(|opt| opt == "C_DIR").unwrap();
-    assert_eq!(query.opts[c_dir_index + 1], c_dir);
-    assert!(query.opts.contains(&"C_VALUE".to_string()));
-    assert!(query.opts.contains(&"f".to_string()));
+    assert_eq!(
+        opts.iter().find(|(key, _)| key == "C_DIR").unwrap().1,
+        carapace_rs::uid::query_escape(&c_dir)
+    );
+    assert!(
+        opts.iter()
+            .any(|(key, value)| key == "C_VALUE" && value == "f")
+    );
 
     // directories use the "directories" host without a suffix opt
     let context = Context::default().dir(base.clone()).value("s");
     let invoked = Action::directories().invoke(&context);
-    let query = &invoked.meta.queries[0];
-    assert_eq!(query.host, "directories");
-    assert!(!query.opts.iter().any(|opt| opt == "suffix"));
-    let dir = invoked
+    let export = invoked.to_export();
+    let query = &export.meta.queries[0];
+    assert!(query.starts_with("file://directories"), "{query}");
+    assert!(!query.contains("suffix"));
+    let dir = export
         .values
         .iter()
         .find(|value| value.value == "subdir/")
         .unwrap();
     let abs = context.abs("subdir/").unwrap();
     assert_eq!(
-        dir.uid.as_deref(),
-        Some(format!("file://{}", carapace_rs::uid::path_escape(&abs)).as_str())
+        dir.uid,
+        format!("file://{}", carapace_rs::uid::path_escape(&abs))
     );
 
     std::fs::remove_dir_all(base).unwrap();
@@ -403,11 +452,11 @@ fn style_r_reads_the_cell_at_invocation() {
     let action = Action::values(["one"]).style_r(cell.clone());
 
     let invoked = action.invoke(&Context::default());
-    assert_eq!(invoked.values[0].style, "");
+    assert_eq!(invoked.to_export().values[0].style, "");
 
     *cell.write().unwrap() = "blue".to_owned();
     let invoked = action.invoke(&Context::default());
-    assert_eq!(invoked.values[0].style, "blue");
+    assert_eq!(invoked.to_export().values[0].style, "blue");
 }
 
 #[test]
@@ -419,15 +468,24 @@ fn files_completion_resolves_the_filesystem_root() {
     // different path), so it only runs where the root is unambiguous.
     let context = Context::default().value("/tmp");
     let invoked = Action::files(Vec::<String>::new()).invoke(&context);
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert!(values.iter().any(|v| v.starts_with("/tmp/")), "{values:?}");
 
     // the candidates keep the root as their typed directory part
     let context = Context::default().value("/t");
     let invoked = Action::files(Vec::<String>::new()).invoke(&context);
     assert!(
-        invoked.values.iter().any(|v| v.value == "/tmp/"),
+        invoked
+            .to_export()
+            .values
+            .iter()
+            .any(|v| v.value == "/tmp/"),
         "{:?}",
-        invoked.values
+        invoked.to_export().values
     );
 }

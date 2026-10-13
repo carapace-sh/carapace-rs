@@ -39,37 +39,34 @@ fn uid_with_opts_skips_empty_values() {
 fn uid_modifier_sets_value_uids() {
     let action = Action::values(["a", "b/c"]).uid("cmd", "app", vec![("flag", "force".into())]);
     let invoked = action.invoke(&Context::default());
+    assert_eq!(invoked.to_export().values[0].uid, "cmd://app/a?flag=force");
     assert_eq!(
-        invoked.values[0].uid.as_deref(),
-        Some("cmd://app/a?flag=force")
-    );
-    assert_eq!(
-        invoked.values[1].uid.as_deref(),
-        Some("cmd://app/b/c?flag=force")
+        invoked.to_export().values[1].uid,
+        "cmd://app/b/c?flag=force"
     );
 }
 
 #[test]
 fn import_roundtrips_export() {
     let source = Action::values_described([("a", "first")]).invoke(&Context::default());
-    let json = carapace_rs::export::Export::from_parts(&source.meta, &source.values).to_json();
+    let json = source.to_export().to_json();
     let action = Action::import(&json);
     let invoked = action.invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "a");
-    assert_eq!(invoked.values[0].description, "first");
+    assert_eq!(invoked.to_export().values[0].value, "a");
+    assert_eq!(invoked.to_export().values[0].description, "first");
 }
 
 #[test]
 fn import_invalid_json_becomes_message() {
     let invoked = Action::import("not json").invoke(&Context::default());
-    assert!(!invoked.meta.messages.is_empty());
-    assert!(invoked.values.is_empty());
+    assert!(!invoked.to_export().meta.messages.is_empty());
+    assert!(invoked.to_export().values.is_empty());
 }
 
 #[test]
 fn export_sorts_by_value() {
     let invoked = Action::values(["b", "a"]).invoke(&Context::default());
-    let json = carapace_rs::export::Export::from_parts(&invoked.meta, &invoked.values).to_json();
+    let json = invoked.to_export().to_json();
     assert!(json.find("\"a\"").unwrap() < json.find("\"b\"").unwrap());
 }
 
@@ -90,23 +87,23 @@ fn import_parses_go_carapace_export() {
         ]
     }"#;
     let invoked = Action::import(json).invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "a");
-    assert_eq!(invoked.values[0].description, "first");
-    assert_eq!(invoked.values[1].style, "blue");
-    assert_eq!(invoked.meta.messages, vec!["oops"]);
-    assert_eq!(invoked.meta.nospace, vec!['/', '=']);
-    assert_eq!(invoked.meta.no_prefix, vec!['a', 'b']);
-    assert_eq!(invoked.meta.usage.as_deref(), Some("the usage"));
-    assert_eq!(invoked.meta.queries[0].scheme, "cmd");
-    assert_eq!(invoked.meta.queries[0].host, "app");
-    assert_eq!(invoked.meta.queries[0].path, "sub");
+    assert_eq!(invoked.to_export().values[0].value, "a");
+    assert_eq!(invoked.to_export().values[0].description, "first");
+    assert_eq!(invoked.to_export().values[1].style, "blue");
+    assert_eq!(invoked.to_export().meta.messages, vec!["oops"]);
+    assert_eq!(invoked.to_export().meta.nospace, "/=");
+    assert_eq!(invoked.to_export().meta.noprefix, "ab");
+    assert_eq!(invoked.to_export().meta.usage, "the usage");
+    assert!(invoked.to_export().meta.queries[0].starts_with("cmd://app/sub"));
 }
 
 #[test]
 fn export_json_matches_go_shape() {
-    let meta = carapace_rs::Meta::default().nospace(['/']).no_prefix(['a']);
-    let invoked = Action::values_described([("a", "first")]).invoke(&Context::default());
-    let json = carapace_rs::export::Export::from_parts(&meta, &invoked.values).to_json();
+    let invoked = Action::values_described([("a", "first")])
+        .nospace(['/'])
+        .no_prefix(['a'])
+        .invoke(&Context::default());
+    let json = invoked.to_export().to_json();
     assert!(!json.contains("\"Meta\""), "meta must be flattened: {json}");
     assert!(json.contains("\"values\":"), "{json}");
     assert!(json.contains("\"value\":\"a\""), "{json}");

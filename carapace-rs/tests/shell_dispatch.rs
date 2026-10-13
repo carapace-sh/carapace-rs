@@ -308,10 +308,11 @@ fn multiparts_nospace_through_dispatch() {
         Action::values(values.iter().copied())
     });
     let invoked = action.invoke(&Context::default().value(""));
+    let export = invoked.to_export();
     let output = Shell::Bash.value(
         "",
-        &invoked.meta,
-        &invoked.values,
+        &export.meta.to_meta(),
+        &export.to_raw_values(),
         &carapace_rs::shell::bash::Context::default(),
     );
     let (nospace, data) = output.split_once('\u{1}').unwrap();
@@ -569,6 +570,7 @@ fn files_suffix_filters_candidate_names() {
     let action = Action::files([".sh"]);
     let invoked = action.invoke(&Context::default().dir(&dir).value(""));
     let names: Vec<String> = invoked
+        .to_export()
         .values
         .iter()
         .map(|value| value.value.rsplit('/').next().unwrap().to_owned())
@@ -681,7 +683,7 @@ fn files_carry_ls_colors_styles() {
     let context = Context::default()
         .dir(base.clone())
         .env("LS_COLORS", "di=01;35:*.md=01;32");
-    let mut values = action.invoke(&context).values;
+    let mut values = action.invoke(&context).to_export().values.clone();
     values.sort_by(|a, b| a.value.cmp(&b.value));
 
     let styles: std::collections::HashMap<String, String> =

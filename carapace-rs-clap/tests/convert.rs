@@ -129,8 +129,14 @@ fn possible_values_become_fallback_completion() {
     let color = model.lookup_long("color").unwrap();
     let action = color.completion.as_ref().unwrap();
     let invoked = action.invoke(&Context::default());
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
-    assert_eq!(values, vec!["red", "green"]);
+    let mut values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
+    values.sort();
+    assert_eq!(values, vec!["green", "red"]);
 }
 
 #[test]
@@ -173,10 +179,17 @@ fn carapace_attaches_completions() {
         .as_ref()
         .unwrap()
         .invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "dev");
+    assert_eq!(invoked.to_export().values[0].value, "dev");
 
     let target = model.positionals[0].completion.as_ref().unwrap();
-    assert_eq!(target.invoke(&Context::default()).values[0].value, "x86");
+    assert!(
+        target
+            .invoke(&Context::default())
+            .to_export()
+            .values
+            .iter()
+            .any(|v| v.value == "x86")
+    );
 
     assert!(model.positional_any.is_some());
 }
@@ -202,6 +215,7 @@ fn positional_completion_maps_by_argument_index() {
             .as_ref()
             .unwrap()
             .invoke(&Context::default())
+            .to_export()
             .values[0]
             .value
             .clone()
@@ -246,15 +260,17 @@ fn hidden_subcommands_are_excluded() {
     let values: Vec<String> =
         carapace_rs::traverse::action_commands(&model, std::slice::from_ref(&model.name))
             .invoke(&Context::default())
+            .to_export()
             .values
             .into_iter()
             .map(|v| v.value)
             .collect();
-    assert_eq!(values, vec!["visible", "help"]);
+    assert_eq!(values, vec!["help", "visible"]);
 
     let values: Vec<String> =
         carapace_rs::traverse::action_commands(&model, std::slice::from_ref(&model.name))
             .invoke(&Context::default().env("CARAPACE_HIDDEN", "2"))
+            .to_export()
             .values
             .into_iter()
             .map(|v| v.value)
@@ -275,6 +291,7 @@ fn hidden_flags_respect_hidden_env() {
     let values: Vec<String> =
         carapace_rs::traverse::action_flags(&model, std::slice::from_ref(&model.name))
             .invoke(&Context::default().value("--"))
+            .to_export()
             .values
             .into_iter()
             .map(|v| v.value)
@@ -290,6 +307,7 @@ fn hidden_flags_respect_hidden_env() {
     let values: Vec<String> =
         carapace_rs::traverse::action_flags(&model, std::slice::from_ref(&model.name))
             .invoke(&Context::default().value("--").env("CARAPACE_HIDDEN", "2"))
+            .to_export()
             .values
             .into_iter()
             .map(|v| v.value)
@@ -310,6 +328,7 @@ fn help_subcommand_completes_commands() {
         .expect("help completes commands");
     let values: Vec<String> = action
         .invoke(&Context::default())
+        .to_export()
         .values
         .into_iter()
         .map(|v| v.value)
@@ -330,6 +349,7 @@ fn dash_any_completion() {
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .into_iter()
         .map(|v| v.value)
@@ -350,7 +370,7 @@ fn carapace_attaches_dash_completions() {
         .as_ref()
         .unwrap()
         .invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "dash1");
+    assert_eq!(invoked.to_export().values[0].value, "dash1");
     assert!(model.dash_any.is_some());
 }
 
@@ -372,6 +392,7 @@ fn dash_completion_replaces_list_and_maps_in_order() {
                 .as_ref()
                 .unwrap()
                 .invoke(&Context::default())
+                .to_export()
                 .values[0]
                 .value
                 .clone()
@@ -398,13 +419,13 @@ fn positional_completion_fills_unset_positionals_in_order() {
         .as_ref()
         .unwrap()
         .invoke(&Context::default());
-    assert_eq!(first.values[0].value, "first-action");
+    assert_eq!(first.to_export().values[0].value, "first-action");
     let second = model.positionals[1]
         .completion
         .as_ref()
         .unwrap()
         .invoke(&Context::default());
-    assert_eq!(second.values[0].value, "own");
+    assert_eq!(second.to_export().values[0].value, "own");
 }
 
 #[test]
@@ -433,6 +454,7 @@ fn flag_completion_merges_per_key_and_matches_names() {
             .as_ref()
             .unwrap()
             .invoke(&Context::default())
+            .to_export()
             .values
             .iter()
             .map(|value| value.value.clone())
@@ -581,6 +603,7 @@ fn value_delimiter_completes_last_segment() {
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .iter()
         .map(|v| v.value.clone())
@@ -592,6 +615,7 @@ fn value_delimiter_completes_last_segment() {
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .iter()
         .map(|v| v.value.clone())
@@ -627,6 +651,7 @@ fn command_value_hint_completes_executables() {
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .iter()
         .map(|v| v.value.clone())
@@ -707,6 +732,7 @@ fn positional_completion_pads_virtual_positionals() {
             .as_ref()
             .unwrap()
             .invoke(&Context::default())
+            .to_export()
             .values[0]
             .value
             .clone()
@@ -730,5 +756,5 @@ fn command_completer_macro_attaches_positional_any() {
         .as_ref()
         .expect("command_completer! must fill positional_any")
         .invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "via-macro");
+    assert_eq!(invoked.to_export().values[0].value, "via-macro");
 }

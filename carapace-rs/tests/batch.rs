@@ -9,9 +9,14 @@ fn batch_merges_all_results() {
     let b = Action::values(["2", "3"]);
     let c = Action::message("batched");
     let invoked = batch(vec![a, b, c]).invoke(&Context::default());
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert_eq!(values, vec!["1", "2", "3"]);
-    assert_eq!(invoked.meta.messages, vec!["batched"]);
+    assert_eq!(invoked.to_export().meta.messages, vec!["batched"]);
 }
 
 #[test]
@@ -37,7 +42,7 @@ fn batch_runs_callbacks_concurrently() {
                 .collect();
             let invoked = batch(actions).invoke(&Context::default());
             sender
-                .send(invoked.values.len())
+                .send(invoked.to_export().values.len())
                 .expect("test thread still waiting");
         });
         let count = receiver
@@ -63,15 +68,20 @@ fn batch_is_lazy() {
 #[test]
 fn batch_single() {
     let invoked = batch(vec![Action::values(["A", "B"])]).invoke(&Context::default());
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert_eq!(values, vec!["A", "B"]);
 }
 
 #[test]
 fn batch_none() {
     let invoked = batch(Vec::<Action>::new()).invoke(&Context::default());
-    assert!(invoked.values.is_empty());
-    assert!(invoked.meta.messages.is_empty());
+    assert!(invoked.to_export().values.is_empty());
+    assert!(invoked.to_export().meta.messages.is_empty());
 }
 
 #[test]
@@ -85,8 +95,10 @@ fn batch_to_action_roundtrip() {
     ]);
     let values: Vec<String> = action
         .invoke(&Context::default())
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| v.value)
         .collect();
     assert_eq!(values, vec!["A", "B", "C", "D"]);

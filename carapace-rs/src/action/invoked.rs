@@ -6,11 +6,23 @@ use crate::value::{RawValues, sort, unique};
 /// An [`Action`](super::Action) after invocation: values are resolved.
 #[derive(Clone, Debug, Default)]
 pub struct InvokedAction {
-    pub meta: Meta,
-    pub values: RawValues,
+    pub(crate) meta: Meta,
+    pub(crate) values: RawValues,
 }
 
 impl InvokedAction {
+    /// Convert into the export wire format (Go `InvokedAction.MarshalJSON`).
+    ///
+    /// This is the only sanctioned way to read an invoked action's
+    /// contents: values and metadata are observable exclusively through
+    /// the wire format, mirroring Go where `MarshalJSON` is the public
+    /// read path and the fields stay unexported.
+    ///
+    /// Values are sorted by `Value` for deterministic output.
+    pub fn to_export(&self) -> crate::export::Export {
+        crate::export::Export::from_parts(&self.meta, &self.values)
+    }
+
     /// Create an [`Action`](super::Action) completing segments of the
     /// values split by `dividers` (Go `InvokedAction.ToMultiPartsA`):
     /// values with the current prefix contribute their next segment,

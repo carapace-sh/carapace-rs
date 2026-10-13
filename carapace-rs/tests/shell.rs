@@ -1,4 +1,5 @@
-use carapace_rs::export::Export;
+use carapace_rs::export::{Export, ExportMeta, ExportValue};
+use carapace_rs::{Action, Context, Meta, RawValue};
 
 /// Serializes tests that touch process environment variables.
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
@@ -7,16 +8,33 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
-use carapace_rs::{Action, Context, Meta, RawValue};
 
 #[test]
 fn export_roundtrip() {
-    let meta = Meta::default().message("oops").nospace(['/']);
-    let values = vec![
-        RawValue::described("a", "first"),
-        RawValue::styled_described("b", "second", "blue").nospace(true),
-    ];
-    let export = Export::from_parts(&meta, &values);
+    let export = Export {
+        version: Export::VERSION.to_owned(),
+        meta: ExportMeta {
+            messages: vec!["oops".to_owned()],
+            nospace: "/".to_owned(),
+            ..Default::default()
+        },
+        values: vec![
+            ExportValue {
+                value: "a".to_owned(),
+                display: "a".to_owned(),
+                description: "first".to_owned(),
+                ..Default::default()
+            },
+            ExportValue {
+                value: "b".to_owned(),
+                display: "b".to_owned(),
+                description: "second".to_owned(),
+                style: "blue".to_owned(),
+                nospace: Some(true),
+                ..Default::default()
+            },
+        ],
+    };
     let json = export.to_json();
     let parsed = Export::from_json(&json).unwrap();
     assert_eq!(parsed, export);
@@ -31,10 +49,11 @@ fn export_roundtrip() {
 fn shell_export_value_is_json() {
     let action = Action::values(["x"]);
     let invoked = action.invoke(&Context::default());
+    let export = invoked.to_export();
     let output = carapace_rs::shell::Shell::Export.value(
         "",
-        &invoked.meta,
-        &invoked.values,
+        &export.meta.to_meta(),
+        &export.to_raw_values(),
         &carapace_rs::shell::bash::Context::default(),
     );
     assert!(Export::from_json(&output).is_some());

@@ -34,7 +34,12 @@ fn split(value: &str, dir: Option<&std::path::Path>) -> carapace_rs::InvokedActi
 
 /// Values as the shared dispatch would deliver them (sorted).
 fn values(invoked: &carapace_rs::InvokedAction) -> Vec<String> {
-    let mut values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let mut values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     values.sort();
     values
 }
@@ -43,7 +48,7 @@ fn values(invoked: &carapace_rs::InvokedAction) -> Vec<String> {
 fn split_completes_first_positional_with_space() {
     let invoked = split("", None);
     assert_eq!(values(&invoked), vec!["pos1 ", "positional1 "]);
-    assert_eq!(invoked.meta.nospace, vec!['*']);
+    assert_eq!(invoked.to_export().meta.nospace, "*");
 }
 
 #[test]
@@ -56,7 +61,7 @@ fn split_completes_second_positional_after_space() {
     assert_eq!(values(&invoked), vec!["pos1 file1.txt ", "pos1 subdir/"]);
     // the files action contributes '/' to the nospace matcher (Go's
     // MultiParts("/")), merged with split's own '*'
-    assert_eq!(invoked.meta.nospace, vec!['*', '/']);
+    assert_eq!(invoked.to_export().meta.nospace, "*");
 
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -85,7 +90,7 @@ fn split_completes_environment_variables() {
     context.env.insert("HOME".into(), "/tmp".into());
     let invoked = inner_action().split(Format::default()).invoke(&context);
     assert_eq!(values(&invoked), vec!["echo café | grep $HOME"]);
-    assert_eq!(invoked.meta.nospace, vec!['*']);
+    assert_eq!(invoked.to_export().meta.nospace, "*");
 }
 
 #[test]
@@ -99,7 +104,7 @@ fn split_p_completes_files_for_redirect() {
     let invoked = inner_action().split_p(Format::default()).invoke(&context);
     // the redirect target completes files
     assert_eq!(values(&invoked), vec!["pos1 > file1.txt "]);
-    assert_eq!(invoked.meta.nospace, vec!['*', '/']);
+    assert_eq!(invoked.to_export().meta.nospace, "*");
 
     std::fs::remove_dir_all(&dir).ok();
 }

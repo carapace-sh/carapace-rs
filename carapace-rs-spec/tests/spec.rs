@@ -52,6 +52,7 @@ fn parses_spec_structure() {
             .as_ref()
             .unwrap()
             .invoke(&Context::default())
+            .to_export()
             .values
             .len(),
         0
@@ -77,9 +78,14 @@ fn resolves_macros() {
     let model = carapace_rs_spec::from_yaml(EXAMPLE).unwrap();
     let first = model.positionals[0].completion.as_ref().unwrap();
     let invoked = first.invoke(&Context::default());
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert_eq!(values, vec!["first", "second"]);
-    assert_eq!(invoked.values[0].description, "described");
+    assert_eq!(invoked.to_export().values[0].description, "described");
 
     let second = model.positionals[1].completion.as_ref().unwrap();
     assert!(second.is_callback(), "$files is a callback action");
@@ -87,7 +93,9 @@ fn resolves_macros() {
     let any = model.positional_any.as_ref().unwrap();
     let invoked = any.invoke(&Context::default().dir("/nonexistent"));
     // $files on a nonexistent dir resolves to an error message
-    assert!(!invoked.meta.messages.is_empty() || !invoked.values.is_empty());
+    assert!(
+        !invoked.to_export().meta.messages.is_empty() || !invoked.to_export().values.is_empty()
+    );
 }
 
 #[test]
@@ -126,11 +134,12 @@ completion:
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .into_iter()
         .map(|v| v.value)
         .collect();
-    assert_eq!(values, vec!["-a", "--alpha"]);
+    assert_eq!(values, vec!["--alpha", "-a"]);
 }
 
 #[test]
@@ -151,7 +160,7 @@ completion:
     )
     .unwrap();
     let invoked = model.positional_any.unwrap().invoke(&Context::default());
-    assert!(!invoked.meta.messages.is_empty());
+    assert!(!invoked.to_export().meta.messages.is_empty());
 }
 
 #[test]
@@ -231,6 +240,7 @@ completion:
     let values: Vec<String> = completion
         .action
         .invoke(&context)
+        .to_export()
         .values
         .into_iter()
         .map(|value| value.value)
@@ -258,16 +268,20 @@ commands:
     let completion = carapace_rs::traverse(&model, vec![String::new()]);
     let invoked = completion.action.invoke(&completion.context);
     let grouped = invoked
+        .to_export()
         .values
         .iter()
         .find(|v| v.value == "grouped")
+        .cloned()
         .expect("grouped candidate");
     assert_eq!(grouped.tag, "admin commands");
     assert_eq!(grouped.style, "blue");
     let plain = invoked
+        .to_export()
         .values
         .iter()
         .find(|v| v.value == "plain")
+        .cloned()
         .expect("plain candidate");
     assert_eq!(plain.tag, "other commands");
 
@@ -379,6 +393,7 @@ completion:
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .iter()
         .map(|value| value.value.clone())
@@ -389,7 +404,11 @@ completion:
     // the files macro keeps its nospace flag through the modifier chain
     let any = model.positional_any.as_ref().unwrap();
     let invoked = any.invoke(&Context::default().value("src/"));
-    assert!(invoked.meta.nospace.contains(&'/'), "{:?}", invoked.meta);
+    assert!(
+        invoked.to_export().meta.nospace.contains('/'),
+        "{:?}",
+        invoked.to_export().meta
+    );
 }
 
 #[test]
@@ -408,6 +427,7 @@ completion:
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .iter()
         .map(|value| value.value.clone())
@@ -443,6 +463,7 @@ completion:
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .iter()
         .map(|value| value.value.clone())
@@ -462,6 +483,7 @@ completion:
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .iter()
         .map(|value| value.value.clone())
@@ -476,6 +498,7 @@ completion:
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .iter()
         .map(|value| value.value.clone())
@@ -497,6 +520,7 @@ completion:
     let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
     let invoked = completion.action.invoke(&completion.context);
     let values: Vec<String> = invoked
+        .to_export()
         .values
         .iter()
         .map(|value| value.value.clone())
@@ -506,12 +530,13 @@ completion:
     // a bad substitution degrades the entry to a message (Go semantics)
     assert!(
         invoked
+            .to_export()
             .meta
             .messages
             .iter()
             .any(|message| message.contains("bad substitution")),
         "{:?}",
-        invoked.meta.messages
+        invoked.to_export().meta.messages
     );
 }
 
@@ -525,15 +550,20 @@ completion:
     let model = carapace_rs_spec::from_yaml(yaml).unwrap();
     let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
     let invoked = completion.action.invoke(&completion.context);
-    assert!(invoked.values.is_empty(), "{:?}", invoked.values);
+    assert!(
+        invoked.to_export().values.is_empty(),
+        "{:?}",
+        invoked.to_export().values
+    );
     assert!(
         invoked
+            .to_export()
             .meta
             .messages
             .iter()
             .any(|m| m.contains("oops: something went wrong")),
         "{:?}",
-        invoked.meta.messages
+        invoked.to_export().meta.messages
     );
 }
 
@@ -545,6 +575,7 @@ fn shell_macro_completes_command_output() {
     let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
     let invoked = completion.action.invoke(&completion.context);
     let described: Vec<(String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.description.clone()))
@@ -577,11 +608,16 @@ completion:
     let model = carapace_rs_spec::from_yaml(&yaml).unwrap();
     let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
     let invoked = completion.action.invoke(&completion.context);
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert!(
         values.contains(&"nested-value".to_owned()),
         "{values:?} messages={:?}",
-        invoked.meta.messages
+        invoked.to_export().meta.messages
     );
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -616,6 +652,7 @@ completion:
         carapace_rs::traverse_seeded(&model, vec!["".to_owned()], Context::default().mock(mock));
     let invoked = completion.action.invoke(&completion.context);
     let described: Vec<(String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.description.clone()))
@@ -624,7 +661,7 @@ completion:
         described,
         vec![("remote-value".to_owned(), "from remote".to_owned())],
         "messages={:?}",
-        invoked.meta.messages
+        invoked.to_export().meta.messages
     );
 }
 
@@ -640,11 +677,12 @@ completion:
     let invoked = completion.action.invoke(&completion.context);
     assert!(
         invoked
+            .to_export()
             .meta
             .messages
             .iter()
             .any(|m| m.contains("deprecated") && m.contains("$carapace.files")),
         "{:?}",
-        invoked.meta.messages
+        invoked.to_export().meta.messages
     );
 }

@@ -135,7 +135,7 @@ impl Export {
     /// Serialize an invoked action into the export JSON format.
     ///
     /// Values are sorted by `Value` for deterministic output (Go MarshalJSON).
-    pub fn from_parts(meta: &Meta, values: &[RawValue]) -> Self {
+    pub(crate) fn from_parts(meta: &Meta, values: &[RawValue]) -> Self {
         let mut sorted: Vec<RawValue> = values.to_vec();
         sorted.sort_by(|a, b| a.value.cmp(&b.value));
         Self {

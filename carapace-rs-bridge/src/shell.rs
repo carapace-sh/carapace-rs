@@ -128,6 +128,7 @@ mod tests {
         let action = parse_bash_output("commit (record changes)\npush (upload)\n");
         let invoked = action.invoke(&carapace_rs::Context::default());
         let described: Vec<(String, String)> = invoked
+            .to_export()
             .values
             .iter()
             .map(|v| (v.value.clone(), v.description.clone()))
@@ -147,17 +148,21 @@ mod tests {
         // description terminator is trimmed (Go: TrimSpace(TrimSuffix(...)))
         let action = parse_bash_output("value (desc (nested)) \n");
         let invoked = action.invoke(&carapace_rs::Context::default());
-        assert_eq!(invoked.values[0].description, "desc (nested)");
+        assert_eq!(invoked.to_export().values[0].description, "desc (nested)");
     }
 
     #[test]
     fn parse_bash_output_plain_lines_have_no_description() {
         let action = parse_bash_output("one\n");
         let invoked = action.invoke(&carapace_rs::Context::default());
-        assert_eq!(invoked.values[0].value, "one");
-        assert_eq!(invoked.values[0].description, "");
+        assert_eq!(invoked.to_export().values[0].value, "one");
+        assert_eq!(invoked.to_export().values[0].description, "");
         // plain words keep the nospace set from the bridge
-        assert!(invoked.meta.nospace.contains(&'/'), "{:?}", invoked.meta);
+        assert!(
+            invoked.to_export().meta.nospace.contains('/'),
+            "{:?}",
+            invoked.to_export().meta
+        );
     }
 
     #[test]
@@ -165,9 +170,10 @@ mod tests {
         let action = parse_bash_output("");
         let invoked = action.invoke(&carapace_rs::Context::default().dir(std::env::temp_dir()));
         assert!(
-            !invoked.values.is_empty() && invoked.values.iter().all(|v| v.tag == "files"),
+            !invoked.to_export().values.is_empty()
+                && invoked.to_export().values.iter().all(|v| v.tag == "files"),
             "expected file candidates, got {:?}",
-            invoked.values
+            invoked.to_export().values
         );
     }
 }

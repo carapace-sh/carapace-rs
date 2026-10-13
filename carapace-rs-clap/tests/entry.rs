@@ -310,6 +310,7 @@ fn execute_embedded_completes_nested_tree() {
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .into_iter()
         .map(|v| v.value)
@@ -333,6 +334,7 @@ fn execute_embedded_completes_nested_tree() {
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
         .into_iter()
         .map(|v| v.value)

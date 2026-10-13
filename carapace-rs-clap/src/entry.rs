@@ -89,10 +89,11 @@ pub fn complete_output(
         ),
     };
     let invoked = completion.action.invoke(&completion.context);
+    let export = invoked.to_export();
     shell.value(
         &completion.context.value,
-        &invoked.meta,
-        &invoked.values,
+        &export.meta.to_meta(),
+        &export.to_raw_values(),
         &bash_context,
     )
 }
@@ -192,8 +193,7 @@ fn macro_subcommand(args: &[String]) -> String {
                 Some(action) => {
                     let context = carapace_rs::Context::new(args[1..].to_vec());
                     let invoked = action.invoke(&context);
-                    carapace_rs::export::Export::from_parts(&invoked.meta, &invoked.values)
-                        .to_json()
+                    invoked.to_export().to_json()
                 }
                 None => format!("unknown macro: {}", args[0]),
             }

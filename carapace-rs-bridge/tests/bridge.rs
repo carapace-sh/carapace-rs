@@ -207,7 +207,7 @@ fn zsh_bridge_uses_custom_config() {
 fn bridge_dispatch_rejects_unknown() {
     let action = bridge::action("nope", ["x"]);
     let invoked = action.invoke(&carapace_rs::Context::default());
-    assert!(!invoked.meta.messages.is_empty());
+    assert!(!invoked.to_export().meta.messages.is_empty());
 }
 
 #[test]
@@ -254,7 +254,12 @@ fn cobra_bridge_prefixes_bare_flag_values() {
     };
     let invoked =
         bridge::cobra::action(["git"]).invoke(&carapace_rs::Context::new(["--branch="]).mock(mock));
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert_eq!(values, vec!["--branch=main".to_string()]);
 }
 
@@ -312,7 +317,12 @@ fn inshellisense_bridge_includes_flags_for_flag_words() {
     let invoked = bridge::inshellisense::action(["bridgeish"])
         .invoke(&carapace_rs::Context::new(["-"]).mock(mock));
 
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert!(values.contains(&"--flag".to_string()), "{values:?}");
     assert!(values.contains(&"-f".to_string()), "{values:?}");
     assert!(!values.contains(&"one".to_string()), "{values:?}");
@@ -439,6 +449,7 @@ fn inshellisense_bridge_styles_files() {
     );
 
     let styled: Vec<(String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.style.clone()))
@@ -469,7 +480,12 @@ fn carapace_bin_bridge_imports_export_json() {
         )]),
     };
     let invoked = bridge::carapace_bin(["git"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert_eq!(values, vec!["commit".to_owned()]);
 }
 
@@ -493,9 +509,10 @@ fn carapace_bin_bridge_falls_back_to_files_on_empty_output() {
     let invoked = bridge::carapace_bin(["git"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
     // the fallback completes real files
     assert!(
-        !invoked.values.is_empty() && invoked.values.iter().all(|v| v.tag == "files"),
+        !invoked.to_export().values.is_empty()
+            && invoked.to_export().values.iter().all(|v| v.tag == "files"),
         "{:?}",
-        invoked.values
+        invoked.to_export().values
     );
 }
 
@@ -514,6 +531,7 @@ fn click_bridge_parses_zsh_protocol() {
     let invoked =
         bridge::click::action(["fakeclick"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
     let described: Vec<(String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.description.clone()))
@@ -539,10 +557,19 @@ fn complete_bridge_reads_comp_line_output() {
     };
     let invoked = bridge::complete::action(["fakecomplete"])
         .invoke(&carapace_rs::Context::new([""]).mock(mock));
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
-    assert_eq!(values, vec!["one".to_owned(), "http://x".to_owned()]);
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
+    assert_eq!(values, vec!["http://x".to_owned(), "one".to_owned()]);
     // a nospace character inside a candidate suppresses the trailing space
-    assert!(!invoked.meta.nospace.is_empty(), "{:?}", invoked.meta);
+    assert!(
+        !invoked.to_export().meta.nospace.is_empty(),
+        "{:?}",
+        invoked.to_export().meta
+    );
 }
 
 #[test]
@@ -562,6 +589,7 @@ fn yargs_bridge_parses_colon_descriptions() {
     let invoked =
         bridge::yargs::action(["fakeyargs"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
     let described: Vec<(String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.description.clone()))
@@ -599,13 +627,23 @@ fn jj_bridge_filters_by_flag_kind() {
     // completing a flag word keeps only flags
     let invoked =
         bridge::jj::action(["fakejj"]).invoke(&carapace_rs::Context::new(["-"]).mock(mock.clone()));
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert_eq!(values, vec!["--edit".to_owned()]);
 
     // completing a plain word keeps only non-flags
     let invoked =
         bridge::jj::action(["fakejj"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert_eq!(values, vec!["revision".to_owned()]);
 }
 
@@ -625,9 +663,10 @@ fn kingpin_bridge_falls_back_to_files() {
     let invoked = bridge::kingpin::action(["fakekingpin"])
         .invoke(&carapace_rs::Context::new([""]).mock(mock));
     assert!(
-        !invoked.values.is_empty() && invoked.values.iter().all(|v| v.tag == "files"),
+        !invoked.to_export().values.is_empty()
+            && invoked.to_export().values.iter().all(|v| v.tag == "files"),
         "{:?}",
-        invoked.values
+        invoked.to_export().values
     );
 
     // candidates are completed as plain values (Go keeps the empty
@@ -644,14 +683,19 @@ fn kingpin_bridge_falls_back_to_files() {
     };
     let invoked = bridge::kingpin::action(["fakekingpin"])
         .invoke(&carapace_rs::Context::new([""]).mock(mock));
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     assert_eq!(
         values,
         vec![
-            "one".to_owned(),
-            "two".to_owned(),
             String::new(),
-            String::new()
+            String::new(),
+            "one".to_owned(),
+            "two".to_owned()
         ]
     );
 }
@@ -673,6 +717,7 @@ fn bpaf_bridge_reverses_fish_output() {
     let invoked =
         bridge::bpaf::action(["fakebpaf"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
     let described: Vec<(String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.description.clone()))
@@ -700,6 +745,7 @@ fn typer_bridge_reads_typer_complete_args() {
     let invoked =
         bridge::typer::action(["faketyper"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
     let described: Vec<(String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.description.clone()))
@@ -725,12 +771,17 @@ fn urfavecli_bridge_parses_shell_completions() {
     let invoked =
         bridge::urfavecli::action(["fakecli"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
     let described: Vec<(String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.description.clone()))
         .collect();
     assert_eq!(described, vec![("one".to_owned(), "first".to_owned())]);
-    assert!(!invoked.meta.nospace.is_empty(), "{:?}", invoked.meta);
+    assert!(
+        !invoked.to_export().meta.nospace.is_empty(),
+        "{:?}",
+        invoked.to_export().meta
+    );
 }
 
 #[test]
@@ -747,11 +798,16 @@ fn urfavecli_v1_bridge_reads_bash_completions() {
     };
     let invoked = bridge::urfavecli::urfavecli_v1(["fakecli"])
         .invoke(&carapace_rs::Context::new([""]).mock(mock));
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     // the split keeps one empty element (Go `lines[:len(lines)-1]`)
     assert_eq!(
         values,
-        vec!["one".to_owned(), "two".to_owned(), String::new()]
+        vec![String::new(), "one".to_owned(), "two".to_owned()]
     );
 }
 
@@ -780,6 +836,7 @@ fn symfony_bridge_parses_tab_descriptions() {
     let invoked = bridge::symfony::action(["fakesymfony"])
         .invoke(&carapace_rs::Context::new([""]).mock(mock));
     let described: Vec<(String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.description.clone()))
@@ -800,11 +857,16 @@ fn aws_bridge_reads_completer_output() {
         )]),
     };
     let invoked = bridge::aws::action(["aws"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     // the v1 space suffix is stripped; the split keeps one empty element
     assert_eq!(
         values,
-        vec!["ec2".to_owned(), "s3".to_owned(), String::new()]
+        vec![String::new(), "ec2".to_owned(), "s3".to_owned()]
     );
 }
 
@@ -828,6 +890,7 @@ fn kitten_bridge_maps_match_groups() {
     let invoked =
         bridge::kitten::action(["kitty"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
     let tagged: Vec<(String, String, String)> = invoked
+        .to_export()
         .values
         .iter()
         .map(|v| (v.value.clone(), v.description.clone(), v.tag.clone()))
@@ -849,7 +912,11 @@ fn kitten_bridge_maps_match_groups() {
         ]
     );
     // the options group carries the nospace flag
-    assert!(!invoked.meta.nospace.is_empty(), "{:?}", invoked.meta);
+    assert!(
+        !invoked.to_export().meta.nospace.is_empty(),
+        "{:?}",
+        invoked.to_export().meta
+    );
 }
 
 #[test]
@@ -866,7 +933,12 @@ fn gcloud_bridge_expands_dash_and_sets_update_check_env() {
     };
     let context = carapace_rs::Context::new([""]).mock(mock);
     let invoked = bridge::gcloud::action(["gcloud"]).invoke(&context);
-    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
     // the v1 protocol keeps the output verbatim (no space stripping)
     assert_eq!(values, vec!["components ".to_owned()]);
 }

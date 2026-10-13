@@ -67,8 +67,10 @@ fn complete(args: &[&str]) -> Vec<String> {
     let mut values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| v.value)
         .collect();
     values.sort();
@@ -171,8 +173,10 @@ fn shorthand_series_prefix() {
     let values = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| v.value)
         .collect::<Vec<_>>();
     assert!(values.contains(&"-o".to_string()));
@@ -185,9 +189,9 @@ fn unknown_flags_are_reported_unless_lenient() {
     // ignoring them (Go `env.Lenient`)
     let completion = traverse(&app(), vec!["--unknown".to_string(), "".to_string()]);
     let invoked = completion.action.invoke(&completion.context);
-    assert_eq!(invoked.values, Vec::new());
+    assert!(invoked.to_export().values.is_empty());
     assert_eq!(
-        invoked.meta.messages,
+        invoked.to_export().meta.messages,
         vec!["unknown flag: --unknown".to_owned()]
     );
 
@@ -202,8 +206,10 @@ fn unknown_flags_are_reported_unless_lenient() {
     let mut values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| v.value)
         .collect();
     values.sort();
@@ -226,8 +232,10 @@ fn positional_any_fallback() {
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| v.value)
         .collect();
     assert_eq!(values, vec!["any1"]);
@@ -288,8 +296,10 @@ fn hyphen_values_are_consumed_as_flag_arguments() {
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|value| value.value)
         .collect();
     assert_eq!(values, vec!["pattern1", "pattern2"]);
@@ -316,8 +326,10 @@ fn hyphen_values_are_consumed_as_flag_arguments() {
     let values: Vec<String> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|value| value.value)
         .collect();
     assert!(values.is_empty(), "hyphen arg ends variadic consumption");
@@ -341,8 +353,10 @@ fn flag_names_carry_kind_styles() {
     let mut values: Vec<(String, String)> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| (v.value, v.style))
         .collect();
     values.sort();
@@ -361,8 +375,10 @@ fn bool_flag_values_carry_keyword_styles() {
     let mut values: Vec<(String, String)> = completion
         .action
         .invoke(&completion.context)
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| (v.value, v.style))
         .collect();
     values.sort();
@@ -390,8 +406,10 @@ fn command_groups_style_and_tag() {
     let invoked = completion.action.invoke(&completion.context);
 
     let mut entries: Vec<(String, String, String)> = invoked
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| (v.value, v.tag, v.style))
         .collect();
     entries.sort();
@@ -428,9 +446,11 @@ fn ungrouped_tree_tags_plain_commands() {
     let invoked = completion.action.invoke(&completion.context);
     // command candidates use the plain tag; positional candidates keep theirs
     let commands: Vec<_> = invoked
+        .to_export()
         .values
         .iter()
         .filter(|v| v.value == "build" || v.value == "test")
+        .cloned()
         .collect();
     assert!(
         commands
@@ -463,13 +483,13 @@ fn implicit_uids_on_flags_and_subcommands() {
     let invoked = completion.action.invoke(&completion.context);
     let uid_of = |value: &str| {
         invoked
+            .to_export()
             .values
             .iter()
             .find(|v| v.value == value)
             .unwrap()
             .uid
             .clone()
-            .unwrap()
     };
     assert_eq!(uid_of("--verbose"), "cmd://app?flag=verbose");
     assert_eq!(uid_of("-v"), "cmd://app?flag=verbose");
@@ -480,13 +500,13 @@ fn implicit_uids_on_flags_and_subcommands() {
     let invoked = completion.action.invoke(&completion.context);
     let uid_of = |value: &str| {
         invoked
+            .to_export()
             .values
             .iter()
             .find(|v| v.value == value)
             .unwrap()
             .uid
             .clone()
-            .unwrap()
     };
     assert_eq!(uid_of("sub"), "cmd://app/sub");
     assert_eq!(uid_of("s"), "cmd://app/sub");
@@ -495,13 +515,13 @@ fn implicit_uids_on_flags_and_subcommands() {
     let completion = traverse(&cmd, vec!["sub".to_string(), "".to_string()]);
     let invoked = completion.action.invoke(&completion.context);
     let deep = invoked
+        .to_export()
         .values
         .iter()
         .find(|v| v.value == "deep")
         .unwrap()
         .uid
-        .clone()
-        .unwrap();
+        .clone();
     assert_eq!(deep, "cmd://app/sub/deep");
 
     // flag uids inside a subcommand use the nested path
@@ -511,13 +531,13 @@ fn implicit_uids_on_flags_and_subcommands() {
     );
     let invoked = completion.action.invoke(&completion.context);
     let force = invoked
+        .to_export()
         .values
         .iter()
         .find(|v| v.value == "--force")
         .unwrap()
         .uid
-        .clone()
-        .unwrap();
+        .clone();
     assert_eq!(force, "cmd://app/sub/deep?flag=force");
 }
 

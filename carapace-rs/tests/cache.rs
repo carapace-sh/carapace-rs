@@ -42,8 +42,8 @@ fn cache_stores_and_reuses_results() {
         1,
         "second invocation must hit the cache"
     );
-    assert_eq!(first.values[0].value, "cached-value");
-    assert_eq!(second.values[0].value, "cached-value");
+    assert_eq!(first.to_export().values[0].value, "cached-value");
+    assert_eq!(second.to_export().values[0].value, "cached-value");
 
     let file = carapace_rs::cache::file(&context, "test-site", &["k1".to_owned()]).unwrap();
     assert!(file.exists());
@@ -57,7 +57,7 @@ fn cache_keys_distinguish_entries() {
     let action = Action::values(["static"]); // raw actions skip caching
     let first = action.clone().invoke(&context.clone().env("X", "1"));
     let second = action.invoke(&context.env("X", "2"));
-    assert_eq!(first.values, second.values);
+    assert_eq!(first.to_export().values, second.to_export().values);
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -66,7 +66,7 @@ fn cache_skips_error_states() {
     let (context, dir) = sandbox_context("errors");
     let action = Action::message("error state").cache("error-site", 60, vec![]);
     let invoked = action.invoke(&context);
-    assert_eq!(invoked.meta.messages, vec!["error state"]);
+    assert_eq!(invoked.to_export().meta.messages, vec!["error state"]);
     let file = carapace_rs::cache::file(&context, "error-site", &[]).unwrap();
     assert!(!file.exists(), "messages must not be cached");
     std::fs::remove_dir_all(&dir).ok();
@@ -77,10 +77,15 @@ fn cache_expires_after_ttl() {
     let (context, dir) = sandbox_context("ttl");
     let path = carapace_rs::cache::file(&context, "ttl-site", &[]).unwrap();
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    let export = carapace_rs::export::Export::from_parts(
-        &carapace_rs::Meta::default(),
-        &[carapace_rs::RawValue::new("old")],
-    );
+    let export = carapace_rs::export::Export {
+        version: carapace_rs::export::Export::VERSION.to_owned(),
+        meta: Default::default(),
+        values: vec![carapace_rs::export::ExportValue {
+            value: "old".to_owned(),
+            display: "old".to_owned(),
+            ..Default::default()
+        }],
+    };
     carapace_rs::cache::write(&path, &export).unwrap();
 
     assert!(carapace_rs::cache::load(&path, 60).is_some(), "within ttl");
@@ -104,7 +109,7 @@ fn timeout_falls_back_after_deadline() {
     let fallback = Action::values(["fast"]);
     let action = slow.timeout(0, fallback);
     let invoked = action.invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "fast");
+    assert_eq!(invoked.to_export().values[0].value, "fast");
 }
 
 #[test]
@@ -112,5 +117,5 @@ fn timeout_passes_through_when_fast_enough() {
     let fast = Action::values(["quick"]);
     let action = fast.timeout(5, Action::values(["fallback"]));
     let invoked = action.invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "quick");
+    assert_eq!(invoked.to_export().values[0].value, "quick");
 }

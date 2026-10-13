@@ -42,7 +42,7 @@ fn segment_escape(value: &str) -> String {
 
 /// Escape a query component (Go `url.QueryEscape` via `Values.Encode`):
 /// spaces become `+`, unreserved characters stay.
-pub(crate) fn query_escape(value: &str) -> String {
+pub fn query_escape(value: &str) -> String {
     let mut result = String::with_capacity(value.len());
     for byte in value.as_bytes() {
         match byte {
@@ -58,7 +58,7 @@ pub(crate) fn query_escape(value: &str) -> String {
 
 /// Decode a query component: `+` becomes a space before percent-decoding
 /// (Go `url.QueryUnescape`).
-pub(crate) fn query_unescape(value: &str) -> String {
+pub fn query_unescape(value: &str) -> String {
     percent_unescape(&value.replace('+', " "))
 }
 

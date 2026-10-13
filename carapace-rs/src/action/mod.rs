@@ -23,7 +23,7 @@ pub type ActionCallback = Arc<dyn Fn(&Context) -> Action + Send + Sync>;
 /// [`Action::invoke`] materializes them into an [`InvokedAction`].
 #[derive(Clone, Default)]
 pub struct Action {
-    pub meta: Meta,
+    pub(crate) meta: Meta,
     kind: ActionKind,
 }
 

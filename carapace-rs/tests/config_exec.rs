@@ -118,14 +118,14 @@ fn exec_command_completes_from_stdout() {
         Action::values([word])
     });
     let invoked = action.invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "hello");
+    assert_eq!(invoked.to_export().values[0].value, "hello");
 }
 
 #[test]
 fn exec_command_error_becomes_message() {
     let action = Action::exec_command("false", [""; 0], |_| Action::default());
     let invoked = action.invoke(&Context::default());
-    assert!(!invoked.meta.messages.is_empty());
+    assert!(!invoked.to_export().meta.messages.is_empty());
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn exec_command_e_exposes_error() {
         Err(_) => Action::values(["failed"]),
     });
     let invoked = action.invoke(&Context::default());
-    assert_eq!(invoked.values[0].value, "failed");
+    assert_eq!(invoked.to_export().values[0].value, "failed");
 }
 
 #[test]
@@ -144,13 +144,14 @@ fn exec_respects_context_dir_and_env() {
         Action::values([value_of(&String::from_utf8_lossy(stdout))])
     });
     let invoked = action.invoke(&Context::default().dir("/tmp"));
-    assert_eq!(invoked.values[0].value, "/tmp");
+    assert_eq!(invoked.to_export().values[0].value, "/tmp");
 }
 
 #[test]
 fn style_config_lists_entries() {
     let invoked = Action::style_config().invoke(&Context::default());
-    let values: Vec<&str> = invoked.values.iter().map(|v| v.value.as_str()).collect();
+    let export = invoked.to_export();
+    let values: Vec<&str> = export.values.iter().map(|v| v.value.as_str()).collect();
     assert!(values.iter().any(|v| v.starts_with("carapace.Error=")));
     assert!(values.iter().any(|v| v.starts_with("carapace.Usage=")));
 }
@@ -158,18 +159,48 @@ fn style_config_lists_entries() {
 #[test]
 fn styles_action_lists_known_names() {
     let invoked = Action::styles(Vec::<String>::new()).invoke(&Context::default());
-    assert!(invoked.values.iter().any(|v| v.value == "blue"));
-    assert!(invoked.values.iter().any(|v| v.value == "underlined"));
-    assert!(invoked.values.iter().any(|v| v.value == "bg-magenta"));
+    assert!(invoked.to_export().values.iter().any(|v| v.value == "blue"));
+    assert!(
+        invoked
+            .to_export()
+            .values
+            .iter()
+            .any(|v| v.value == "underlined")
+    );
+    assert!(
+        invoked
+            .to_export()
+            .values
+            .iter()
+            .any(|v| v.value == "bg-magenta")
+    );
     // the 256-color ranges stay collapsed until the word starts with them
-    assert!(invoked.values.iter().any(|v| v.value == "color"));
-    assert!(!invoked.values.iter().any(|v| v.value == "color12"));
+    assert!(
+        invoked
+            .to_export()
+            .values
+            .iter()
+            .any(|v| v.value == "color")
+    );
+    assert!(
+        !invoked
+            .to_export()
+            .values
+            .iter()
+            .any(|v| v.value == "color12")
+    );
 }
 
 #[test]
 fn styles_action_expands_256_colors_contextually() {
     let invoked = Action::styles(Vec::<String>::new()).invoke(&Context::default().value("color1"));
-    let values: Vec<String> = invoked.values.into_iter().map(|v| v.value).collect();
+    let values: Vec<String> = invoked
+        .to_export()
+        .values
+        .iter()
+        .cloned()
+        .map(|v| v.value)
+        .collect();
     assert!(values.contains(&"color12".to_owned()));
     assert!(!values.contains(&"color".to_owned()));
     // the background half is unaffected by the foreground word
@@ -179,7 +210,8 @@ fn styles_action_expands_256_colors_contextually() {
 #[test]
 fn styles_action_combines_existing_styles() {
     let invoked = Action::styles(["bold"]).invoke(&Context::default());
-    let blue = invoked
+    let export = invoked.to_export();
+    let blue = export
         .values
         .iter()
         .find(|v| v.value == "blue")
@@ -190,7 +222,8 @@ fn styles_action_combines_existing_styles() {
 #[test]
 fn styles_action_suppresses_taken_halves() {
     let invoked = Action::styles(["blue"]).invoke(&Context::default());
-    let values: Vec<&str> = invoked.values.iter().map(|v| v.value.as_str()).collect();
+    let export = invoked.to_export();
+    let values: Vec<&str> = export.values.iter().map(|v| v.value.as_str()).collect();
     assert!(!values.contains(&"red"), "foreground taken");
     assert!(values.contains(&"bg-red"), "background still offered");
 }
@@ -238,7 +271,7 @@ fn exec_passes_context_env_not_process_env() {
         Action::values([value_of(&String::from_utf8_lossy(stdout))])
     });
     let invoked = action.invoke(&Context::default().env("carapace_exec_env_test", "test"));
-    assert_eq!(invoked.values[0].value, "test");
+    assert_eq!(invoked.to_export().values[0].value, "test");
 }
 
 #[test]
@@ -259,8 +292,10 @@ fn style_config_lists_carapace_entries() {
     let action = Action::style_config();
     let values: Vec<String> = action
         .invoke(&Context::default())
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| v.value)
         .collect();
     assert!(values.iter().any(|v| v == "carapace.FlagArg=blue"));
@@ -293,8 +328,10 @@ fn style_config_lists_highlight_and_loglevel() {
     let action = Action::style_config();
     let values: Vec<String> = action
         .invoke(&Context::default())
+        .to_export()
         .values
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|v| v.value)
         .collect();
     assert!(values.iter().any(|v| v == "carapace.Highlight1=blue"));

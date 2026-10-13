@@ -91,6 +91,7 @@ where
 fn values_start_with_option(action: &Action) -> bool {
     let invoked = action.invoke(&carapace_rs::Context::default());
     invoked
+        .to_export()
         .values
         .iter()
         .any(|value| value.value.starts_with('-'))

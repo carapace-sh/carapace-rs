@@ -109,10 +109,11 @@ impl Sandbox {
         // dispatch (prefix filtering, flag merging, sorting, uid
         // stripping) exactly like Go's sandbox (`ActionExecute` runs
         // `_carapace export`)
+        let invoked_export = invoked.to_export();
         let json = carapace_rs::shell::Shell::Export.value_with(
             &context.value,
-            &invoked.meta,
-            &invoked.values,
+            &invoked_export.meta.to_meta(),
+            &invoked_export.to_raw_values(),
             &carapace_rs::shell::bash::Context::default(),
             &completion.context.config,
         );
@@ -182,7 +183,7 @@ impl Run {
     /// context (directory and environment).
     pub fn expect(&self, action: Action) {
         let invoked = action.invoke(&self.context);
-        let expected = carapace_rs::export::Export::from_parts(&invoked.meta, &invoked.values);
+        let expected = invoked.to_export();
         assert_eq!(
             serde_json::to_string(&self.normalized_export()).unwrap(),
             serde_json::to_string(&normalized(expected, &self.value)).unwrap(),
@@ -205,7 +206,7 @@ impl Run {
     /// Assert the run does NOT equal the given action.
     pub fn expect_not(&self, action: Action) {
         let invoked = action.invoke(&self.context);
-        let expected = carapace_rs::export::Export::from_parts(&invoked.meta, &invoked.values);
+        let expected = invoked.to_export();
         assert_ne!(
             serde_json::to_string(&self.normalized_export()).unwrap(),
             serde_json::to_string(&normalized(expected, &self.value)).unwrap(),

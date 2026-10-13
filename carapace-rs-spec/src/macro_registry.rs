@@ -146,7 +146,7 @@ mod tests {
         assert!(macro_names().contains(&"test.echo".to_owned()));
         let action = invoke_macro("test.echo", &["a".to_owned()], "v").unwrap();
         let invoked = action.invoke(&carapace_rs::Context::default());
-        assert_eq!(invoked.meta.messages, vec!["a,v"]);
+        assert_eq!(invoked.to_export().meta.messages, vec!["a,v"]);
         assert!(invoke_macro("nosuch", &[], "").is_none());
     }
 }

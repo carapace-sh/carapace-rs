@@ -16,21 +16,35 @@ fn batch_merges_all_results() {
 
 #[test]
 fn batch_runs_callbacks_concurrently() {
-    let gate = Arc::new(std::sync::Barrier::new(3));
-    let counter = Arc::new(AtomicUsize::new(0));
-    let actions: Vec<Action> = (0..3)
-        .map(|index| {
-            let gate = gate.clone();
-            let counter = counter.clone();
-            Action::callback(move |_| {
-                counter.fetch_add(1, Ordering::SeqCst);
-                gate.wait(); // deadlocks unless all three run concurrently
-                Action::values([format!("x{index}")])
-            })
-        })
-        .collect();
-    let invoked = batch(actions).invoke(&Context::default());
-    assert_eq!(invoked.values.len(), 3);
+    // the barrier deadlocks unless all three callbacks run concurrently;
+    // invoking on a side thread bounds the wait so a regression fails the
+    // test instead of hanging it (the thread is abandoned on timeout)
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::scope(|scope| {
+        scope.spawn(move || {
+            let gate = Arc::new(std::sync::Barrier::new(3));
+            let counter = Arc::new(AtomicUsize::new(0));
+            let actions: Vec<Action> = (0..3)
+                .map(|index| {
+                    let gate = gate.clone();
+                    let counter = counter.clone();
+                    Action::callback(move |_| {
+                        counter.fetch_add(1, Ordering::SeqCst);
+                        gate.wait(); // blocks unless all three run concurrently
+                        Action::values([format!("x{index}")])
+                    })
+                })
+                .collect();
+            let invoked = batch(actions).invoke(&Context::default());
+            sender
+                .send(invoked.values.len())
+                .expect("test thread still waiting");
+        });
+        let count = receiver
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("batch must run its callbacks concurrently");
+        assert_eq!(count, 3);
+    });
 }
 
 #[test]

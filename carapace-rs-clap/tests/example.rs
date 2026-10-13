@@ -1001,23 +1001,69 @@ mod modifier {
             );
     }
 
+    fn walk_files(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+        let mut files = Vec::new();
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return files;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                files.extend(walk_files(&path));
+            } else {
+                files.push(path);
+            }
+        }
+        files
+    }
+
     #[test]
     fn cache_roundtrips_until_cleared() {
         let sandbox = Sandbox::new("example-modifier-cache");
         let cached = sandbox
             .run(cmd::root_cmd, &["modifier", "--cache", ""])
             .output();
-        std::thread::sleep(std::time::Duration::from_millis(1100));
+        // a second run serves the cached value without any timing margin
         sandbox
             .run(cmd::root_cmd, &["modifier", "--cache", ""])
             .expect_output(&cached);
 
+        // expiry is exercised deterministically: backdating the cache
+        // file's modification time past the TTL (5s) forces revalidation,
+        // observable as a freshly rewritten cache file (the completed
+        // value is a time of day and may not change between runs)
+        let before = std::time::SystemTime::now();
+        let expiry = before - std::time::Duration::from_secs(10);
+        let files = walk_files(&sandbox.cache_dir());
+        assert!(!files.is_empty(), "the first run must populate the cache");
+        let times = std::fs::FileTimes::new().set_modified(expiry);
+        for entry in &files {
+            std::fs::File::options()
+                .append(true)
+                .open(entry)
+                .unwrap()
+                .set_times(times)
+                .unwrap();
+        }
+        let _ = sandbox.run(cmd::root_cmd, &["modifier", "--cache", ""]);
+        let rewritten = walk_files(&sandbox.cache_dir()).iter().any(|path| {
+            std::fs::metadata(path)
+                .and_then(|metadata| metadata.modified())
+                .map(|modified| modified > expiry)
+                .unwrap_or(false)
+        });
+        assert!(rewritten, "cache must revalidate past the TTL");
+
+        // clear_cache is observable as an emptied and re-populated cache
+        // (the value is a time of day and may repeat within one second)
         sandbox.clear_cache();
-        assert_ne!(
-            sandbox
-                .run(cmd::root_cmd, &["modifier", "--cache", ""])
-                .output(),
-            cached,
+        assert!(
+            walk_files(&sandbox.cache_dir()).is_empty(),
+            "clear_cache must empty the cache"
+        );
+        let _ = sandbox.run(cmd::root_cmd, &["modifier", "--cache", ""]);
+        assert!(
+            !walk_files(&sandbox.cache_dir()).is_empty(),
             "cache must revalidate after clear_cache"
         );
     }

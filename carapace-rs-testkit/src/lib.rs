@@ -68,6 +68,11 @@ impl Sandbox {
         self
     }
 
+    /// The sandbox cache directory root.
+    pub fn cache_dir(&self) -> std::path::PathBuf {
+        self.dir.join("cache")
+    }
+
     /// Remove the sandbox cache directory (between subtests).
     pub fn clear_cache(&self) {
         std::fs::remove_dir_all(self.dir.join("cache")).ok();

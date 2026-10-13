@@ -115,11 +115,25 @@ All settled decisions hold; two are strained:
       `entry.rs`). Correction to the review: test binaries are separate
       processes, so env races are intra-binary only — the per-binary lock is
       sufficient; the earlier "cross-binary" framing was wrong.
-- [ ] shared filesystem temp dirs without unique suffixes audited
-      (`carapace-files-test` fixed; Mock dirs pointing at global temp).
-- [ ] direct tests for `bash::patch`, bash bridge, `carapace_bin` bridge.
-- [ ] replace wall-clock-margin tests (`example.rs` timeout/cache TTL) with
+- [x] shared filesystem temp dirs without unique suffixes audited
+      (`carapace-files-test` fixed; bridge test `Mock` roots now get a
+      unique per-call dir via a `mock_dir` helper; the shlex log file and
+      string-valued `/tmp` path assertions are fine as they are).
+- [x] direct tests for `bash::patch`, bash bridge, `carapace_bin` bridge.
+      `bash::patch`: seven cases (passthrough, re-lex/binary drop,
+      redirect, COMP_POINT truncation, partial-token recovery, wordbreak
+      prefix + COMP_TYPE, env consumption). Bash bridge: output parsing
+      extracted into `parse_bash_output` and unit-tested — this caught a
+      real divergence (Go strips one trailing `)` via `TrimSuffix`, the
+      port stripped all). carapace-bin bridge: export-JSON import and the
+      empty-output → files fallback, mocked.
+- [x] replace wall-clock-margin tests (`example.rs` timeout/cache TTL) with
       deterministic ones; give `batch.rs` `Barrier` test a timeout strategy.
+      The cache test now asserts through cache files (hit without sleep,
+      expiry via a backdated mtime, re-population after `clear_cache`);
+      the `Timeout()` test is inherently deterministic (fixed 3s sleep vs
+      2s timeout) and stays; the barrier test runs on a side thread with
+      a bounded wait so a regression fails instead of hanging.
 - [x] nested hooks, `positional_completion` padding, spec feature-off build,
       `command_completer!`, Windows-safe `/tmp` test. Nested hooks were
       covered earlier (medium priority); padding (virtual positionals)
@@ -146,4 +160,5 @@ All settled decisions hold; two are strained:
       the variadic lookahead up to the maximum; spec dump encodes it as
       variadic). Command-level `allow_hyphen_values` is deprecated in
       clap 4 (private getter) — per-arg is the supported form.
-- [ ] shlex: document the sanctioned divergences in AGENTS.md (cmd tokenizer).
+- [x] shlex: document the sanctioned divergences in AGENTS.md (trailing
+      partial tokens, condensed verify corpora, enum-based format names).

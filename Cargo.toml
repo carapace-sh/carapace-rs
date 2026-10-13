@@ -3,7 +3,7 @@ resolver = "3"
 members = ["carapace-rs-shlex", "carapace-rs", "carapace-rs-clap", "carapace-rs-testkit", "carapace-rs-spec", "carapace-rs-bridge"]
 
 [workspace.package]
-version = "0.0.3"
+version = "0.0.0-PLACEHOLDER"
 edition = "2024"
 rust-version = "1.85"
 
@@ -11,3 +11,13 @@ repository = "https://github.com/carapace-sh/carapace-rs"
 readme = "README.md"
 keywords = ["completion", "shell", "carapace"]
 categories = ["command-line-utilities", "development-tools"]
+
+# Internal crates: the version pin carries the release placeholder and is
+# rewritten to the tag version by the publish workflow. Dev-only members
+# without a version pin are stripped on publish.
+[workspace.dependencies]
+carapace-rs = { path = "carapace-rs", version = "0.0.0-PLACEHOLDER" }
+carapace-rs-shlex = { path = "carapace-rs-shlex", version = "0.0.0-PLACEHOLDER" }
+carapace-rs-spec = { path = "carapace-rs-spec", version = "0.0.0-PLACEHOLDER" }
+carapace-rs-clap = { path = "carapace-rs-clap", version = "0.0.0-PLACEHOLDER" }
+carapace-rs-testkit = { path = "carapace-rs-testkit" }

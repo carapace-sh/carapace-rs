@@ -11,7 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-carapace-rs = { path = "../carapace-rs", version = "0.0.3" }
-carapace-rs-clap = { path = "../carapace-rs-clap", version = "0.0.3" }
+carapace-rs.workspace = true
+carapace-rs-clap.workspace = true
 serde_json = "1"
 clap = { version = "4.6" }

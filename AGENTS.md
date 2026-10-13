@@ -40,6 +40,18 @@ cargo run -p carapace-rs-clap --example example -- _carapace bash example --prof
 cargo run -p carapace-rs-clap --example example -- _carapace spec
 ```
 
+## Release
+
+All crates publish in lockstep from one version: the workspace manifest carries
+`version = "0.0.0-PLACEHOLDER"` (valid semver for local development), the
+internal dependency pins live in `[workspace.dependencies]`, and
+`.github/workflows/rust.yml` rewrites the placeholder from the `v*` tag and
+runs `cargo publish --workspace` (cargo orders the members and waits for the
+registry index between batches). `Export::VERSION` strips a `-PLACEHOLDER`
+suffix so development builds report a well-formed `rs-…` version on the export
+wire. A `cargo publish --dry-run` on PRs is not possible: verification resolves
+internal dependencies from the registry, where the placeholder does not exist.
+
 ## Workspace Layout
 
 ```

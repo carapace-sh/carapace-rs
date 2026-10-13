@@ -129,8 +129,10 @@ fn parse_query(string: &str) -> Option<Query> {
 impl Export {
     /// Library version with an `rs-` prefix (Go reports its module version;
     /// the prefix distinguishes the Rust port and leaves semver prerelease
-    /// suffixes unambiguous).
-    pub const VERSION: &'static str = concat!("rs-", env!("CARGO_PKG_VERSION"));
+    /// suffixes unambiguous). A `-PLACEHOLDER` suffix (release workflow,
+    /// rewritten from the tag at publish time) is stripped so development
+    /// builds report a well-formed version.
+    pub const VERSION: &'static str = crate_version();
 
     /// Serialize an invoked action into the export JSON format.
     ///
@@ -197,5 +199,29 @@ impl ExportMeta {
             usage: (!self.usage.is_empty()).then(|| self.usage.clone()),
             queries: self.queries.iter().filter_map(|q| parse_query(q)).collect(),
         }
+    }
+}
+
+/// The release placeholder (see the workspace manifest and the publish
+/// workflow): reported as its version part on the export wire so
+/// development builds stay well-formed.
+const PLACEHOLDER: &[u8] = b"0.0.0-PLACEHOLDER";
+const PLACEHOLDER_VERSION: &str = "0.0.0";
+
+const fn crate_version() -> &'static str {
+    let version: &str = env!("CARGO_PKG_VERSION");
+    let bytes = version.as_bytes();
+    let mut is_placeholder = bytes.len() == PLACEHOLDER.len();
+    let mut index = 0;
+    while is_placeholder && index < PLACEHOLDER.len() {
+        if bytes[index] != PLACEHOLDER[index] {
+            is_placeholder = false;
+        }
+        index += 1;
+    }
+    if is_placeholder {
+        PLACEHOLDER_VERSION
+    } else {
+        version
     }
 }

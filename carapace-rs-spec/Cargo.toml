@@ -11,8 +11,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-carapace-rs-shlex = { path = "../carapace-rs-shlex", version = "0.0.3" }
-carapace-rs = { path = "../carapace-rs", version = "0.0.3" }
+carapace-rs-shlex.workspace = true
+carapace-rs.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 

@@ -250,3 +250,22 @@ names aligned with Go so specs port mechanically.
 - `_carapace` entry handles: snippet output (0/1 args), completion (2+ args), `style
   set`, and `spec` (YAML dump, behind the default-on `spec` feature). Unknown
   shells return `None` so the program runs normally.
+
+## shlex: sanctioned divergences from Go carapace-shlex
+
+Behavior ports are 1:1 except for these deliberate deviations; do not
+"fix" them toward Go without re-deriving the surrounding design:
+
+1. **Trailing partial tokens.** A word with an open quote or trailing escape
+   at end of input is dropped by the Rust shlex crate (matching Go's shlex
+   crate); `bash::patch` additionally recovers it leniently so the word
+   under the cursor is never lost (design decision 7). Go recovers the
+   equivalent information inside its bash patch path in a different shape.
+2. **Verify corpora coverage.** The `verify_*_test.go` source-crosscheck
+   corpora are ported in `src/verify.rs`, with the fish/zsh/xonsh/powershell
+   sections condensed; the format tests (`tests/format_*.rs`) are 1:1, so
+   the gap is corpus breadth for those four shells, not semantics.
+3. **Format selection shape.** Go passes format names as strings with a
+   fallback; the Rust `Format` enum's `Default` (the empty name) resolves
+   to Bash, `from_name` rejects unknown names, and `join` falls back to
+   the default — same outcomes, statically checked.

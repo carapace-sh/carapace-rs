@@ -14,6 +14,11 @@ pub const DEFAULT_FLAG_PREFIX: char = '-';
 pub enum Nargs {
     /// Exactly `n` arguments.
     Exact(usize),
+    /// At least `min` arguments, at most `max` (clap's bounded
+    /// `num_args(min..=max)` with `min > 0, max > min`); values below the
+    /// minimum consume unconditionally, above it the lookahead stops at
+    /// flag-lookalikes.
+    Range(usize, usize),
     /// At least one argument, arbitrary many.
     AtLeastOne,
     /// Zero or more arguments.
@@ -122,6 +127,9 @@ impl Flag {
         }
         match self.nargs {
             Nargs::Exact(n) => args_so_far < n,
+            Nargs::Range(min, max) => {
+                args_so_far < max && (args_so_far < min || !self.looks_like_flag(arg))
+            }
             Nargs::AtLeastOne | Nargs::Any => args_so_far == 0 || !self.looks_like_flag(arg),
         }
     }

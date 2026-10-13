@@ -636,3 +636,53 @@ fn command_value_hint_completes_executables() {
         "executables expected, got {values:?}"
     );
 }
+
+#[test]
+fn bounded_nargs_consumes_minimum_and_stops_at_flags() {
+    // clap `num_args(2..=4)`: the first two values are consumed
+    // unconditionally; beyond the minimum a flag-lookalike stops the
+    // consumption (same shape as the engine's variadic handling)
+    let cmd = Command::new("app")
+        .arg(
+            Arg::new("pair")
+                .long("pair")
+                .action(ArgAction::Append)
+                .num_args(2..=4),
+        )
+        .arg(Arg::new("other").long("other").action(ArgAction::SetTrue));
+    let model = to_model(&mut cmd.clone());
+    assert!(model.lookup_long("pair").is_some());
+
+    let completion = carapace_rs::traverse(
+        &model,
+        vec![
+            "--pair".to_owned(),
+            "a".to_owned(),
+            "b".to_owned(),
+            "--".to_owned(),
+        ],
+    );
+    assert_eq!(
+        completion.context.parsed_flags,
+        vec![("pair".to_owned(), vec!["a".to_owned(), "b".to_owned()])]
+    );
+
+    // a known flag stops the bounded consumption above the minimum
+    let completion = carapace_rs::traverse(
+        &model,
+        vec![
+            "--pair".to_owned(),
+            "a".to_owned(),
+            "b".to_owned(),
+            "--other".to_owned(),
+            "".to_owned(),
+        ],
+    );
+    assert_eq!(
+        completion.context.parsed_flags,
+        vec![
+            ("pair".to_owned(), vec!["a".to_owned(), "b".to_owned()]),
+            ("other".to_owned(), Vec::<String>::new()),
+        ]
+    );
+}

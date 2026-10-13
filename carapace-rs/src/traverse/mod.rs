@@ -459,6 +459,7 @@ pub fn action_flags(cmd: &Command, path: &[String]) -> Action {
                 carapace_styles.flag_opt_arg.clone()
             } else if matches!(flag.nargs, Nargs::AtLeastOne | Nargs::Any)
                 || matches!(flag.nargs, Nargs::Exact(count) if count > 1)
+                || matches!(flag.nargs, Nargs::Range(_, max) if max > 1)
             {
                 carapace_styles.flag_multi_arg.clone()
             } else {

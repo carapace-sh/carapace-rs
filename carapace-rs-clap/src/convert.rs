@@ -264,11 +264,12 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
                 }
             } else if min == max {
                 Nargs::Exact(max)
-            } else {
-                // bounded variadic (e.g. `2..=4`) loses its minimum: the
-                // model has no bounded-variadic shape, so values consume
-                // greedily until the next flag-lookalike
+            } else if min == 0 {
                 Nargs::Any
+            } else {
+                // bounded variadic (e.g. `2..=4`): consumes up to `max`
+                // values, unconditionally until the minimum is reached
+                Nargs::Range(min, max)
             };
             (nargs, optional)
         }

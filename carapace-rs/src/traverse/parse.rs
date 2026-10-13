@@ -50,9 +50,14 @@ pub fn parse(cmd: &Command, args: &[String]) -> Parsed {
                 let mut values = matched.args.clone();
                 let missing = missing_values(&matched.flag, &values);
                 if missing > 0 {
-                    // fixed nargs consume unconditionally (pflag behavior);
-                    // variadic nargs stop at anything that looks like a flag
-                    let unconditional = matches!(matched.flag.nargs, crate::model::Nargs::Exact(_));
+                    // exact and below-minimum bounded nargs consume
+                    // unconditionally (pflag behavior); variadic nargs
+                    // stop at anything that looks like a flag
+                    let unconditional = match matched.flag.nargs {
+                        crate::model::Nargs::Exact(_) => true,
+                        crate::model::Nargs::Range(min, _) => matched.args.len() < min,
+                        _ => false,
+                    };
                     for _ in 0..missing {
                         match iter.peek().map(|(_, next)| next.to_string()) {
                             Some(next)
@@ -113,6 +118,7 @@ fn missing_values(flag: &crate::model::Flag, values: &[String]) -> usize {
     }
     match flag.nargs {
         Nargs::Exact(n) => n,
+        Nargs::Range(min, _) => min,
         Nargs::AtLeastOne | Nargs::Any => 1,
     }
 }

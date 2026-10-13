@@ -133,6 +133,9 @@ impl From<&Flag> for FlagOut {
             Nargs::Exact(n) => Some(n as i64),
             Nargs::Any => Some(-1),
             Nargs::AtLeastOne => Some(-2),
+            // bounded nargs has no spec encoding; the dump loses the
+            // bounds and the flag re-reads as variadic
+            Nargs::Range(_, _) => Some(-1),
         };
         Self {
             longhand: flag.name.clone(),

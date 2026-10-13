@@ -136,8 +136,9 @@ All settled decisions hold; two are strained:
       Done: `value_delimiter` (model field + traverse split, flags and
       positionals), `ValueHint`s (path hints, command hints → executables;
       host/user/url hints have no engine action yet), subcommand short
-      flags (model + `lookup_subcommand` token match). Command-level
-      `allow_hyphen_values` is deprecated in clap 4 (private getter) —
-      per-arg is the supported form. Remaining: bounded `Nargs` (`2..=4`
-      still collapses to variadic).
+      flags (model + `lookup_subcommand` token match), bounded `Nargs`
+      (`Nargs::Range(min, max)`: unconditional up to the minimum, then
+      the variadic lookahead up to the maximum; spec dump encodes it as
+      variadic). Command-level `allow_hyphen_values` is deprecated in
+      clap 4 (private getter) — per-arg is the supported form.
 - [ ] shlex: document the sanctioned divergences in AGENTS.md (cmd tokenizer).

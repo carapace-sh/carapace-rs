@@ -42,7 +42,7 @@ fn segment_escape(value: &str) -> String {
 
 /// Escape a query component (Go `url.QueryEscape` via `Values.Encode`):
 /// spaces become `+`, unreserved characters stay.
-pub fn query_escape(value: &str) -> String {
+pub(crate) fn query_escape(value: &str) -> String {
     let mut result = String::with_capacity(value.len());
     for byte in value.as_bytes() {
         match byte {
@@ -58,7 +58,7 @@ pub fn query_escape(value: &str) -> String {
 
 /// Decode a query component: `+` becomes a space before percent-decoding
 /// (Go `url.QueryUnescape`).
-pub fn query_unescape(value: &str) -> String {
+pub(crate) fn query_unescape(value: &str) -> String {
     percent_unescape(&value.replace('+', " "))
 }
 
@@ -143,4 +143,45 @@ fn percent_unescape(value: &str) -> String {
         index += 1;
     }
     String::from_utf8_lossy(&result).into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn uid_command_and_flag() {
+        assert_eq!(super::command("git", &["branch"]), "cmd://git/branch");
+        assert_eq!(
+            super::flag("git", &["branch"], "force"),
+            "cmd://git/branch?flag=force"
+        );
+        assert_eq!(
+            super::command("app", &["sub", "deep"]),
+            "cmd://app/sub/deep"
+        );
+        // an empty path renders without the trailing separator (Go url.URL)
+        assert_eq!(super::command("app", &[] as &[&str]), "cmd://app");
+        assert_eq!(
+            super::flag("app", &[] as &[&str], "force"),
+            "cmd://app?flag=force"
+        );
+    }
+
+    #[test]
+    fn uid_path_escape() {
+        // slashes are preserved as separators (Go uid.PathEscape)
+        assert_eq!(super::path_escape("users/admin"), "users/admin");
+        assert_eq!(super::path_escape("/tmp"), "/tmp");
+        assert_eq!(super::path_escape("a b"), "a%20b");
+        // segment escaping keeps the reserved `: @ & = + $`, escapes `; , ?`
+        assert_eq!(super::path_escape("a;b,c?d"), "a%3Bb%2Cc%3Fd");
+        assert_eq!(super::path_escape("a@b&c=d+e$f"), "a@b&c=d+e$f");
+    }
+
+    #[test]
+    fn uid_with_opts_skips_empty_values() {
+        assert_eq!(
+            super::with_opts("file", "host", "value", &[("flag", "x"), ("empty", "")]),
+            "file://host/value?flag=x"
+        );
+    }
 }

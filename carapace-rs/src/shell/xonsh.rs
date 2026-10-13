@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use super::{Flags, trimmed_description};
 use crate::meta::Meta;
-use crate::shell::style::Style;
+use crate::style::Style;
 use crate::value::RawValues;
 
 fn sanitize(value: &str) -> String {

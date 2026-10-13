@@ -89,7 +89,7 @@ fn parse_output(output: &str, value: &str) -> Action {
         Action::values_described(flags).tag("flags"),
         Action::values_described(files)
             .tag("files")
-            .style_f(|context, value| carapace_rs::shell::for_path_ext(context, &value.value)),
+            .style_f(|context, value| carapace_rs::style::for_path_ext(context, &value.value)),
     ]);
     if flag_value {
         let prefix = value

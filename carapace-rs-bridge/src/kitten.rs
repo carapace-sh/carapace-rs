@@ -170,5 +170,5 @@ fn directory_of(word: &str) -> String {
 
 /// The keyword style from the style configuration (Go `style.ForKeyword`).
 fn crate_keyword_style(word: &str) -> String {
-    carapace_rs::config::keyword_style(word)
+    carapace_rs::style::keyword_style(word)
 }

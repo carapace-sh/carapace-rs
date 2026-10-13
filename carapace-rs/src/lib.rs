@@ -22,6 +22,7 @@ pub mod meta;
 pub mod mock;
 pub mod model;
 pub mod shell;
+pub mod style;
 pub mod traverse;
 #[doc(hidden)]
 pub mod uid;

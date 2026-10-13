@@ -419,7 +419,7 @@ fn complete_path(
             value = value.nospace(true);
         }
         // LS_COLORS styling (Go ActionFiles' StyleF(style.ForPath))
-        value.style = crate::shell::for_path(context, &value.value);
+        value.style = crate::style::for_path(context, &value.value);
         // implicit file uid (Go ActionFiles' UidF: file:// + PathEscape of
         // the absolute path, slashes preserved as separators)
         if let Ok(abs) = context.abs(&value.value) {

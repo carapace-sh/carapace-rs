@@ -46,7 +46,7 @@ where
                         .copied();
                     if let Some(scheme) = file_scheme {
                         action = action.nospace(['/']).style_f(move |context, raw| {
-                            carapace_rs::shell::for_path(
+                            carapace_rs::style::for_path(
                                 context,
                                 raw.value.strip_prefix(scheme).unwrap_or(&raw.value),
                             )

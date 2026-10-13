@@ -56,7 +56,7 @@ where
                                 Some(rest) if rest.contains('=') => rest.split_once('=').unwrap().1,
                                 _ => value.value.as_str(),
                             };
-                            carapace_rs::shell::for_path(context, path)
+                            carapace_rs::style::for_path(context, path)
                         })
                         .nospace(['/', '=', '@', ':', '.', ','])
                 }

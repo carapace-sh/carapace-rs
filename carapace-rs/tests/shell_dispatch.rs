@@ -699,15 +699,15 @@ fn for_path_ext_ignores_file_features() {
     // Go style.ForPathExt: extension only, directory fallback
     let context = Context::default().env("LS_COLORS", "di=01;34:*.md=01;31");
     assert_eq!(
-        carapace_rs::shell::for_path_ext(&context, "file.md"),
+        carapace_rs::style::for_path_ext(&context, "file.md"),
         "red bold"
     );
     assert_eq!(
-        carapace_rs::shell::for_path_ext(&context, "anything"),
+        carapace_rs::style::for_path_ext(&context, "anything"),
         "blue bold"
     );
     assert_eq!(
-        carapace_rs::shell::for_extension(&context, "md"),
+        carapace_rs::style::for_extension(&context, "md"),
         "red bold"
     );
 }

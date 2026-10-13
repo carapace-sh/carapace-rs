@@ -1,7 +1,7 @@
 //! Zsh value formatting (port of Go `internal/shell/zsh/action.go`).
 
 use crate::meta::Meta;
-use crate::shell::sgr;
+use crate::style::sgr;
 use crate::value::RawValues;
 
 use super::{Flags, matches_nospace};

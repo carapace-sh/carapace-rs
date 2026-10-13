@@ -56,7 +56,7 @@ where
                     }
                     Action::raw(values)
                         .style_f(|context, value| {
-                            carapace_rs::shell::for_path(context, &value.value)
+                            carapace_rs::style::for_path(context, &value.value)
                         })
                         .nospace(['/', '=', '@', ':', '.', ','])
                 }

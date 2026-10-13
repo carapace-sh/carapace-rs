@@ -558,7 +558,7 @@ mod chain {
 
 mod action {
     use super::*;
-    use carapace_rs::shell;
+    use carapace_rs::style;
 
     const FILES: [(&str, &str); 5] = [
         ("dirA/file1.txt", ""),
@@ -569,7 +569,7 @@ mod action {
     ];
 
     fn for_path() -> impl Fn(&carapace_rs::Context, &carapace_rs::RawValue) -> String + Copy {
-        |context, value| shell::for_path(context, &value.value)
+        |context, value| style::for_path(context, &value.value)
     }
 
     #[test]
@@ -1035,14 +1035,14 @@ mod action {
 
 mod modifier {
     use super::*;
-    use carapace_rs::shell;
+    use carapace_rs::style;
 
     fn for_path() -> impl Fn(&carapace_rs::Context, &carapace_rs::RawValue) -> String + Copy {
-        |context, value| shell::for_path(context, &value.value)
+        |context, value| style::for_path(context, &value.value)
     }
 
     fn for_path_ext() -> impl Fn(&carapace_rs::Context, &carapace_rs::RawValue) -> String + Copy {
-        |context, value| shell::for_path_ext(context, &value.value)
+        |context, value| style::for_path_ext(context, &value.value)
     }
 
     #[test]
@@ -1189,7 +1189,7 @@ mod modifier {
                 Action::values(["file1.txt"])
                     .tag("files")
                     .style_f(|context, value| {
-                        shell::for_path(context, &format!("subdir/{}", value.value))
+                        style::for_path(context, &format!("subdir/{}", value.value))
                     })
                     .nospace(['/']),
             );
@@ -1672,10 +1672,10 @@ mod modifier {
 
 mod multiparts {
     use super::*;
-    use carapace_rs::shell;
+    use carapace_rs::style;
 
     fn for_path() -> impl Fn(&carapace_rs::Context, &carapace_rs::RawValue) -> String + Copy {
-        |context, value| shell::for_path(context, &value.value)
+        |context, value| style::for_path(context, &value.value)
     }
 
     const FILES: [(&str, &str); 5] = [
@@ -1870,7 +1870,7 @@ fn pre_invoke_chdirs_all_actions() {
             Action::values(["dirC/", "file4.md"])
                 .tag("files")
                 .style_f(|context, value| {
-                    carapace_rs::shell::for_path(context, &format!("dirB/{}", value.value))
+                    carapace_rs::style::for_path(context, &format!("dirB/{}", value.value))
                 })
                 .nospace(['/'])
                 .usage("ActionFiles()"),
@@ -1884,7 +1884,7 @@ fn pre_invoke_chdirs_all_actions() {
             Action::values(["dirC/"])
                 .tag("directories")
                 .style_f(|context, value| {
-                    carapace_rs::shell::for_path(context, &format!("dirB/{}", value.value))
+                    carapace_rs::style::for_path(context, &format!("dirB/{}", value.value))
                 })
                 .nospace(['/'])
                 .usage("ActionDirectories()"),

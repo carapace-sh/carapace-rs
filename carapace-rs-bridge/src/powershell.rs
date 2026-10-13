@@ -72,7 +72,7 @@ where
                         values.push(carapace_rs::RawValue::described(completion_text, tool_tip));
                     }
                     let action = Action::raw(values).style_f(|context, value| {
-                        carapace_rs::shell::for_path(context, &value.value)
+                        carapace_rs::style::for_path(context, &value.value)
                     });
                     if suffixes.is_empty() {
                         action

@@ -309,7 +309,7 @@ pub fn tag() -> Action {
 
 pub fn tagf() -> Action {
     Action::values(["one.png", "two.gif", "three.txt", "four.md"])
-        .style_f(|c, value| carapace_rs::shell::for_path_ext(c, &value.value))
+        .style_f(|c, value| carapace_rs::style::for_path_ext(c, &value.value))
         .tag_f(|value| {
             match value
                 .value

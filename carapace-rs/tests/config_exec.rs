@@ -275,7 +275,7 @@ fn exec_passes_context_env_not_process_env() {
 
 #[test]
 fn keyword_styles_follow_go_table() {
-    use carapace_rs::config::keyword_style;
+    use carapace_rs::style::keyword_style;
     assert_eq!(keyword_style("true"), "green");
     assert_eq!(keyword_style("FALSE"), "red");
     assert_eq!(keyword_style("auto"), "yellow");
@@ -314,7 +314,8 @@ fn style_config_lists_carapace_entries() {
 
 #[test]
 fn highlight_and_loglevel_styles() {
-    use carapace_rs::config::{for_log_level, styles};
+    use carapace_rs::config::styles;
+    use carapace_rs::style::for_log_level;
     let carapace = styles().carapace;
     assert_eq!(carapace.highlight(0), "blue");
     assert_eq!(carapace.highlight(11), "dim bold");

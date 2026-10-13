@@ -5,6 +5,20 @@ use carapace_rs_testkit::Sandbox;
 use clap::builder::ArgAction;
 use clap::{Arg, Command};
 
+/// A mock root unique per call, so parallel tests never share a cache dir.
+fn mock_dir(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "carapace-mock-{name}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(dir.join("cache")).ok();
+    dir
+}
+
 fn cli() -> Command {
     Command::new("outer").disable_help_subcommand(true).arg(
         Arg::new("rest")
@@ -191,7 +205,7 @@ fn cobra_bridge_reattaches_flag_prefix() {
 #[test]
 fn cobra_bridge_prefixes_bare_flag_values() {
     let mock = carapace_rs::mock::Mock {
-        dir: std::env::temp_dir(),
+        dir: mock_dir("cobra-import"),
         replies: std::collections::HashMap::from([(
             carapace_rs::mock::Mock::key("git", &["__complete".to_owned(), "--branch=".to_owned()]),
             "main\n:0\n".to_owned(),
@@ -241,7 +255,7 @@ fn inshellisense_bridge_skips_flags_for_plain_words() {
 #[test]
 fn inshellisense_bridge_includes_flags_for_flag_words() {
     let mock = carapace_rs::mock::Mock {
-        dir: std::env::temp_dir(),
+        dir: mock_dir("cobra-nospace"),
         replies: std::collections::HashMap::from([(
             carapace_rs::mock::Mock::key(
                 "inshellisense",
@@ -365,7 +379,7 @@ fn inshellisense_bridge_styles_files() {
     // Go `StyleF(style.ForPathExt).Tag("files")`: file suggestions are
     // styled by extension from LS_COLORS
     let mock = carapace_rs::mock::Mock {
-        dir: std::env::temp_dir(),
+        dir: mock_dir("ins-values"),
         replies: std::collections::HashMap::from([(
             carapace_rs::mock::Mock::key(
                 "inshellisense",
@@ -398,7 +412,7 @@ fn inshellisense_bridge_styles_files() {
 fn carapace_bin_bridge_imports_export_json() {
     // Go bridge.ActionCarapaceBin: `carapace <cmd> export "" <args...>`
     let mock = carapace_rs::mock::Mock {
-        dir: std::env::temp_dir(),
+        dir: mock_dir("ins-flags"),
         replies: std::collections::HashMap::from([(
             carapace_rs::mock::Mock::key(
                 "carapace",
@@ -421,7 +435,7 @@ fn carapace_bin_bridge_imports_export_json() {
 #[test]
 fn carapace_bin_bridge_falls_back_to_files_on_empty_output() {
     let mock = carapace_rs::mock::Mock {
-        dir: std::env::temp_dir(),
+        dir: mock_dir("carapace-bin-import"),
         replies: std::collections::HashMap::from([(
             carapace_rs::mock::Mock::key(
                 "carapace",

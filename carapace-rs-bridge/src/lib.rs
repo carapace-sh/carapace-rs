@@ -5,10 +5,17 @@
 //! and convert them into [`Action`]s.
 
 pub mod argcomplete;
+pub mod aws;
+pub mod bpaf;
+pub mod click;
 pub mod cobra;
+pub mod complete;
 pub mod fish;
 pub mod inshellisense;
+pub mod jj;
+pub mod kingpin;
 pub mod shell;
+pub mod yargs;
 pub mod zsh;
 
 use carapace_rs::Action;
@@ -23,6 +30,13 @@ where
 {
     match name {
         "argcomplete" => argcomplete::action(command),
+        "aws" => aws::action(command),
+        "bpaf" => bpaf::action(command),
+        "click" => click::action(command),
+        "complete" => complete::action(command),
+        "jj" => jj::action(command),
+        "kingpin" => kingpin::action(command),
+        "yargs" => yargs::action(command),
         "fish" => fish::action(command),
         "bash" => shell::bash(command),
         "zsh" => zsh::action(command),

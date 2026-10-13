@@ -19,6 +19,47 @@ fn mock_dir(name: &str) -> std::path::PathBuf {
     dir
 }
 
+/// Serializes tests that touch process environment variables.
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Create a fake executable on the PATH so `look_path` finds it; the
+/// command itself is answered by a mock reply.
+fn fake_on_path(name: &str) -> (std::path::PathBuf, std::sync::MutexGuard<'static, ()>) {
+    let guard = env_lock();
+    let dir = std::env::temp_dir().join(format!(
+        "carapace-fakebin-{name}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let script = dir.join(name);
+    std::fs::write(&script, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let previous = std::env::var("PATH").unwrap_or_default();
+    unsafe {
+        std::env::set_var(
+            "PATH",
+            std::env::join_paths(
+                std::iter::once(dir.clone()).chain(std::env::split_paths(&previous)),
+            )
+            .unwrap(),
+        );
+    }
+    (dir, guard)
+}
+
 fn cli() -> Command {
     Command::new("outer").disable_help_subcommand(true).arg(
         Arg::new("rest")
@@ -455,5 +496,192 @@ fn carapace_bin_bridge_falls_back_to_files_on_empty_output() {
         !invoked.values.is_empty() && invoked.values.iter().all(|v| v.tag == "files"),
         "{:?}",
         invoked.values
+    );
+}
+
+#[test]
+fn click_bridge_parses_zsh_protocol() {
+    let (_path_dir, _guard) = fake_on_path("fakeclick");
+
+    // click emits type/value/description triples
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("click"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key("fakeclick", &[]),
+            "plain\none\nfirst\nplain\ntwo\n_\n".to_owned(),
+        )]),
+    };
+    let invoked =
+        bridge::click::action(["fakeclick"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let described: Vec<(String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.description.clone()))
+        .collect();
+    // `_` descriptions are empty
+    assert_eq!(
+        described,
+        vec![
+            ("one".to_owned(), "first".to_owned()),
+            ("two".to_owned(), String::new()),
+        ]
+    );
+}
+
+#[test]
+fn complete_bridge_reads_comp_line_output() {
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("complete"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key("fakecomplete", &[]),
+            "one\nhttp://x\n\n".to_owned(),
+        )]),
+    };
+    let invoked = bridge::complete::action(["fakecomplete"])
+        .invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    assert_eq!(values, vec!["one".to_owned(), "http://x".to_owned()]);
+    // a nospace character inside a candidate suppresses the trailing space
+    assert!(!invoked.meta.nospace.is_empty(), "{:?}", invoked.meta);
+}
+
+#[test]
+fn yargs_bridge_parses_colon_descriptions() {
+    let (_path_dir, _guard) = fake_on_path("fakeyargs");
+
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("yargs"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "fakeyargs",
+                &["--get-yargs-completions".to_owned(), String::new()],
+            ),
+            "one:first\ntwo\n".to_owned(),
+        )]),
+    };
+    let invoked =
+        bridge::yargs::action(["fakeyargs"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let described: Vec<(String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.description.clone()))
+        .collect();
+    assert_eq!(
+        described,
+        vec![
+            ("one".to_owned(), "first".to_owned()),
+            ("two".to_owned(), String::new()),
+        ]
+    );
+}
+
+#[test]
+fn jj_bridge_filters_by_flag_kind() {
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("jj"),
+        replies: std::collections::HashMap::from([
+            (
+                carapace_rs::mock::Mock::key(
+                    "fakejj",
+                    &["--".to_owned(), "fakejj".to_owned(), "-".to_owned()],
+                ),
+                "--edit\tuse an editor\nrevision\tA revision\n".to_owned(),
+            ),
+            (
+                carapace_rs::mock::Mock::key(
+                    "fakejj",
+                    &["--".to_owned(), "fakejj".to_owned(), String::new()],
+                ),
+                "--edit\tuse an editor\nrevision\tA revision\n".to_owned(),
+            ),
+        ]),
+    };
+    // completing a flag word keeps only flags
+    let invoked =
+        bridge::jj::action(["fakejj"]).invoke(&carapace_rs::Context::new(["-"]).mock(mock.clone()));
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    assert_eq!(values, vec!["--edit".to_owned()]);
+
+    // completing a plain word keeps only non-flags
+    let invoked =
+        bridge::jj::action(["fakejj"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    assert_eq!(values, vec!["revision".to_owned()]);
+}
+
+#[test]
+fn kingpin_bridge_falls_back_to_files() {
+    // a single (empty) output line without a flag word: files
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("kingpin-files"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "fakekingpin",
+                &["--completion-bash".to_owned(), String::new()],
+            ),
+            "".to_owned(),
+        )]),
+    };
+    let invoked = bridge::kingpin::action(["fakekingpin"])
+        .invoke(&carapace_rs::Context::new([""]).mock(mock));
+    assert!(
+        !invoked.values.is_empty() && invoked.values.iter().all(|v| v.tag == "files"),
+        "{:?}",
+        invoked.values
+    );
+
+    // candidates are completed as plain values (Go keeps the empty
+    // elements of the line split)
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("kingpin-values"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "fakekingpin",
+                &["--completion-bash".to_owned(), String::new()],
+            ),
+            "one\ntwo\n\n".to_owned(),
+        )]),
+    };
+    let invoked = bridge::kingpin::action(["fakekingpin"])
+        .invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
+    assert_eq!(
+        values,
+        vec![
+            "one".to_owned(),
+            "two".to_owned(),
+            String::new(),
+            String::new()
+        ]
+    );
+}
+
+#[test]
+fn bpaf_bridge_reverses_fish_output() {
+    let (_path_dir, _guard) = fake_on_path("fakebpaf");
+
+    let mock = carapace_rs::mock::Mock {
+        dir: mock_dir("bpaf"),
+        replies: std::collections::HashMap::from([(
+            carapace_rs::mock::Mock::key(
+                "fakebpaf",
+                &["--bpaf-complete-rev=9".to_owned(), String::new()],
+            ),
+            "second\tlast\nfirst\tfirst-description\n".to_owned(),
+        )]),
+    };
+    let invoked =
+        bridge::bpaf::action(["fakebpaf"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let described: Vec<(String, String)> = invoked
+        .values
+        .iter()
+        .map(|v| (v.value.clone(), v.description.clone()))
+        .collect();
+    assert_eq!(
+        described,
+        vec![
+            ("first".to_owned(), "first-description".to_owned()),
+            ("second".to_owned(), "last".to_owned()),
+        ]
     );
 }

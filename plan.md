@@ -144,8 +144,11 @@ All settled decisions hold; two are strained:
 
 ## Feature backlog (not bugs)
 
-- [ ] missing bridges vs Go: argcomplete, aws, bpaf, click, complete, gcloud,
+- [x] missing bridges vs Go: argcomplete, aws, bpaf, click, complete, gcloud,
       jj, kingpin, kitten, powershell, symfony, typer, urfavecli, yargs.
+      All ported with mocked protocol tests. Deferred: `ActionBridges`
+      (completing available bridges) and the deprecated `bridge.Action*`
+      variants are not exposed yet.
 - [ ] spec macros: `$message`, `$spec`, shell macros, custom/external macros
       — done except **custom in-process macros** (Go `AddMacro`/`AddMacroI`/
       `AddMacroV`); the external `_carapace macro` protocol covers

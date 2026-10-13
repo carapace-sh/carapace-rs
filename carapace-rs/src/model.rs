@@ -106,6 +106,9 @@ pub struct Flag {
     /// annotation, directional here): a conflicting flag that was already
     /// given removes this flag from the flag completion.
     pub conflicts: Vec<String>,
+    /// Character separating multiple values inside one word (clap
+    /// `value_delimiter`): completion completes the last segment only.
+    pub value_delimiter: Option<char>,
 }
 
 impl Flag {
@@ -153,6 +156,9 @@ pub struct Positional {
     pub completion: Option<Action>,
     /// Tag for completion values.
     pub tag: Option<String>,
+    /// Character separating multiple values inside one word (clap
+    /// `value_delimiter`): completion completes the last segment only.
+    pub value_delimiter: Option<char>,
 }
 
 /// A command node with flags, positionals and subcommands.
@@ -162,6 +168,8 @@ pub struct Command {
     pub name: String,
     /// Command aliases.
     pub aliases: Vec<String>,
+    /// Shorthand character selecting this subcommand (clap `short_flag`).
+    pub short_flag: Option<char>,
     /// Flags local to this command.
     pub flags: Vec<Flag>,
     /// Positional arguments.
@@ -281,6 +289,17 @@ impl Command {
         self.subcommands
             .iter()
             .find(|c| c.name == name || c.aliases.iter().any(|a| a == name))
+            .or_else(|| {
+                // a shorthand token (`-x`) selects a subcommand with a
+                // matching `short_flag` (clap subcommand short flags)
+                let token = name.strip_prefix(self.flag_prefix)?;
+                let mut chars = token.chars();
+                let (flag, rest) = (chars.next()?, chars.next());
+                if rest.is_some() {
+                    return None;
+                }
+                self.subcommands.iter().find(|c| c.short_flag == Some(flag))
+            })
     }
 
     /// The positional at `index`, resolving repeatable positionals.

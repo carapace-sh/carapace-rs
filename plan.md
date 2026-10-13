@@ -131,6 +131,13 @@ All settled decisions hold; two are strained:
       — done except **custom in-process macros** (Go `AddMacro`/`AddMacroI`/
       `AddMacroV`); the external `_carapace macro` protocol covers
       cross-binary macros.
-- [ ] clap: `value_delimiter`, remaining `ValueHint`s, command-level
+- [x] clap: `value_delimiter`, remaining `ValueHint`s, command-level
       `allow_hyphen_values`, subcommand short flags, bounded nargs.
+      Done: `value_delimiter` (model field + traverse split, flags and
+      positionals), `ValueHint`s (path hints, command hints → executables;
+      host/user/url hints have no engine action yet), subcommand short
+      flags (model + `lookup_subcommand` token match). Command-level
+      `allow_hyphen_values` is deprecated in clap 4 (private getter) —
+      per-arg is the supported form. Remaining: bounded `Nargs` (`2..=4`
+      still collapses to variadic).
 - [ ] shlex: document the sanctioned divergences in AGENTS.md (cmd tokenizer).

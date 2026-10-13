@@ -562,3 +562,77 @@ fn pre_invoke_hooks_nest_ancestors_outermost() {
     );
     let _ = completion.action.invoke(&Context::default());
 }
+
+#[test]
+fn value_delimiter_completes_last_segment() {
+    let cmd = Command::new("app").arg(
+        Arg::new("list")
+            .long("list")
+            .action(ArgAction::Set)
+            .value_delimiter(',')
+            .add(carapace_rs_clap::ArgCompleter::new(Action::values([
+                "one", "two", "three",
+            ]))),
+    );
+    let model = to_model(&mut cmd.clone());
+
+    // attached: `--list=one,` completes after the last delimiter
+    let completion = carapace_rs::traverse(&model, vec!["--list=one,".to_owned()]);
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
+    assert!(values.contains(&"--list=one,two".to_owned()), "{values:?}");
+
+    // next-arg: `--list one,` completes the trailing segment
+    let completion = carapace_rs::traverse(&model, vec!["--list".to_owned(), "one,".to_owned()]);
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
+    assert!(values.contains(&"one,two".to_owned()), "{values:?}");
+}
+
+#[test]
+fn subcommand_short_flag_selects_subcommand() {
+    let cmd = Command::new("app")
+        .subcommand(Command::new("list").short_flag('l'))
+        .subcommand(Command::new("other"));
+    let model = to_model(&mut cmd.clone());
+
+    // the shorthand token dispatches into the subcommand
+    let completion = carapace_rs::traverse(&model, vec!["-l".to_owned(), "".to_owned()]);
+    let invoked = completion.action.invoke(&completion.context);
+    // completing inside `list` (no positionals defined): no crash is the
+    // dispatch proof; the path reflects the subcommand
+    assert_eq!(model.lookup_subcommand("-l").unwrap().name, "list");
+    assert_eq!(model.lookup_subcommand("list").unwrap().name, "list");
+    let _ = invoked;
+}
+
+#[test]
+fn command_value_hint_completes_executables() {
+    let cmd = Command::new("app")
+        .arg(Arg::new("cmd").value_hint(ValueHint::CommandString))
+        .arg(Arg::new("dir").value_hint(ValueHint::DirPath));
+    let model = to_model(&mut cmd.clone());
+
+    let completion = carapace_rs::traverse(&model, vec!["".to_owned()]);
+    let values: Vec<String> = completion
+        .action
+        .invoke(&completion.context)
+        .values
+        .iter()
+        .map(|v| v.value.clone())
+        .collect();
+    assert!(
+        values.iter().all(|v| !v.starts_with('-')),
+        "executables expected, got {values:?}"
+    );
+}

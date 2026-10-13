@@ -24,6 +24,7 @@ fn convert_command(
 ) -> Command {
     let mut model = Command::new(cmd.get_name().to_owned());
     model.aliases = cmd.get_all_aliases().map(String::from).collect();
+    model.short_flag = cmd.get_short_flag();
     model.description = cmd
         .get_about()
         .or_else(|| cmd.get_long_about())
@@ -317,6 +318,7 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
             .get::<ArgConflicts>()
             .map(|conflicts| conflicts.0.clone())
             .unwrap_or_default(),
+        value_delimiter: arg.get_value_delimiter(),
     }
 }
 
@@ -349,6 +351,7 @@ fn convert_positional(arg: &clap::Arg) -> Positional {
             .or_else(|| possible_values_action(arg))
             .or_else(|| value_hint_action(arg)),
         tag: None,
+        value_delimiter: arg.get_value_delimiter(),
     }
 }
 
@@ -375,6 +378,11 @@ fn value_hint_action(arg: &clap::Arg) -> Option<Action> {
     match arg.get_value_hint() {
         ValueHint::DirPath => Some(Action::directories()),
         ValueHint::AnyPath | ValueHint::FilePath => Some(Action::files(Vec::<String>::new())),
+        // command hints complete executables on PATH (Go has no dedicated
+        // engine action; `pkg/actions/tools` provides richer ones)
+        ValueHint::CommandName | ValueHint::CommandString | ValueHint::CommandWithArguments => {
+            Some(Action::executables())
+        }
         _ => None,
     }
 }

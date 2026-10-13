@@ -257,10 +257,18 @@ fn traverse_command(
     if let Some(flag) = in_flag.as_ref() {
         if flag.consumes(&context.value) && flag.accepts_next() {
             context.parts = flag.args.clone();
-            return Completion {
-                action: get_flag(cmd, &flag.flag.name),
-                context,
+            // a value delimiter completes the last segment only; the
+            // earlier segments ride the prefix (clap `value_delimiter`)
+            let action = match flag.flag.value_delimiter {
+                Some(delimiter) => match context.value.rsplit_once(delimiter) {
+                    Some((head, _)) => {
+                        get_flag(cmd, &flag.flag.name).prefix(format!("{head}{delimiter}"))
+                    }
+                    None => get_flag(cmd, &flag.flag.name),
+                },
+                None => get_flag(cmd, &flag.flag.name),
             };
+            return Completion { action, context };
         }
     }
 
@@ -283,10 +291,18 @@ fn traverse_command(
                         context,
                     };
                 }
-                return Completion {
-                    action: get_flag(cmd, &flag.flag.name).prefix(&flag.arg_prefix),
-                    context,
+                let action = match flag.flag.value_delimiter {
+                    Some(delimiter) => {
+                        let value_part = &context.value[flag.arg_prefix.len()..];
+                        match value_part.rsplit_once(delimiter) {
+                            Some((head, _)) => get_flag(cmd, &flag.flag.name)
+                                .prefix(format!("{}{head}{delimiter}", flag.arg_prefix)),
+                            None => get_flag(cmd, &flag.flag.name).prefix(&flag.arg_prefix),
+                        }
+                    }
+                    None => get_flag(cmd, &flag.flag.name).prefix(&flag.arg_prefix),
                 };
+                return Completion { action, context };
             }
             let double_prefix: String = [cmd.flag_prefix, cmd.flag_prefix].iter().collect();
             let not_double_prefixed = !context.value.starts_with(&double_prefix);
@@ -309,6 +325,16 @@ fn traverse_command(
 
     // positional or subcommand
     let positional = get_positional(cmd, context.args.len());
+    let positional = match cmd
+        .positional_at(context.args.len())
+        .and_then(|positional| positional.value_delimiter)
+    {
+        Some(delimiter) => match context.value.rsplit_once(delimiter) {
+            Some((head, _)) => positional.prefix(format!("{head}{delimiter}")),
+            None => positional,
+        },
+        None => positional,
+    };
     if !cmd.subcommands.is_empty() && context.args.is_empty() {
         let action = merge_all([
             positional.invoke(&context),

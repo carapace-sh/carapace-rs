@@ -120,8 +120,13 @@ All settled decisions hold; two are strained:
 - [ ] direct tests for `bash::patch`, bash bridge, `carapace_bin` bridge.
 - [ ] replace wall-clock-margin tests (`example.rs` timeout/cache TTL) with
       deterministic ones; give `batch.rs` `Barrier` test a timeout strategy.
-- [ ] nested hooks, `positional_completion` padding, spec feature-off build,
-      `command_completer!`, Windows-safe `/tmp` test.
+- [x] nested hooks, `positional_completion` padding, spec feature-off build,
+      `command_completer!`, Windows-safe `/tmp` test. Nested hooks were
+      covered earlier (medium priority); padding (virtual positionals)
+      and `command_completer!` got direct tests; the feature-off build
+      is a documented check (`cargo check -p carapace-rs-clap
+      --no-default-features`); the filesystem-root files test is
+      unix-gated (Windows completes through drive-relative roots).
 
 ## Feature backlog (not bugs)
 

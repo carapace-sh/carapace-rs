@@ -411,9 +411,12 @@ fn style_r_reads_the_cell_at_invocation() {
 }
 
 #[test]
+#[cfg(unix)]
 fn files_completion_resolves_the_filesystem_root() {
     // `/tmp` (no trailing slash): the empty directory part before the
-    // leading slash is the filesystem root, not the context directory
+    // leading slash is the filesystem root, not the context directory.
+    // POSIX-shaped (drive-relative roots on Windows complete through a
+    // different path), so it only runs where the root is unambiguous.
     let context = Context::default().value("/tmp");
     let invoked = Action::files(Vec::<String>::new()).invoke(&context);
     let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();

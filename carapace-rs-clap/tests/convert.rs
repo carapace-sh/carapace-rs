@@ -686,3 +686,49 @@ fn bounded_nargs_consumes_minimum_and_stops_at_flags() {
         ]
     );
 }
+
+#[test]
+fn positional_completion_pads_virtual_positionals() {
+    // more actions than defined positionals: virtual positionals absorb
+    // the remaining actions (Go's storage is independent of the arg list)
+    let cmd = Command::new("app")
+        .arg(Arg::new("first").index(1))
+        .positional_completion([
+            Action::values(["first"]),
+            Action::values(["second"]),
+            Action::values(["third"]),
+        ]);
+    let model = to_model(&mut cmd.clone());
+
+    assert_eq!(model.positionals.len(), 3);
+    let value_at = |index: usize| {
+        model.positionals[index]
+            .completion
+            .as_ref()
+            .unwrap()
+            .invoke(&Context::default())
+            .values[0]
+            .value
+            .clone()
+    };
+    assert_eq!(value_at(0), "first");
+    assert_eq!(value_at(1), "second");
+    assert_eq!(value_at(2), "third");
+    // virtual positionals are optional (completing beyond them stays legal)
+    assert!(model.positionals[2].optional);
+}
+
+#[test]
+fn command_completer_macro_attaches_positional_any() {
+    // the macro wraps the action for clap derive's `add = <expr>` escape hatch
+    let cmd = Command::new("app").add(carapace_rs_clap::command_completer!(Action::values([
+        "via-macro"
+    ])));
+    let model = to_model(&mut cmd.clone());
+    let invoked = model
+        .positional_any
+        .as_ref()
+        .expect("command_completer! must fill positional_any")
+        .invoke(&Context::default());
+    assert_eq!(invoked.values[0].value, "via-macro");
+}

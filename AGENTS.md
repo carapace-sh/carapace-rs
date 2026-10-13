@@ -29,6 +29,8 @@ test, either the port or the test is wrong — check the Go source first.
 cargo test --workspace        # must pass
 cargo fmt                     # format; cargo fmt --check must be clean
 cargo clippy --workspace      # must be warning-free
+cargo check -p carapace-rs-clap --no-default-features
+                              # the spec feature must stay optional (DD18)
 ```
 
 Run the example binary to try completions end to end:

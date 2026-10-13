@@ -224,54 +224,41 @@ impl Action {
 
     /// Complete style configuration values (e.g. `carapace.Error=bold red`).
     pub fn style_config() -> Self {
-        let config = crate::config::styles();
-        let carapace = &config.carapace;
-        let mut values = vec![
-            format!("carapace.Value={}", carapace.value),
-            format!("carapace.Description={}", carapace.description),
-            format!("carapace.Error={}", carapace.error),
-            format!("carapace.Usage={}", carapace.usage),
-            format!("carapace.KeywordAmbiguous={}", carapace.keyword_ambiguous),
-            format!("carapace.KeywordNegative={}", carapace.keyword_negative),
-            format!("carapace.KeywordPositive={}", carapace.keyword_positive),
-            format!("carapace.KeywordUnknown={}", carapace.keyword_unknown),
-            format!("carapace.FlagArg={}", carapace.flag_arg),
-            format!("carapace.FlagMultiArg={}", carapace.flag_multi_arg),
-            format!("carapace.FlagNoArg={}", carapace.flag_no_arg),
-            format!("carapace.FlagOptArg={}", carapace.flag_opt_arg),
-        ];
-        for (level, style) in carapace.highlight.iter().enumerate() {
-            values.push(format!("carapace.Highlight{}={style}", level + 1));
-        }
-        values.push(format!(
-            "carapace.LogLevelTrace={}",
-            carapace.log_level_trace
-        ));
-        values.push(format!(
-            "carapace.LogLevelDebug={}",
-            carapace.log_level_debug
-        ));
-        values.push(format!("carapace.LogLevelInfo={}", carapace.log_level_info));
-        values.push(format!(
-            "carapace.LogLevelWarning={}",
-            carapace.log_level_warning
-        ));
-        values.push(format!(
-            "carapace.LogLevelError={}",
-            carapace.log_level_error
-        ));
-        values.push(format!(
-            "carapace.LogLevelCritical={}",
-            carapace.log_level_critical
-        ));
-        values.push(format!(
-            "carapace.LogLevelFatal={}",
-            carapace.log_level_fatal
-        ));
-        for (name, style) in &config.custom {
-            values.push(format!("{name}={style}"));
-        }
-        Self::raw(values.into_iter().map(RawValue::new).collect())
+        Self::multiparts("=", |c| match c.parts.len() {
+            0 => Self::multiparts(".", |c| match c.parts.len() {
+                0 => {
+                    let keys = crate::config::styles().keys();
+                    Self::values(keys).suffix(".")
+                }
+                1 => {
+                    let name = c.parts[0].clone();
+                    match crate::config::styles().fields(&name) {
+                        Some(fields) => crate::batch(
+                            fields
+                                .iter()
+                                .map(|field| {
+                                    Self::styled_values_described([(
+                                        field.name.clone(),
+                                        field.description.clone(),
+                                        field.style.clone(),
+                                    )])
+                                    .tag(field.tag.clone())
+                                })
+                                .collect(),
+                        )
+                        .suffix("="),
+                        None => Self::message(format!("unknown config: '{name}'")),
+                    }
+                }
+                _ => Self::values(Vec::<String>::new()),
+            }),
+            1 => Self::multiparts(",", |c| {
+                Self::styles(c.parts.iter().cloned())
+                    .filter_parts()
+                    .nospace([])
+            }),
+            _ => Self::values(Vec::<String>::new()),
+        })
     }
 }
 

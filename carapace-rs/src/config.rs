@@ -82,6 +82,139 @@ pub struct Styles {
     pub custom: std::collections::HashMap<String, String>,
 }
 
+/// A field of a registered style configuration (Go `config.Field`).
+#[derive(Clone, Debug)]
+pub struct StyleField {
+    pub name: String,
+    pub description: String,
+    pub style: String,
+    pub tag: String,
+}
+
+impl Styles {
+    /// The registered style configuration names (Go
+    /// `config.Styles.Keys()`); user-defined custom styles are not
+    /// registered configurations.
+    pub fn keys(&self) -> Vec<String> {
+        vec!["carapace".to_owned()]
+    }
+
+    /// The fields of a registered style configuration (Go
+    /// `config.Styles.Fields(name)`): the field name, its description and
+    /// tag, and the currently configured style. `None` for unknown names.
+    pub fn fields(&self, name: &str) -> Option<Vec<StyleField>> {
+        if name != "carapace" {
+            return None;
+        }
+        let carapace = &self.carapace;
+        let field = |name: &str, description: &str, tag: &str, style: &str| StyleField {
+            name: name.to_owned(),
+            description: description.to_owned(),
+            style: style.to_owned(),
+            tag: tag.to_owned(),
+        };
+        let mut fields = vec![
+            field(
+                "Value",
+                "default style for values",
+                "core styles",
+                &carapace.value,
+            ),
+            field(
+                "Description",
+                "default style for descriptions",
+                "core styles",
+                &carapace.description,
+            ),
+            field(
+                "Error",
+                "default style for errors",
+                "core styles",
+                &carapace.error,
+            ),
+            field(
+                "Usage",
+                "default style for usage",
+                "core styles",
+                &carapace.usage,
+            ),
+            field(
+                "KeywordAmbiguous",
+                "keyword describing a ambiguous state",
+                "keyword styles",
+                &carapace.keyword_ambiguous,
+            ),
+            field(
+                "KeywordNegative",
+                "keyword describing a negative state",
+                "keyword styles",
+                &carapace.keyword_negative,
+            ),
+            field(
+                "KeywordPositive",
+                "keyword describing a positive state",
+                "keyword styles",
+                &carapace.keyword_positive,
+            ),
+            field(
+                "KeywordUnknown",
+                "keyword describing an unknown state",
+                "keyword styles",
+                &carapace.keyword_unknown,
+            ),
+        ];
+        for (name, style) in [
+            ("Trace", &carapace.log_level_trace),
+            ("Debug", &carapace.log_level_debug),
+            ("Info", &carapace.log_level_info),
+            ("Warning", &carapace.log_level_warning),
+            ("Error", &carapace.log_level_error),
+            ("Critical", &carapace.log_level_critical),
+            ("Fatal", &carapace.log_level_fatal),
+        ] {
+            fields.push(field(
+                &format!("LogLevel{name}"),
+                &format!("LogLevel {name}"),
+                "loglevel styles",
+                style,
+            ));
+        }
+        for (level, style) in carapace.highlight.iter().enumerate() {
+            fields.push(field(
+                &format!("Highlight{}", level + 1),
+                &format!("Highlight {}", level + 1),
+                "highlight styles",
+                style,
+            ));
+        }
+        fields.push(field(
+            "FlagArg",
+            "flag with argument",
+            "flag styles",
+            &carapace.flag_arg,
+        ));
+        fields.push(field(
+            "FlagMultiArg",
+            "flag with multiple arguments",
+            "flag styles",
+            &carapace.flag_multi_arg,
+        ));
+        fields.push(field(
+            "FlagNoArg",
+            "flag without argument",
+            "flag styles",
+            &carapace.flag_no_arg,
+        ));
+        fields.push(field(
+            "FlagOptArg",
+            "flag with optional argument",
+            "flag styles",
+            &carapace.flag_opt_arg,
+        ));
+        Some(fields)
+    }
+}
+
 static STYLES: std::sync::RwLock<Option<Styles>> = std::sync::RwLock::new(None);
 
 /// Resolve the style configuration, loading `styles.json` on first use.

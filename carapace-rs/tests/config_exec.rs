@@ -148,12 +148,11 @@ fn exec_respects_context_dir_and_env() {
 }
 
 #[test]
-fn style_config_lists_entries() {
-    let invoked = Action::style_config().invoke(&Context::default());
+fn style_config_lists_configs() {
+    let invoked = Action::style_config().invoke(&Context::default().value(""));
     let export = invoked.to_export();
     let values: Vec<&str> = export.values.iter().map(|v| v.value.as_str()).collect();
-    assert!(values.iter().any(|v| v.starts_with("carapace.Error=")));
-    assert!(values.iter().any(|v| v.starts_with("carapace.Usage=")));
+    assert_eq!(values, vec!["carapace."]);
 }
 
 #[test]
@@ -289,22 +288,27 @@ fn keyword_styles_follow_go_table() {
 
 #[test]
 fn style_config_lists_carapace_entries() {
-    let action = Action::style_config();
-    let values: Vec<String> = action
-        .invoke(&Context::default())
-        .to_export()
+    let invoked = Action::style_config().invoke(&Context::default().value("carapace."));
+    let export = invoked.to_export();
+    let flag_arg = export
         .values
         .iter()
-        .cloned()
-        .map(|v| v.value)
-        .collect();
-    assert!(values.iter().any(|v| v == "carapace.FlagArg=blue"));
-    assert!(values.iter().any(|v| v == "carapace.FlagOptArg=yellow"));
-    assert!(values.iter().any(|v| v == "carapace.FlagMultiArg=magenta"));
+        .find(|v| v.value == "carapace.FlagArg=")
+        .expect("flag styles listed");
+    assert_eq!(flag_arg.description, "flag with argument");
+    assert_eq!(flag_arg.style, "blue");
+    assert_eq!(flag_arg.tag, "flag styles");
     assert!(
-        values
+        export
+            .values
             .iter()
-            .any(|v| v.starts_with("carapace.KeywordPositive="))
+            .any(|v| v.value == "carapace.FlagOptArg=")
+    );
+    assert!(
+        export
+            .values
+            .iter()
+            .any(|v| v.value == "carapace.KeywordPositive=")
     );
 }
 
@@ -325,20 +329,61 @@ fn highlight_and_loglevel_styles() {
 #[test]
 fn style_config_lists_highlight_and_loglevel() {
     carapace_rs::config::reset_styles();
-    let action = Action::style_config();
-    let values: Vec<String> = action
-        .invoke(&Context::default())
+    let invoked = Action::style_config().invoke(&Context::default().value("carapace."));
+    let values: Vec<String> = invoked
         .to_export()
         .values
         .iter()
         .cloned()
         .map(|v| v.value)
         .collect();
-    assert!(values.iter().any(|v| v == "carapace.Highlight1=blue"));
-    assert!(values.iter().any(|v| v == "carapace.Highlight12=dim bold"));
+    assert!(values.iter().any(|v| v == "carapace.Highlight1="));
+    assert!(values.iter().any(|v| v == "carapace.Highlight12="));
+    assert!(values.iter().any(|v| v == "carapace.LogLevelWarning="));
+}
+
+#[test]
+fn style_config_completes_style_values() {
+    let invoked = Action::style_config().invoke(&Context::default().value("carapace.Error="));
+    let export = invoked.to_export();
     assert!(
-        values
+        export
+            .values
             .iter()
-            .any(|v| v == "carapace.LogLevelWarning=yellow")
+            .any(|v| v.value == "carapace.Error=blue")
+    );
+    assert!(
+        export
+            .values
+            .iter()
+            .any(|v| v.value == "carapace.Error=bold")
+    );
+    assert!(export.meta.nospace.contains('*'));
+}
+
+#[test]
+fn style_config_completes_style_combinations() {
+    let invoked = Action::style_config().invoke(&Context::default().value("carapace.Error=bold,"));
+    let export = invoked.to_export();
+    assert!(
+        export
+            .values
+            .iter()
+            .any(|v| v.value == "carapace.Error=bold,red")
+    );
+    assert!(
+        !export
+            .values
+            .iter()
+            .any(|v| v.value == "carapace.Error=bold,bold")
+    );
+}
+
+#[test]
+fn style_config_unknown_config_is_a_message() {
+    let invoked = Action::style_config().invoke(&Context::default().value("unknown."));
+    assert_eq!(
+        invoked.to_export().meta.messages,
+        vec!["unknown config: 'unknown'".to_owned()]
     );
 }

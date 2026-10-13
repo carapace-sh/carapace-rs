@@ -21,5 +21,5 @@ default = ["spec"]
 spec = ["dep:carapace-rs-spec"]
 
 [dev-dependencies]
-carapace-rs-testkit = { path = "../carapace-rs-testkit", version = "0.0.1" }
+carapace-rs-testkit = { path = "../carapace-rs-testkit" }
 clap = { version = "4.6", features = ["derive"] }

@@ -148,6 +148,52 @@ fn invalid_yaml_is_an_error() {
 }
 
 #[test]
+fn unknown_fields_are_ignored() {
+    // carapace-bin spec dialects carry fields (conditions, directives,
+    // optionalargs) the core schema doesn't know; Go's yaml.Unmarshal
+    // ignores them and so must the Rust parser
+    let model = carapace_rs_spec::from_yaml(
+        r#"
+name: cmd
+conditions:
+  - {name: cond, values: [a, b]}
+directives: ["option"]
+optionalargs: [1]
+completion:
+  positionalany: ["$message(ignored)"]
+"#,
+    )
+    .unwrap();
+    assert_eq!(model.name, "cmd");
+}
+
+#[test]
+fn dummy_macros_complete_nothing() {
+    // Go core.go registers the modifier names as dummies: bare usage
+    // completes nothing instead of erroring
+    for macro_name in [
+        "chdir",
+        "list",
+        "multiparts",
+        "nospace",
+        "noprefix",
+        "uniquelist",
+    ] {
+        let model = carapace_rs_spec::from_yaml(&format!(
+            r#"
+name: cmd
+completion:
+  positionalany: ["${macro_name}"]
+"#
+        ))
+        .unwrap();
+        let invoked = model.positional_any.unwrap().invoke(&Context::default());
+        assert!(invoked.to_export().values.is_empty(), "{macro_name}");
+        assert!(invoked.to_export().meta.messages.is_empty(), "{macro_name}");
+    }
+}
+
+#[test]
 fn unknown_macro_is_a_message() {
     let action = Action::values(["a"]);
     let _ = action;

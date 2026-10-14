@@ -26,8 +26,10 @@ pub enum Parsing {
     Disabled,
 }
 
+// unknown top-level fields are ignored, matching Go's yaml.Unmarshal —
+// carapace-bin spec dialects add fields (conditions, directives,
+// optionalargs) the core schema doesn't know
 #[derive(Clone, Debug, Default, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct Spec {
     name: String,
     #[serde(default)]

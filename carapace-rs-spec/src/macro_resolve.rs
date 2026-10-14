@@ -70,6 +70,12 @@ pub fn resolve(entry: &str) -> Action {
             };
             shell_macro(shell, &full_arg(args))
         }
+        // registered as dummies in Go's core.go (`for completeness`):
+        // bare usage completes nothing instead of erroring; the real
+        // modifier forms are applied through `modifier`/batch handling
+        "chdir" | "list" | "multiparts" | "nospace" | "noprefix" | "uniquelist" => {
+            Action::values(Vec::<String>::new())
+        }
         other => Action::message(format!("unsupported macro: {other}")),
     }
 }

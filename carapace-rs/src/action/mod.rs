@@ -743,6 +743,43 @@ mod import_tests {
     }
 
     #[test]
+    fn usage_f_sets_usage_unless_empty() {
+        let invoked = Action::values(["a"])
+            .usage_f(|| "the usage".to_owned())
+            .invoke(&Context::default());
+        assert_eq!(invoked.meta.usage.as_deref(), Some("the usage"));
+
+        // an empty string leaves the usage untouched (Go UsageF)
+        let invoked = Action::values(["a"])
+            .usage("original")
+            .usage_f(String::new)
+            .invoke(&Context::default());
+        assert_eq!(invoked.meta.usage.as_deref(), Some("original"));
+    }
+
+    #[test]
+    fn query_f_adds_query_and_c_value() {
+        let action = Action::values(["a"]).query_f(|_| {
+            Ok(crate::meta::Query {
+                scheme: "cmd".to_owned(),
+                host: "app".to_owned(),
+                path: "entry".to_owned(),
+                opts: vec!["flag".to_owned(), "force".to_owned()],
+            })
+        });
+        let invoked = action.invoke(&Context::default().value("x"));
+        assert_eq!(invoked.meta.queries.len(), 1);
+        let opts = &invoked.meta.queries[0].opts;
+        assert!(opts.contains(&"C_VALUE".to_owned()) && opts.contains(&"x".to_owned()));
+
+        // error from the callback degrades to a message
+        let invoked = Action::values(["a"])
+            .query_f(|_| Err("oops".to_owned()))
+            .invoke(&Context::default());
+        assert!(!invoked.meta.messages.is_empty());
+    }
+
+    #[test]
     fn import_parses_go_carapace_export() {
         // shape emitted by Go carapace: flattened meta, matcher strings,
         // lowercase value keys

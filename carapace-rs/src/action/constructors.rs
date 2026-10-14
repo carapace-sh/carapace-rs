@@ -172,6 +172,31 @@ impl Action {
         })
     }
 
+    /// Complete the positional arguments of a command tree
+    /// (Go `ActionPositional`).
+    ///
+    /// Only valid while completing dash arguments; any other context
+    /// yields a message (Go checks `ArgsLenAtDash`).
+    pub fn positional(cmd: std::sync::Arc<crate::model::Command>) -> Self {
+        Self::callback(move |c| {
+            crate::traverse::action_positional(&cmd)
+                .invoke(c)
+                .to_action()
+        })
+    }
+
+    /// Complete the (sub)commands of a command tree (Go `ActionCommands`).
+    ///
+    /// `path` is the command path from the root; the context args select
+    /// the subtree (use [`shift`](crate::Action::shift) to avoid this).
+    pub fn commands(cmd: std::sync::Arc<crate::model::Command>, path: Vec<String>) -> Self {
+        Self::callback(move |c| {
+            crate::traverse::action_commands(&cmd, &path)
+                .invoke(c)
+                .to_action()
+        })
+    }
+
     /// Complete style values (Go `ActionStyles`).
     ///
     /// The already-present styles are combined into each candidate and

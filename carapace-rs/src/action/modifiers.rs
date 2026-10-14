@@ -147,6 +147,22 @@ impl Action {
         self.with_meta(Meta::default().usage(usage))
     }
 
+    /// Set the usage via a function (Go `Action.UsageF`); an empty
+    /// string leaves the usage untouched.
+    pub fn usage_f<F>(self, f: F) -> Self
+    where
+        F: Fn() -> String + Send + Sync + 'static,
+    {
+        Self::callback(move |c| {
+            let mut invoked = self.invoke(c);
+            let usage = f();
+            if !usage.is_empty() {
+                invoked.meta.usage = Some(usage);
+            }
+            invoked.to_action()
+        })
+    }
+
     /// Skip invocation if the condition holds.
     pub fn unless(self, condition: bool) -> Self {
         if condition {
@@ -584,6 +600,28 @@ impl Action {
                     .collect(),
             }),
         )
+    }
+
+    /// Add query metadata via a function (experimental, Go
+    /// `Action.QueryF`). The current value rides the query as a
+    /// `C_VALUE` opt when non-empty.
+    pub fn query_f<F>(self, f: F) -> Self
+    where
+        F: Fn(&Context) -> Result<crate::meta::Query, String> + Send + Sync + 'static,
+    {
+        Self::callback(move |c| {
+            let mut query = match f(c) {
+                Ok(query) => query,
+                Err(error) => return Self::message(error),
+            };
+            if !c.value.is_empty() {
+                query.opts.push("C_VALUE".to_owned());
+                query.opts.push(c.value.clone());
+            }
+            let mut invoked = self.invoke(c);
+            invoked.meta.queries.push(query);
+            invoked.to_action()
+        })
     }
 
     /// Change the working directory for the invocation.

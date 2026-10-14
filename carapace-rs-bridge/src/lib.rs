@@ -104,7 +104,8 @@ pub(crate) fn ensure_exists(path: &std::path::Path) -> Result<(), String> {
     if path.exists() {
         return Ok(());
     }
-    std::fs::create_dir_all(path.parent().unwrap()).map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(path.parent().ok_or("path has no parent directory")?)
+        .map_err(|error| error.to_string())?;
     std::fs::write(path, "").map_err(|error| error.to_string())
 }
 

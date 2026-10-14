@@ -110,6 +110,7 @@ fn strip_ansi(line: &str) -> String {
                     Some((index, _)) => rest = &rest[1 + index + 1..],
                     None => {
                         out.push('\x1b');
+                        rest = "";
                     }
                 }
             }
@@ -121,6 +122,7 @@ fn strip_ansi(line: &str) -> String {
                         Some(end) => rest = &rest[end + 2..],
                         None => {
                             out.push('\x1b');
+                            rest = "";
                         }
                     },
                 }

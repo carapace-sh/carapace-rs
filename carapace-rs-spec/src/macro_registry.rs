@@ -54,10 +54,11 @@ impl MacroMap {
     where
         F: Fn(&[String], &str) -> Action + Send + Sync + 'static,
     {
+        let name = name.into();
         self.macros.insert(
-            name.into(),
+            name.clone(),
             Macro {
-                name: String::new(),
+                name,
                 description: description.to_owned(),
                 example: example.to_owned(),
                 f: Arc::new(f),

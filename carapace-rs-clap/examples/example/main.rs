@@ -9,5 +9,8 @@ fn main() {
         println!("{output}");
         return;
     }
-    println!("example command tree (completion via `_carapace <shell>`)");
+    match cmd::root_cmd().try_get_matches() {
+        Ok(matches) => println!("{matches:?}"),
+        Err(error) => error.exit(),
+    }
 }

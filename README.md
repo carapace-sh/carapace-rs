@@ -22,7 +22,7 @@ use clap::builder::{ArgAction, ValueHint};
 use clap::{Arg, Command};
 
 fn cli() -> Command {
-    Command::new("demo")
+    Command::new("example")
         .arg(Arg::new("profile").long("profile").action(ArgAction::Set))
         .arg(Arg::new("target").index(1))
         .subcommand(Command::new("build").about("build things"))
@@ -56,9 +56,9 @@ struct Cli {
 Register completions per shell (see `snippet()` for the exact scripts):
 
 ```bash
-source <(demo _carapace bash)          # bash (via snippet)
-demo _carapace zsh > ~/.zfunc/_demo    # zsh
-demo _carapace fish | source           # fish
+source <(example _carapace bash) # bash (via snippet)
+source <(example _carapace zsh)  # zsh
+example _carapace fish | source  # fish
 ```
 
 A runnable example with a wide command tree (groups, persistent flags,
@@ -88,8 +88,8 @@ See `AGENTS.md` for architecture, design decisions, and contribution guidance.
 ## Development
 
 ```bash
-cargo test          # 822 tests across 47 suites
-cargo clippy        # clean
+cargo test --workspace  # 952 tests across 47 suites
+cargo clippy --workspace  # clean
 ```
 
 Layout:
@@ -125,6 +125,41 @@ Command::new("outer").positional_any_completion(
 );
 ```
 
+
+## YAML specs
+
+The `spec` feature (enabled by default) adds the YAML spec format known from
+[carapace-bin](https://github.com/carapace-sh/carapace-bin): a clap app dumps
+its own command tree with `example _carapace spec`, and
+`carapace-rs-spec` parses the same format in-process:
+
+```yaml
+name: mycmd
+flags:
+  -v, --verbose: be verbose
+  -f, --file=: input file
+commands:
+  - name: sub
+    completion:
+      positionalany: ["$files"]
+completion:
+  flag:
+    file: ["$files([.go, .mod])"]
+  positional:
+    - ["first\tdescribed", "second"]
+```
+
+```rust
+let command = carapace_rs_spec::from_yaml(yaml).unwrap();
+```
+
+Flags use suffixes (`=` value, `?` optarg, `*` repeatable, `!` required,
+`&` hidden), entries support macros (`$files`, `$directories`, `$executables`,
+`$spec`, shell macros like `$bash(cmd)`) and ` ||| ` modifier chaining
+(`prefix`, `shift`, `multiparts`, `nospace`, ...). Custom macros register via
+`carapace_rs_spec::add_macro`; macros referencing an external binary
+(`$myexe.macro(...)`) are served over the `_carapace macro` protocol, which
+`_carapace` handles out of the box.
 
 ## Licensing
 

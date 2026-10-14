@@ -235,7 +235,16 @@ fn init_help_completion(model: &mut Command) {
     root.subcommands.retain(|c| c.name != "help");
     let commands = carapace_rs::traverse::action_commands(&root, std::slice::from_ref(&root.name));
     if let Some(help) = model.subcommands.iter_mut().find(|c| c.name == "help") {
+        // cobra's help command declares `Use: "help [command]"`; the
+        // use line doubles as the completion's fallback usage
+        help.use_line = Some("help [command]".to_owned());
         help.positional_any = Some(commands);
+        // clap's built help subcommand carries a copy of the parent's
+        // subcommand tree (`_check_help_and_version`'s expand_help_tree)
+        // stripped of extensions; cobra's help command has no
+        // subcommands and the groupless copies would pollute the
+        // traverse's positional/commands merge
+        help.subcommands.clear();
     }
 }
 

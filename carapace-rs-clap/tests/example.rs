@@ -252,15 +252,15 @@ mod help {
 
     #[test]
     fn completes_commands() {
+        // Go help_test.go: both the command and its alias carry the
+        // command's group tag and style; the help use line is the usage
         let sandbox = Sandbox::new("example-help");
-        sandbox
-            .run(cmd::root_cmd, &["help", "a"])
-            .expect(carapace_rs::batch(vec![
-                Action::values_described([("action", "action example")]).tag("commands"),
-                Action::values_described([("alias", "action example")])
-                    .style("blue")
-                    .tag("main commands"),
-            ]));
+        sandbox.run(cmd::root_cmd, &["help", "a"]).expect(
+            Action::values_described([("action", "action example"), ("alias", "action example")])
+                .style("blue")
+                .tag("main commands")
+                .usage("help [command]"),
+        );
     }
 }
 
@@ -1921,4 +1921,18 @@ fn pre_invoke_chdirs_all_actions() {
                 .nospace(['/'])
                 .usage("ActionDirectories()"),
         );
+}
+
+#[test]
+fn help_completion_is_deterministic() {
+    // regression: clap's expanded help subcommand used to leave a
+    // groupless subtree copy in the model, and the traverse's
+    // positional/commands merge deduplicated the colliding entries
+    // through a HashMap, flipping the "action" tag between runs
+    let mut seen = std::collections::HashSet::new();
+    for _ in 0..20 {
+        let sandbox = Sandbox::new("example-help-deterministic");
+        seen.insert(sandbox.run(cmd::root_cmd, &["help", "a"]).output());
+    }
+    assert_eq!(seen.len(), 1, "{seen:?}");
 }

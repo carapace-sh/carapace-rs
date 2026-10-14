@@ -83,9 +83,12 @@ Completers attach to args/commands via clap's `unstable-ext` mechanism — no gl
 
 An arg without an explicit slot still completes if clap already knows enough (checked in this order):
 
-1. explicit `ArgCompleter` slot
-2. `possible_values` — `ValueEnum` and `PossibleValuesParser` values (with their help as descriptions)
-3. `ValueHint` — `DirPath` → directories, `FilePath`/`AnyPath` → files, `CommandName`/`CommandString`/`CommandWithArguments` → executables
+1. explicit `ArgCompleter` slot (per arg)
+2. explicit command-level registration — `flag_completion`/`positional_completion` entries matching the arg
+3. `possible_values` — `ValueEnum` and `PossibleValuesParser` values (with their help as descriptions)
+4. `ValueHint` — `DirPath` → directories, `FilePath`/`AnyPath` → files, `CommandName`/`CommandString`/`CommandWithArguments` → executables
+
+Note that clap derive infers `ValueHint::AnyPath` for `PathBuf`/`Path` args automatically; explicit registration (slot or command-level map) outranks it.
 
 For `CommandWithArguments`, prefer explicit dynamic bridge wiring — see [bridges.md](bridges.md).
 

@@ -473,6 +473,97 @@ fn flag_completion_merges_per_key_and_matches_names() {
 }
 
 #[test]
+fn flag_completion_outranks_inferred_clap_annotations() {
+    // an explicitly registered flag action beats the completions inferred
+    // from clap annotations (possible values, value hints); clap derive
+    // infers `ValueHint::AnyPath` for `PathBuf` args, which used to shadow
+    // the map silently
+    let cmd = Command::new("app")
+        .arg(
+            Arg::new("file")
+                .long("file")
+                .value_hint(ValueHint::FilePath)
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("color")
+                .long("color")
+                .action(ArgAction::Set)
+                .value_parser(clap::builder::PossibleValuesParser::new(["red", "green"])),
+        )
+        .flag_completion([
+            ("file", Action::values(["explicit-file"])),
+            ("color", Action::values(["explicit-color"])),
+        ]);
+
+    let model = to_model(&mut cmd.clone());
+    let values = |flag: &carapace_rs::model::Flag| {
+        flag.completion
+            .as_ref()
+            .unwrap()
+            .invoke(&Context::default())
+            .to_export()
+            .values
+            .iter()
+            .map(|value| value.value.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        values(model.lookup_long("file").unwrap()),
+        vec!["explicit-file"]
+    );
+    assert_eq!(
+        values(model.lookup_long("color").unwrap()),
+        vec!["explicit-color"]
+    );
+}
+
+#[test]
+fn arg_completer_outranks_flag_completion() {
+    // the per-arg slot is the most explicit registration
+    let cmd = Command::new("app")
+        .arg(Arg::new("profile").long("profile").action(ArgAction::Set))
+        .mut_arg("profile", |arg| {
+            arg.add(carapace_rs_clap::ArgCompleter::new(Action::values([
+                "slot",
+            ])))
+        })
+        .flag_completion([("profile", Action::values(["map"]))]);
+
+    let model = to_model(&mut cmd.clone());
+    let invoked = model
+        .lookup_long("profile")
+        .unwrap()
+        .completion
+        .as_ref()
+        .unwrap()
+        .invoke(&Context::default());
+    assert_eq!(invoked.to_export().values[0].value, "slot");
+}
+
+#[test]
+fn positional_completion_outranks_inferred_clap_annotations() {
+    // the Nth positional action beats the completions inferred from clap
+    // annotations (possible values, value hints)
+    let cmd = Command::new("app")
+        .arg(
+            Arg::new("file")
+                .index(1)
+                .value_hint(ValueHint::FilePath)
+                .action(ArgAction::Set),
+        )
+        .positional_completion([Action::values(["explicit-positional"])]);
+
+    let model = to_model(&mut cmd.clone());
+    let invoked = model.positionals[0]
+        .completion
+        .as_ref()
+        .unwrap()
+        .invoke(&Context::default());
+    assert_eq!(invoked.to_export().values[0].value, "explicit-positional");
+}
+
+#[test]
 fn converts_visible_aliases() {
     // clap's `get_aliases()` returns hidden aliases only; visible aliases
     // are user-facing flag spellings and must be known to the model (Go

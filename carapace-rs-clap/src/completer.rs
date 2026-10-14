@@ -76,7 +76,9 @@ impl CommandExt for CommandCompleter {}
 /// Completion for the defined positionals, in order (port of Go's
 /// command-level `positional` storage): the Nth action completes the Nth
 /// positional. Stored as a command extension; a positional's own
-/// [`ArgCompleter`] slot (e.g. from the macros) takes precedence.
+/// [`ArgCompleter`] slot (e.g. from the macros) takes precedence, and
+/// explicit registration outranks the completions inferred from clap
+/// annotations (possible values, value hints).
 #[derive(Clone, Debug, Default)]
 pub struct PositionalCompleter(pub Vec<Action>);
 
@@ -87,6 +89,8 @@ impl CommandExt for PositionalCompleter {}
 /// Stored as a command extension and resolved at conversion time, so flags
 /// may be defined after the call; a flag's own [`ArgCompleter`] slot (e.g.
 /// from the macros) takes precedence, and a later call merges per key.
+/// Explicit registration outranks the completions inferred from clap
+/// annotations (possible values, value hints).
 #[derive(Clone, Debug, Default)]
 pub struct FlagCompleter(pub Vec<(String, Action)>);
 

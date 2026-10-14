@@ -33,10 +33,17 @@ fn convert_command(
     model.interspersed = !cmd
         .get_positionals()
         .any(|arg| arg.is_trailing_var_arg_set());
+    // the flag map is consulted per flag during conversion (explicit
+    // registration outranks the clap-annotation fallbacks below), applied in
+    // reverse so a repeated key keeps its last action
+    let flag_completer = cmd
+        .get::<FlagCompleter>()
+        .map(|completer| completer.0.clone())
+        .unwrap_or_default();
     let mut flags: Vec<Flag> = cmd
         .get_arguments()
         .filter(|arg| !arg.is_positional())
-        .map(convert_flag)
+        .map(|arg| convert_flag(arg, &flag_completer))
         .collect();
     // persistent flags are inherited by every subcommand, fully converted
     // from their defining command (cobra's shared `*pflag.Flag`)
@@ -64,10 +71,11 @@ fn convert_command(
             .sort_by_key(|positional| *index_map.get(&positional.name).unwrap_or(&usize::MAX));
         positionals
     };
-    // the flag map fills flags without their own completion slot; entries
-    // are applied in reverse so a repeated key keeps its last action
-    if let Some(completer) = cmd.get::<FlagCompleter>() {
-        for (name, action) in completer.0.iter().rev() {
+    // inherited persistent flags skip the per-arg conversion above, so the
+    // child's flag map can still fill their (empty) completion; entries are
+    // applied in reverse so a repeated key keeps its last action
+    if !flag_completer.is_empty() {
+        for (name, action) in flag_completer.iter().rev() {
             let matches = |flag: &Flag| {
                 flag.name == *name
                     || flag.aliases.iter().any(|alias| alias == name)
@@ -111,7 +119,9 @@ fn convert_command(
         model.positional_any = Some(completer.0.clone());
     }
     // the command-level positional list fills positionals without their own
-    // completion slot (the Nth action completes the Nth positional)
+    // completion slot (the Nth action completes the Nth positional);
+    // explicit registration outranks the clap-annotation fallbacks applied
+    // afterwards
     if let Some(completer) = cmd.get::<PositionalCompleter>() {
         let actions: Vec<Action> = completer.0.clone();
         // Completions map by argument index (Go completes the Nth argument,
@@ -162,6 +172,17 @@ fn convert_command(
                 }
             }
         }
+    }
+    // clap annotations are the last completion fallback, applied after the
+    // explicit registrations above: possible values, then value hints
+    for positional in &mut model.positionals {
+        if positional.completion.is_some() {
+            continue;
+        }
+        positional.completion = cmd
+            .get_positionals()
+            .find(|arg| arg.get_id().as_str() == positional.name)
+            .and_then(|arg| possible_values_action(arg).or_else(|| value_hint_action(arg)));
     }
     if let Some(completer) = cmd.get::<DashAnyCompleter>() {
         model.dash_any = Some(completer.0.clone());
@@ -260,7 +281,7 @@ fn init_help_completion(model: &mut Command) {
     model.subcommands.push(help);
 }
 
-fn convert_flag(arg: &clap::Arg) -> Flag {
+fn convert_flag(arg: &clap::Arg, flag_completer: &[(String, Action)]) -> Flag {
     let num_args = arg.get_num_args();
     let takes_value = num_args.is_some_and(|range| range.takes_values());
     let repeatable = matches!(
@@ -306,13 +327,28 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
     aliases.retain(|alias| Some(alias.as_str()) != arg.get_long());
     aliases.dedup();
 
+    let name = arg
+        .get_long()
+        .unwrap_or_else(|| arg.get_id().as_str())
+        .to_owned();
+    let shorthand = arg.get_short();
+    // the flag map is explicit registration, so it outranks the
+    // clap-annotation fallbacks (possible values, value hints); the last
+    // matching entry wins (the map merges per key)
+    let map_completion = flag_completer
+        .iter()
+        .rev()
+        .find(|(key, _)| {
+            *key == name
+                || aliases.iter().any(|alias| alias == key)
+                || (key.chars().count() == 1 && shorthand == key.chars().next())
+        })
+        .map(|(_, action)| action.clone());
+
     Flag {
         id: arg.get_id().as_str().to_owned(),
-        name: arg
-            .get_long()
-            .unwrap_or_else(|| arg.get_id().as_str())
-            .to_owned(),
-        shorthand: arg.get_short(),
+        name,
+        shorthand,
         shorthand_only: arg.get_long().is_none() && arg.get_short().is_some(),
         aliases,
         takes_value,
@@ -334,6 +370,7 @@ fn convert_flag(arg: &clap::Arg) -> Flag {
         completion: arg
             .get::<ArgCompleter>()
             .map(|completer| completer.0.clone())
+            .or(map_completion)
             .or_else(|| possible_values_action(arg))
             .or_else(|| value_hint_action(arg)),
         conflicts: arg
@@ -367,11 +404,11 @@ fn convert_positional(arg: &clap::Arg) -> Positional {
             .or_else(|| arg.get_help())
             .map(|help| help.to_string())
             .unwrap_or_default(),
+        // the positional map and the clap-annotation fallbacks are applied
+        // later in `convert_command`; the arg slot is the most explicit
         completion: arg
             .get::<ArgCompleter>()
-            .map(|completer| completer.0.clone())
-            .or_else(|| possible_values_action(arg))
-            .or_else(|| value_hint_action(arg)),
+            .map(|completer| completer.0.clone()),
         tag: None,
         value_delimiter: arg.get_value_delimiter(),
     }

@@ -281,7 +281,18 @@ fn truncate_at_byte(line: &str, point: usize) -> String {
 }
 
 fn unset_bash_env() {
-    for variable in ["COMP_LINE", "COMP_POINT", "COMP_TYPE", "COMP_WORDBREAKS"] {
+    // Go's `bash.Patch` unsets every `COMP_*` variable it may have been
+    // started with so that child processes (mocked execs, git, …) don't
+    // observe completion state.
+    for variable in [
+        "COMP_CWORD",
+        "COMP_LINE",
+        "COMP_POINT",
+        "COMP_TYPE",
+        "COMP_KEY",
+        "COMP_WORDBREAKS",
+        "COMP_WORDS",
+    ] {
         unsafe { std::env::remove_var(variable) };
     }
 }

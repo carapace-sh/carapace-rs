@@ -124,6 +124,14 @@ mod tests {
     }
 
     #[test]
+    fn values_filter_empty() {
+        // Go ActionValues skips empty strings (defaultActions.go:185)
+        let invoked = Action::values(["a", "", "b", ""]).invoke(&Context::default());
+        let values: Vec<&str> = invoked.values.iter().map(|v| v.value.as_str()).collect();
+        assert_eq!(values, vec!["a", "b"]);
+    }
+
+    #[test]
     fn values_described() {
         let invoked =
             Action::values_described([("a", "first"), ("b", "second")]).invoke(&Context::default());
@@ -546,6 +554,23 @@ mod tests {
             "{:?}",
             invoked.values
         );
+    }
+
+    #[test]
+    fn files_suffix_is_case_sensitive() {
+        // Go matches suffixes with strings.HasSuffix (internalActions.go:71)
+        let base = std::env::temp_dir().join(format!("carapace-suffix-{}", std::process::id()));
+        std::fs::create_dir_all(&base).unwrap();
+        std::fs::write(base.join("file.TXT"), "").unwrap();
+        std::fs::write(base.join("file.txt"), "").unwrap();
+
+        let context = Context::default().dir(base.clone());
+        let invoked = Action::files([".txt"]).invoke(&context);
+        let values: Vec<&str> = invoked.values.iter().map(|v| v.value.as_str()).collect();
+        assert!(values.contains(&"file.txt"), "{values:?}");
+        assert!(!values.contains(&"file.TXT"), "{values:?}");
+
+        std::fs::remove_dir_all(base).unwrap();
     }
 }
 

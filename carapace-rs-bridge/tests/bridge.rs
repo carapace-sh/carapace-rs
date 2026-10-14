@@ -712,8 +712,8 @@ fn kingpin_bridge_falls_back_to_files() {
         invoked.to_export().values
     );
 
-    // candidates are completed as plain values (Go keeps the empty
-    // elements of the line split)
+    // candidates are completed as plain values (ActionValues drops empty
+    // lines, matching Go's ActionValues)
     let mock = carapace_rs::mock::Mock {
         dir: mock_dir("kingpin-values"),
         replies: std::collections::HashMap::from([(
@@ -732,15 +732,7 @@ fn kingpin_bridge_falls_back_to_files() {
         .iter()
         .map(|v| v.value.clone())
         .collect();
-    assert_eq!(
-        values,
-        vec![
-            String::new(),
-            String::new(),
-            "one".to_owned(),
-            "two".to_owned()
-        ]
-    );
+    assert_eq!(values, vec!["one".to_owned(), "two".to_owned()]);
 }
 
 #[test]
@@ -847,11 +839,9 @@ fn urfavecli_v1_bridge_reads_bash_completions() {
         .iter()
         .map(|v| v.value.clone())
         .collect();
-    // the split keeps one empty element (Go `lines[:len(lines)-1]`)
-    assert_eq!(
-        values,
-        vec![String::new(), "one".to_owned(), "two".to_owned()]
-    );
+    // Go `lines[:len(lines)-1]` drops the trailing split element and
+    // ActionValues filters remaining empty strings
+    assert_eq!(values, vec!["one".to_owned(), "two".to_owned()]);
 }
 
 #[test]
@@ -906,11 +896,8 @@ fn aws_bridge_reads_completer_output() {
         .iter()
         .map(|v| v.value.clone())
         .collect();
-    // the v1 space suffix is stripped; the split keeps one empty element
-    assert_eq!(
-        values,
-        vec![String::new(), "ec2".to_owned(), "s3".to_owned()]
-    );
+    // the v1 space suffix is stripped; ActionValues filters empty strings
+    assert_eq!(values, vec!["ec2".to_owned(), "s3".to_owned()]);
 }
 
 #[test]

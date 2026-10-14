@@ -13,7 +13,14 @@ impl Action {
         I: IntoIterator<Item = V>,
         V: Into<String>,
     {
-        Self::raw(values.into_iter().map(RawValue::new).collect())
+        Self::raw(
+            values
+                .into_iter()
+                .map(Into::<String>::into)
+                .filter(|value| !value.is_empty())
+                .map(RawValue::new)
+                .collect(),
+        )
     }
 
     /// Complete static values with descriptions (pairs: value, description).
@@ -93,8 +100,7 @@ impl Action {
                             .file_name()
                             .map(|name| name.to_string_lossy().into_owned())
                             .unwrap_or_default();
-                        name.to_ascii_lowercase()
-                            .ends_with(&suffix.to_ascii_lowercase())
+                        name.ends_with(suffix)
                     })
             };
             match complete_path(c, "files", &suffixes, filter) {

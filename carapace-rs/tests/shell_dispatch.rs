@@ -226,6 +226,38 @@ fn zsh_escapes_special_chars() {
 }
 
 #[test]
+fn zsh_named_directories_are_not_quoted() {
+    // Go zsh.NamedDirectories: a known `~name/` prefix is treated like
+    // `~/` (assume file path expansion); unknown or bare `~name` is
+    // escaped like any other value
+    let _guard = env_lock();
+    clear_compline();
+    unsafe {
+        std::env::set_var("CARAPACE_ZSH_HASH_DIRS", "work=/home/user/work\n");
+    }
+    let output = Shell::Zsh.value(
+        "",
+        &Meta::default(),
+        &vec![
+            RawValue::new("~work/project"),
+            RawValue::new("~/home"),
+            RawValue::new("~unknown/place"),
+        ],
+        &carapace_rs::shell::bash::Context::default(),
+    );
+    unsafe {
+        std::env::remove_var("CARAPACE_ZSH_HASH_DIRS");
+    }
+    let groups = zsh_groups(&output);
+    // sorted by display: "~/home" < "~unknown/place" < "~work/project"
+    assert_eq!(groups[0].2[0], "~/home ");
+    // unknown named directory: the `~` is escaped (twice through the
+    // zstyle section: value escaping plus pattern escaping)
+    assert_eq!(groups[0].2[1], "\\\\~unknown/place ");
+    assert_eq!(groups[0].2[2], "~work/project ");
+}
+
+#[test]
 fn zsh_message_section() {
     let _guard = env_lock();
     clear_compline();
@@ -448,6 +480,49 @@ fn powershell_styled_tooltip_by_default() {
     );
     let json: serde_json::Value = serde_json::from_str(&output).unwrap();
     assert!(json[0]["ToolTip"].as_str().unwrap().contains("`e["));
+}
+
+#[test]
+fn powershell_uses_carapace_style_config() {
+    let _guard = env_lock();
+    clear_compline();
+    let mut styles = carapace_rs::config::styles();
+    styles.carapace.value = "bold magenta".to_owned();
+    styles.carapace.description = "cyan".to_owned();
+    carapace_rs::config::set_styles(styles);
+
+    let values = vec![
+        // a valid per-value style wins over the configured default
+        RawValue::styled_described("styled", "tip one", "blue"),
+        // an invalid per-value style falls back to the configured default
+        RawValue::styled_described("invalid", "tip two", "not-a-style"),
+        RawValue::described("plain", "tip three"),
+    ];
+    let output = Shell::PowerShell.value_with(
+        "",
+        &Meta::default(),
+        &values,
+        &carapace_rs::shell::bash::Context::default(),
+        &flags(|_| {}),
+    );
+    carapace_rs::config::reset_styles();
+
+    assert!(
+        output.contains(&carapace_rs::style::sgr("bold magenta")),
+        "{output}"
+    );
+    assert!(
+        output.contains(&carapace_rs::style::sgr("blue")),
+        "{output}"
+    );
+    // the invalid style is replaced by the configured value style
+    assert!(!output.contains("not-a-style"), "{output}");
+    // the description style config replaces the old hardcoded underlined
+    assert!(
+        output.contains(&carapace_rs::style::sgr("cyan")),
+        "{output}"
+    );
+    assert!(!output.contains("`e[4m"), "{output}");
 }
 
 #[test]

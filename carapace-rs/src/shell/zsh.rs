@@ -74,13 +74,47 @@ fn describe_replacer(value: &str) -> String {
     result
 }
 
-/// Quote a value, preserving `~/` expansion.
+/// Quote a value, preserving `~/` and named-directory (`~name/`)
+/// expansion (Go `zsh.quoteValue`).
 fn quote_value(value: &str) -> String {
-    if value.starts_with("~/") {
+    if value.starts_with("~/") || named_directories_match(value) {
         format!("~{}", default_replacer(&value[1..]))
     } else {
         default_replacer(value)
     }
+}
+
+/// Named directories from `CARAPACE_ZSH_HASH_DIRS` (`name=path` lines,
+/// Go `zsh.NamedDirectories`): zsh does not expand them in the `${words}`
+/// handed to the compdef function, so a known `~name/` prefix is treated
+/// like `~/` (assume file path expansion).
+fn named_directories() -> std::collections::HashMap<String, String> {
+    // shell-provided variable: read process-side (design decision 9)
+    let Ok(hash_dirs) = std::env::var("CARAPACE_ZSH_HASH_DIRS") else {
+        return std::collections::HashMap::new();
+    };
+    hash_dirs
+        .split('\n')
+        .filter_map(|line| line.split_once('='))
+        .map(|(name, path)| (name.to_owned(), path.to_owned()))
+        .collect()
+}
+
+/// Whether the value starts with a known named-directory prefix
+/// (Go `zsh.NamedDirectories.Matches`): `~name/...` with a non-empty
+/// registered path, but not `~/...`.
+fn named_directories_match(value: &str) -> bool {
+    if !value.starts_with('~') || value.starts_with("~/") {
+        return false;
+    }
+    let Some((name, _)) = value.split_once('/') else {
+        return false;
+    };
+    !name.is_empty()
+        && named_directories()
+            .get(&name[1..])
+            .map(|path| !path.is_empty())
+            .unwrap_or(false)
 }
 
 /// Quoting state of the current word, derived from `CARAPACE_COMPLINE`.

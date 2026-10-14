@@ -86,6 +86,15 @@ pub fn parse(input: &str) -> Style {
     style
 }
 
+/// Whether every word of the style string parses (Go `ui.ParseStyling`
+/// returning nil when any word is invalid, including the empty string).
+pub fn is_parsable(input: &str) -> bool {
+    !input.is_empty()
+        && input
+            .split(' ')
+            .all(|word| Style::default().apply_word(word))
+}
+
 /// Parsed representation of a style string (Go `ui.Style`).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Style {

@@ -110,3 +110,12 @@ fn for_path_styles_from_ls_colors() {
     assert_eq!(style::for_path_ext(&context, "readme.txt"), "blue bold");
     assert_eq!(style::for_extension(&context, "md"), "magenta bold");
 }
+
+#[test]
+fn is_parsable_is_all_or_nothing() {
+    // Go ui.ParseStyling: nil when any word is invalid, nil for empty
+    assert!(style::is_parsable("bold magenta"));
+    assert!(style::is_parsable("default"));
+    assert!(!style::is_parsable("bold not-a-style"));
+    assert!(!style::is_parsable(""));
+}

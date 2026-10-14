@@ -46,6 +46,23 @@ pub fn action_raw_values(
     let nocolor = flags.color_disabled;
     let tooltip_enabled = flags.tooltip;
 
+    // default styles for values and descriptions consult the carapace
+    // style configuration (Go `powershell.ActionRawValues`)
+    let carapace_styles = crate::config::styles().carapace;
+    let value_style =
+        if !carapace_styles.value.is_empty() && crate::style::is_parsable(&carapace_styles.value) {
+            carapace_styles.value.clone()
+        } else {
+            "default".to_owned()
+        };
+    let description_style = if !carapace_styles.description.is_empty()
+        && crate::style::is_parsable(&carapace_styles.description)
+    {
+        carapace_styles.description.clone()
+    } else {
+        "default".to_owned()
+    };
+
     let results: Vec<CompletionResult> = values
         .iter()
         .filter(|value| !value.value.is_empty())
@@ -60,8 +77,8 @@ pub fn action_raw_values(
                 completion_text.push(' ');
             }
 
-            let style = if value.style.is_empty() {
-                "default".to_owned()
+            let style = if value.style.is_empty() || !crate::style::is_parsable(&value.style) {
+                value_style.clone()
             } else {
                 value.style.clone()
             };
@@ -75,8 +92,8 @@ pub fn action_raw_values(
                 } else {
                     format!(
                         "`e[{}m`e[{}m{}`e[21;22;23;24;25;29;39;49m",
-                        sgr("default"),
-                        sgr("underlined"),
+                        sgr(&format!("{description_style} bg-default")),
+                        sgr(&description_style),
                         trimmed_description(&description, flags.description_length)
                     )
                 };
@@ -100,8 +117,8 @@ pub fn action_raw_values(
                 if !description.is_empty() {
                     list_item_text.push_str(&format!(
                         "`e[{}m `e[{}m({})`e[21;22;23;24;25;29;39;49m",
-                        sgr("default"),
-                        sgr("underlined"),
+                        sgr(&format!("{description_style} bg-default")),
+                        sgr(&description_style),
                         trimmed_description(&description, flags.description_length)
                     ));
                 }

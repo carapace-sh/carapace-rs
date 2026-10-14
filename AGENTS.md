@@ -255,6 +255,10 @@ names aligned with Go so specs port mechanically.
 - The bridges delegate word joining/quoting to `carapace_rs_shlex::join` (Go's
   `shlex.Join`); quoting is only applied when the shell needs it, and an empty
   word renders as `""` (the inshellisense workaround strips it).
+- Cache files are keyed by an FNV-1a hash of the site string and keys where Go
+  hashes sha1 plus the runtime caller — layouts are not cross-compatible with
+  carapace-bin. This is fine: the cache path namespaces by executable name, so
+  a Go binary and a Rust binary never share a cache directory.
 - fish 4.x splits `complete -a` arguments on whitespace; a `\t` escape inside the
   argument separates value from description. Sandbox tests must set `-f` (no file
   fallback) for deterministic candidate lists.

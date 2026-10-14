@@ -50,6 +50,9 @@ pub fn cmd(commands: Option<Action>) -> Command {
 
     let mut completions = vec![
         ("callback", callback()),
+        // Go's `ActionCobra()` completes via a cobra binary; here the
+        // directive semantics are bridge tests (`carapace-rs-bridge`), so the
+        // flag keeps its name and usage label with a stand-in action
         ("cobra", Action::values(["one", "two"]).nospace([])),
         ("directories", Action::directories()),
         (

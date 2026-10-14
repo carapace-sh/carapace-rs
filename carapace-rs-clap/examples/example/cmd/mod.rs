@@ -6,13 +6,15 @@
 //! action modifier. The sandbox tests in `tests/example.rs` run against
 //! this tree.
 //!
-//! Cobra-only surfaces are adapted: `Standalone` has no completion effect
-//! here, the dynamic `PreRun` plugin command is attached statically, the
-//! root `PreInvoke` chdir hook and the `--optarg` toggle for `flag` are
-//! omitted (no completion behavior or test coverage), and `compat`
-//! (cobra's `RegisterFlagCompletionFunc`/`ValidArgsFunction` directives)
-//! is kept as a bare command since the directive semantics are covered by
-//! the cobra bridge tests in `carapace-rs-bridge`.
+//! Cobra-only surfaces are adapted: the dynamic `PreRun` plugin command is
+//! attached statically and the root `PreInvoke` chdir hook is the `pre_invoke`
+//! extension; the `--optarg` toggle for `flag` is omitted (no completion
+//! behavior or test coverage), and `compat` (cobra's
+//! `RegisterFlagCompletionFunc`/`ValidArgsFunction` directives) is kept as a
+//! bare command since the directive semantics are covered by the cobra bridge
+//! tests in `carapace-rs-bridge`. Help, version and the help subcommand are
+//! clap's native ones; `Standalone`'s hidden help flag is a hidden
+//! `ArgAction::Help` arg.
 
 mod action;
 mod chain;
@@ -65,9 +67,7 @@ fn root_inner(complete: bool) -> Command {
     Command::new("example")
         .about("example completion")
         .use_line("example")
-        .disable_help_flag(true)
-        .disable_version_flag(true)
-        .disable_help_subcommand(true)
+        .version("example")
         .subcommand(action_cmd.use_line("action [pos1] [pos2] [--] [dashAny]..."))
         .subcommand(flag::cmd().subcommand(flag_disabled::cmd()))
         .subcommand(modifier::cmd())
@@ -100,11 +100,6 @@ fn root_inner(complete: bool) -> Command {
                 ),
         )
         .subcommand(group::cmd())
-        .subcommand(
-            Command::new("help")
-                .about("Help about any command")
-                .use_line("help [command]"),
-        )
         .subcommand(interspersed::cmd())
         .subcommand(multiparts::cmd())
         .subcommand(special::cmd())
@@ -147,20 +142,6 @@ fn root_inner(complete: bool) -> Command {
                 .action(ArgAction::Append)
                 .help("multiflag"),
         )
-        .arg(
-            Arg::new("help")
-                .short('h')
-                .long("help")
-                .action(ArgAction::SetTrue)
-                .help("help for example"),
-        )
-        .arg(
-            Arg::new("version")
-                .short('v')
-                .long("version")
-                .action(ArgAction::SetTrue)
-                .help("version for example"),
-        )
         .flag_completion([
             ("chdir", Action::directories()),
             ("persistentFlag", Action::values(["p1", "p2", "p3"])),
@@ -179,25 +160,13 @@ fn root_inner(complete: bool) -> Command {
         }))
 }
 
-/// cobra's auto-generated `help` flag with its wording. Must be applied
-/// before the command is built (clap adds the built-in help flag on
-/// `build()` otherwise).
+/// The `_carapace` entry point attachment for generated subcommands.
 pub(crate) fn with_help(cmd: Command) -> Command {
-    let name = cmd.get_name().to_owned();
-    cmd.disable_help_flag(true)
-        .disable_help_subcommand(true)
-        .arg(
-            Arg::new("help")
-                .short('h')
-                .long("help")
-                .action(ArgAction::SetTrue)
-                .help(format!("help for {name}")),
-        )
-        .subcommand(carapace_entry())
+    cmd.subcommand(carapace_entry())
 }
 
 /// Help flag for standalone commands: carapace's `Standalone()` hides the
-/// cobra-generated help flag, so it never completes.
+/// help flag, so it never completes.
 pub(crate) fn with_hidden_help(cmd: Command) -> Command {
     cmd.disable_help_flag(true)
         .disable_help_subcommand(true)
@@ -205,7 +174,7 @@ pub(crate) fn with_hidden_help(cmd: Command) -> Command {
             Arg::new("help")
                 .short('h')
                 .long("help")
-                .action(ArgAction::SetTrue)
+                .action(ArgAction::Help)
                 .hide(true),
         )
         .subcommand(carapace_entry())

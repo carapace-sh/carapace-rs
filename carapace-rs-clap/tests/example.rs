@@ -43,7 +43,10 @@ mod root {
                         "Generate the autocompletion script for the specified shell",
                     ),
                     ("group", "group example"),
-                    ("help", "Help about any command"),
+                    (
+                        "help",
+                        "Print this message or the help of the given subcommand(s)",
+                    ),
                     ("interspersed", "interspersed example"),
                     ("multiparts", "multiparts example"),
                     ("special", ""),
@@ -75,17 +78,17 @@ mod root {
             carapace_rs::batch(vec![
                 Action::styled_values_described([
                     ("-C", "change work directory", "blue"),
+                    ("-V", "Print version", ""),
                     ("-a", "multiflag", "blue"),
-                    ("-h", "help for example", ""),
+                    ("-h", "Print help", ""),
                     ("-p", "Help message for persistentFlag", "yellow"),
                     ("-t", "Help message for toggle", ""),
-                    ("-v", "version for example", ""),
                 ])
                 .tag("shorthand flags"),
                 Action::styled_values_described([
                     ("--chdir", "change work directory", "blue"),
                     ("--array", "multiflag", "blue"),
-                    ("--help", "help for example", ""),
+                    ("--help", "Print help", ""),
                     (
                         "--persistentFlag",
                         "Help message for persistentFlag",
@@ -97,7 +100,7 @@ mod root {
                         "blue",
                     ),
                     ("--toggle", "Help message for toggle", ""),
-                    ("--version", "version for example", ""),
+                    ("--version", "Print version", ""),
                 ])
                 .tag("longhand flags"),
             ])
@@ -108,7 +111,7 @@ mod root {
             Action::styled_values_described([
                 ("--array", "multiflag", "blue"),
                 ("--chdir", "change work directory", "blue"),
-                ("--help", "help for example", ""),
+                ("--help", "Print help", ""),
                 (
                     "--persistentFlag",
                     "Help message for persistentFlag",
@@ -120,7 +123,7 @@ mod root {
                     "blue",
                 ),
                 ("--toggle", "Help message for toggle", ""),
-                ("--version", "version for example", ""),
+                ("--version", "Print version", ""),
             ])
             .nospace(['.'])
             .tag("longhand flags"),
@@ -183,14 +186,14 @@ mod root {
         sandbox.run(cmd::root_cmd, &["-"]).expect(
             Action::styled_values_described([
                 ("-C", "change work directory", "blue"),
+                ("-V", "Print version", ""),
                 ("-a", "multiflag", "blue"),
-                ("-h", "help for example", ""),
+                ("-h", "Print help", ""),
                 ("-p", "Help message for persistentFlag", "yellow"),
                 ("-t", "Help message for toggle", ""),
-                ("-v", "version for example", ""),
                 ("--chdir", "change work directory", "blue"),
                 ("--array", "multiflag", "blue"),
-                ("--help", "help for example", ""),
+                ("--help", "Print help", ""),
                 (
                     "--persistentFlag",
                     "Help message for persistentFlag",
@@ -202,7 +205,7 @@ mod root {
                     "blue",
                 ),
                 ("--toggle", "Help message for toggle", ""),
-                ("--version", "version for example", ""),
+                ("--version", "Print version", ""),
             ])
             .tag("flags")
             .nospace(['.']),
@@ -213,17 +216,17 @@ mod root {
             carapace_rs::batch(vec![
                 Action::styled_values_described([
                     ("-C", "change work directory", "blue"),
+                    ("-V", "Print version", ""),
                     ("-a", "multiflag", "blue"),
-                    ("-h", "help for example", ""),
+                    ("-h", "Print help", ""),
                     ("-p", "Help message for persistentFlag", "yellow"),
                     ("-t", "Help message for toggle", ""),
-                    ("-v", "version for example", ""),
                 ])
                 .tag("shorthand flags"),
                 Action::styled_values_described([
                     ("--chdir", "change work directory", "blue"),
                     ("--array", "multiflag", "blue"),
-                    ("--help", "help for example", ""),
+                    ("--help", "Print help", ""),
                     (
                         "--persistentFlag",
                         "Help message for persistentFlag",
@@ -235,7 +238,7 @@ mod root {
                         "blue",
                     ),
                     ("--toggle", "Help message for toggle", ""),
-                    ("--version", "version for example", ""),
+                    ("--version", "Print version", ""),
                 ])
                 .tag("longhand flags"),
             ])
@@ -250,12 +253,14 @@ mod help {
     #[test]
     fn completes_commands() {
         let sandbox = Sandbox::new("example-help");
-        sandbox.run(cmd::root_cmd, &["help", "a"]).expect(
-            Action::values_described([("action", "action example"), ("alias", "action example")])
-                .style("blue")
-                .tag("main commands")
-                .usage("help [command]"),
-        );
+        sandbox
+            .run(cmd::root_cmd, &["help", "a"])
+            .expect(carapace_rs::batch(vec![
+                Action::values_described([("action", "action example")]).tag("commands"),
+                Action::values_described([("alias", "action example")])
+                    .style("blue")
+                    .tag("main commands"),
+            ]));
     }
 }
 
@@ -302,7 +307,14 @@ mod flag {
         sandbox
             .run(cmd::root_cmd, &["flag", "--optarg", ""])
             .expect(
-                Action::values_described([("disabled", "flag parsing disabled")]).tag("commands"),
+                Action::values_described([
+                    ("disabled", "flag parsing disabled"),
+                    (
+                        "help",
+                        "Print this message or the help of the given subcommand(s)",
+                    ),
+                ])
+                .tag("commands"),
             );
 
         // boolean keywords for the valueless boolean
@@ -814,18 +826,24 @@ mod action {
     fn completes_dash_via_embedded() {
         let sandbox = Sandbox::new("example-action-dash");
         sandbox.run(cmd::root_cmd, &["action", "--", ""]).expect(
-            Action::values(["embeddedP1", "embeddedPositional1"])
-                .usage("action [pos1] [pos2] [--] [dashAny]..."),
+            carapace_rs::batch(vec![
+                Action::values(["embeddedP1", "embeddedPositional1"]),
+                Action::values_described([(
+                    "help",
+                    "Print this message or the help of the given subcommand(s)",
+                )])
+                .tag("commands"),
+            ])
+            .usage("action [pos1] [pos2] [--] [dashAny]..."),
         );
         sandbox.run(cmd::root_cmd, &["action", "--", "-"]).expect(
             carapace_rs::batch(vec![
-                Action::styled_values_described([("-h", "help for embedded", "")])
-                    .tag("shorthand flags"),
+                Action::styled_values_described([("-h", "Print help", "")]).tag("shorthand flags"),
                 Action::styled_values_described([
                     ("--embedded-bool", "embedded bool flag", ""),
                     ("--embedded-optarg", "embedded optarg flag", "yellow"),
                     ("--embedded-string", "embedded string flag", "blue"),
-                    ("--help", "help for embedded", ""),
+                    ("--help", "Print help", ""),
                 ])
                 .tag("longhand flags"),
             ])
@@ -837,7 +855,7 @@ mod action {
                 ("--embedded-bool", "embedded bool flag", ""),
                 ("--embedded-optarg", "embedded optarg flag", "yellow"),
                 ("--embedded-string", "embedded string flag", "blue"),
-                ("--help", "help for embedded", ""),
+                ("--help", "Print help", ""),
             ])
             .nospace(['.'])
             .usage("action [pos1] [pos2] [--] [dashAny]...")
@@ -890,8 +908,15 @@ mod action {
         sandbox
             .run(cmd::root_cmd, &["action", "--unknown", ""])
             .expect(
-                Action::values(["embeddedP1", "embeddedPositional1"])
-                    .usage("action [pos1] [pos2] [--] [dashAny]..."),
+                carapace_rs::batch(vec![
+                    Action::values(["embeddedP1", "embeddedPositional1"]),
+                    Action::values_described([(
+                        "help",
+                        "Print this message or the help of the given subcommand(s)",
+                    )])
+                    .tag("commands"),
+                ])
+                .usage("action [pos1] [pos2] [--] [dashAny]..."),
             );
     }
 
@@ -929,8 +954,15 @@ mod action {
         sandbox
             .run(cmd::root_cmd, &["action", "--values=first", ""])
             .expect(
-                Action::values(["embeddedP1", "embeddedPositional1"])
-                    .usage("action [pos1] [pos2] [--] [dashAny]..."),
+                carapace_rs::batch(vec![
+                    Action::values(["embeddedP1", "embeddedPositional1"]),
+                    Action::values_described([(
+                        "help",
+                        "Print this message or the help of the given subcommand(s)",
+                    )])
+                    .tag("commands"),
+                ])
+                .usage("action [pos1] [pos2] [--] [dashAny]..."),
             );
         sandbox
             .run(cmd::root_cmd, &["action", "--multiparts-nested=VALUE="])

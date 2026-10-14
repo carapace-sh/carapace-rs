@@ -47,9 +47,8 @@ struct FlagStructure {
 
 /// Serialize the command tree as JSON (Go `export.Snippet`).
 ///
-/// The `help` subcommand is excluded: the framework auto-generates it and
-/// Go replaces cobra's help with a hidden fake, so Go exports never contain
-/// it either.
+/// The `help` subcommand is excluded: the framework auto-generates it
+/// (clap's native help subcommand), so Go exports never contain it either.
 pub fn snippet(root: &Command) -> String {
     serde_json::to_string(&convert(root)).unwrap_or_default()
 }

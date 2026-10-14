@@ -9,8 +9,5 @@ fn main() {
         println!("{output}");
         return;
     }
-    match cmd::root_cmd().try_get_matches() {
-        Ok(matches) => println!("{matches:?}"),
-        Err(error) => error.exit(),
-    }
+    let _matches = cmd::root_cmd().get_matches();
 }

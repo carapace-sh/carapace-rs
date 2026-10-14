@@ -732,3 +732,74 @@ completion:
         invoked.to_export().meta.messages
     );
 }
+
+#[test]
+fn yaml_dump_uses_go_flag_notation() {
+    // Go `FlagSet.MarshalYAML`: a plain description string unless the flag
+    // carries a non-default nargs; the flag shape lives in the key only
+    let model = carapace_rs_spec::from_yaml(EXAMPLE).unwrap();
+    let dumped = carapace_rs_spec::to_yaml(&model);
+    assert!(dumped.contains("  -v, --verbose: be verbose\n"), "{dumped}");
+    assert!(dumped.contains("  -f, --file=: input file\n"), "{dumped}");
+    assert!(
+        dumped.contains("  -o, --output?: optional output\n"),
+        "{dumped}"
+    );
+    assert!(
+        dumped.contains("  --two=:\n    description: two args\n    nargs: 2\n"),
+        "{dumped}"
+    );
+    assert!(!dumped.contains("longhand"), "{dumped}");
+
+    // and it round-trips
+    let reparsed = carapace_rs_spec::from_yaml(&dumped).unwrap();
+    assert!(reparsed.lookup_long("verbose").unwrap().takes_value == false);
+    assert!(matches!(
+        reparsed.lookup_long("two").unwrap().nargs,
+        carapace_rs::Nargs::Exact(2)
+    ));
+}
+
+#[test]
+fn yaml_dump_key_suffix_order_matches_pflagfork() {
+    use carapace_rs::model::{Flag, Nargs};
+    let flag = Flag {
+        id: "x".to_owned(),
+        name: "x".to_owned(),
+        shorthand: Some('x'),
+        takes_value: true,
+        nargs: Nargs::Exact(1),
+        repeatable: true,
+        required: true,
+        hidden: true,
+        ..Default::default()
+    };
+    let mut model = carapace_rs::model::Command::new("cmd");
+    model.flags.push(flag);
+    // Go pflagfork `Definition`: hidden, required, repeatable, then value
+    let dumped = carapace_rs_spec::to_yaml(&model);
+    let line = dumped.lines().find(|line| line.contains("--x")).unwrap();
+    assert_eq!(line, format!("  -x, --x{}{}{}{}: ''", '&', '!', '*', '='));
+}
+
+#[test]
+fn yaml_dump_shorthand_only_flag() {
+    use carapace_rs::model::{Flag, Nargs};
+    let flag = Flag {
+        id: "toggle".to_owned(),
+        name: "toggle".to_owned(),
+        shorthand: Some('t'),
+        shorthand_only: true,
+        nargs: Nargs::Exact(0),
+        ..Default::default()
+    };
+    let mut model = carapace_rs::model::Command::new("cmd");
+    model.flags.push(flag);
+    // Go pflagfork `ShorthandOnly`: only the shorthand is dumped, the
+    // model's `name` is the framework arg id
+    assert_eq!(
+        carapace_rs_spec::to_yaml(&model),
+        "# yaml-language-server: $schema=https://carapace.sh/schemas/command.json\n\
+         name: cmd\nflags:\n  -t: ''\n"
+    );
+}

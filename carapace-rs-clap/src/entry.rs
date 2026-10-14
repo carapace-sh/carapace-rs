@@ -26,6 +26,7 @@ pub fn complete(factory: impl Fn() -> clap::Command, args: &[String]) -> Option<
     // _carapace macro [name [words...]]: run a registered custom macro
     // (Go `spec.Register`'s macro subcommand; the external `$<exe>.name`
     // protocol consumes the export output)
+    #[cfg(feature = "spec")]
     if args.get(1).map(String::as_str) == Some("macro") {
         return Some(macro_subcommand(&args[2..]));
     }
@@ -153,6 +154,7 @@ pub fn execute_embedded(cmd: clap::Command) -> carapace_rs::Action {
 /// Handle the `_carapace macro` subcommand (Go `register.go`): list the
 /// registered macros, report a signature placeholder, or run one and emit
 /// its result as export JSON.
+#[cfg(feature = "spec")]
 fn macro_subcommand(args: &[String]) -> String {
     match args.len() {
         0 => {

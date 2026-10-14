@@ -90,11 +90,12 @@ test coverage, no clap-native equivalent): the `flag` command's `--optarg`
 command-structure JSON) and are asserted by `tests/example_snippets.rs`;
 regenerate them via the example binary.
 
-Deferred: the multi-completer port (Go `example-multi` + `WithSubcommands`/
-`WithDefault` + the ten `SnippetMulti` shell templates; cmd-clink and ion
-unsupported upstream). Completion itself is covered in-process via the
-`execute_embedded` multi-completer pattern; only the routing snippets and
-the embedder-facing dispatch API are missing. Port order when picking it
+Deferred, not currently needed: the multi-completer port (Go
+`example-multi` + `WithSubcommands`/`WithDefault` + the ten
+`SnippetMulti` shell templates; cmd-clink and ion unsupported upstream).
+Completion itself is covered in-process via the `execute_embedded`
+multi-completer pattern; only the routing snippets and the
+embedder-facing dispatch API are missing. Port order when picking it
 up: routing API first, then templates shell-by-shell starting with
 bash/zsh, then the `example-multi/cmd/_test/` fixtures.
 
@@ -245,6 +246,9 @@ names aligned with Go so specs port mechanically.
 
 ## Gotchas
 
+- The ion shell is pending removal (upstream deprecating); its formatter
+  lives in `shell/simple.rs` but no snippet is emitted and no further ion
+  work should be started.
 - Snippets invoke `{binary} _carapace <shell>` with the command name, not
   Go's `uid.Executable()` absolute path (which has no Rust equivalent in
   the snippets; PATH lookup covers registration).
@@ -280,8 +284,29 @@ Behavior ports are 1:1 except for these deliberate deviations; do not
 2. **Verify corpora coverage.** The `verify_*_test.go` source-crosscheck
    corpora are ported in `src/verify.rs`, with the fish/zsh/xonsh/powershell
    sections condensed; the format tests (`tests/format_*.rs`) are 1:1, so
-   the gap is corpus breadth for those four shells, not semantics.
+   the gap is corpus breadth for those four shells, not semantics. The
+   condensed cases (pipeline splits, quoted stream redirects, substitution
+   scoping) are covered by merged Rust tests; the COMP_WORDBREAKS
+   env-isolation behavior lives in `tests/wordbreaks_env.rs`.
 3. **Format selection shape.** Go passes format names as strings with a
    fallback; the Rust `Format` enum's `Default` (the empty name) resolves
    to Bash, `from_name` rejects unknown names, and `join` falls back to
    the default — same outcomes, statically checked.
+
+## Engine: sanctioned divergences from Go carapace
+
+Deliberate deviations in the traverse engine; do not "fix" them toward
+Go without re-deriving the surrounding design:
+
+1. **Leniency timing.** Go flips `FParseErrWhitelist` up-front and aborts
+   mid-traversal on `ParseFlags` failure; Rust records the unknown flag
+   and only errors after traversal when not `lenient` — the same flag can
+   complete values in lenient mode where Go would have stopped earlier.
+2. **Subcommand descent.** Go parses flags eagerly and aborts on error
+   before descending; Rust merges the parent's parsed flags into the sub
+   context and defers errors, so completion still works for subcommands
+   behind unparsable parent args.
+3. **`Action::positional` shape.** Go's `ActionPositional(cmd)` reads
+   cobra's `ArgsLenAtDash` and the storage registry; the Rust constructor
+   wraps `traverse::action_positional`, which detects the dash position
+   from the model traversal (`Context::all_positionals`).

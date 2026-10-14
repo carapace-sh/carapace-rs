@@ -12,13 +12,13 @@ for bridging, caching and embedding.
 
 ```toml
 [dependencies]
-carapace-rs-clap = { git = "https://github.com/carapace-sh/carapace-rs" }
+carapace-rs-clap = "0.0.5"
 ```
 
 ```rust,no_run
 use carapace_rs_clap::Carapace;
 use carapace_rs::Action;
-use clap::builder::{ArgAction, ValueHint};
+use clap::builder::ArgAction;
 use clap::{Arg, Command};
 
 fn cli() -> Command {
@@ -88,8 +88,8 @@ See `AGENTS.md` for architecture, design decisions, and contribution guidance.
 ## Development
 
 ```bash
-cargo test --workspace  # 952 tests across 47 suites
-cargo clippy --workspace  # clean
+cargo test --workspace
+cargo clippy --workspace
 ```
 
 Layout:
@@ -101,7 +101,9 @@ carapace-rs-clap/    clap adapter: Carapace extension trait, extension slots, _c
                   completer!/command_completer! derive macros
 carapace-rs-testkit/ sandbox harness: work dir, mocked replies, export-JSON assertions
 carapace-rs-spec/    YAML user specs: flag suffixes, macros ($files, $directories, $executables), parsing modes, spec dump
-carapace-rs-bridge/  external completer bridges: fish, bash, zsh, carapace, carapace-bin, clap, cobra, inshellisense
+carapace-rs-bridge/  external completer bridges: argcomplete, aws, bpaf, carapace, carapace-bin,
+                  clap, click, cobra, fish, gcloud, inshellisense, jj, kingpin, kitten,
+                  powershell, shell, symfony, typer, urfavecli, yargs, zsh
 ```
 
 Testing completions:
@@ -121,7 +123,7 @@ Bridging external completion frameworks:
 use carapace_rs_bridge as bridge;
 
 Command::new("outer").positional_any_completion(
-    bridge::action("fish", &["myapp"]),   // or bash/zsh/carapace/carapace-bin/clap/cobra/inshellisense
+    bridge::action("fish", &["myapp"]),   // any name accepted by `bridge::action`
 );
 ```
 

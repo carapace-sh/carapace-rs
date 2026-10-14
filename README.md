@@ -125,6 +125,16 @@ Command::new("outer").positional_any_completion(
 );
 ```
 
+Passing an empty command name turns a bridge into a dynamic router: the
+first word of the value completes executables (plus a file fallback), and
+the remainder delegates to that command's own completion — including the
+hundreds of specs shipped with an installed carapace-bin:
+
+```rust
+Command::new("outer").flag_completion([
+    ("exec", bridge::carapace_bin([])),   // `--exec git st<TAB>` completes git's status
+]);
+```
 
 ## YAML specs
 

@@ -82,6 +82,9 @@ fn root_inner(complete: bool) -> Command {
         // carapace's own hidden entry point (Go: the `_carapace`
         // subcommand added by `carapace.Gen`)
         .subcommand(Command::new("_carapace").hide(true))
+        // static mimic of the framework's completion command (Go fixture
+        // parity); real scripts come from carapace, clap_complete's own
+        // `completion` subcommand would take this role in a plain clap app
         .subcommand(
             Command::new("completion")
                 .about("Generate the autocompletion script for the specified shell")

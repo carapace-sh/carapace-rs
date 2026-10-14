@@ -7,6 +7,9 @@
 pub mod argcomplete;
 pub mod aws;
 pub mod bpaf;
+pub mod carapace;
+pub mod carapace_bin;
+pub mod clap;
 pub mod click;
 pub mod cobra;
 pub mod complete;
@@ -54,9 +57,9 @@ where
         "gcloud" => gcloud::action(command),
         "bash" => shell::bash(command),
         "zsh" => zsh::action(command),
-        "carapace" => carapace(command),
-        "carapace-bin" => carapace_bin(command),
-        "clap" => clap(command),
+        "carapace" => carapace::action(command),
+        "carapace-bin" => carapace_bin::action(command),
+        "clap" => clap::action(command),
         "cobra" => cobra::action(command),
         "inshellisense" => inshellisense::action(command),
         other => Action::message(format!("unknown bridge: {other}")),
@@ -83,10 +86,11 @@ pub(crate) fn config_dir(context: &carapace_rs::Context) -> Option<std::path::Pa
     dirs::config_dir()
 }
 
-/// Find an executable on the PATH (Go `exec.LookPath`).
-pub(crate) fn look_path(program: &str) -> Option<std::path::PathBuf> {
-    let path = std::env::var("PATH").ok()?;
-    std::env::split_paths(&path).find_map(|dir| {
+/// Find an executable on the PATH, reading `PATH` from the context
+/// environment (Go `exec.LookPath`).
+pub(crate) fn look_path(c: &carapace_rs::Context, program: &str) -> Option<std::path::PathBuf> {
+    let path = c.lookup_env("PATH")?;
+    std::env::split_paths(path).find_map(|dir| {
         let candidate = dir.join(program);
         let with_ext = if cfg!(windows) {
             dir.join(format!("{program}.exe"))
@@ -144,101 +148,4 @@ where
         f(&command).shift(1)
     }));
     Action::execute(Arc::new(mini))
-}
-
-/// Bridge completions from the Go carapace binary: parses the export JSON.
-pub fn carapace<I, S>(command: I) -> Action
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    action_command(command, move |command| {
-        let command: Vec<String> = command.to_vec();
-        let command_name = command[0].clone();
-        let mut args = vec!["_carapace".to_owned(), "export".to_owned(), String::new()];
-        args.extend(command[1..].iter().cloned());
-        Action::callback(move |c| {
-            let mut args = args.clone();
-            args.extend(c.args.iter().cloned());
-            args.push(c.value.clone());
-            match c.execute(&command_name, &args) {
-                Ok(output) if output.is_empty() => Action::default(),
-                Ok(output) => Action::import(&String::from_utf8_lossy(&output)),
-                Err(error) => Action::message(error),
-            }
-        })
-    })
-}
-
-/// Bridge completions registered in carapace-bin.
-pub fn carapace_bin<I, S>(command: I) -> Action
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    action_command(command, move |command| {
-        let command: Vec<String> = command.to_vec();
-        let bin = "carapace".to_owned();
-        let mut prefix = vec![command[0].clone(), "export".to_owned(), String::new()];
-        prefix.extend(command[1..].iter().cloned());
-        Action::callback(move |c| {
-            let mut args = prefix.clone();
-            args.extend(c.args.iter().cloned());
-            args.push(c.value.clone());
-            match c.execute(&bin, &args) {
-                Ok(output) if output.is_empty() => Action::files(Vec::<String>::new()),
-                Ok(output) => Action::import(&String::from_utf8_lossy(&output)),
-                Err(error) => Action::message(error),
-            }
-        })
-    })
-}
-
-/// Bridge completions from an external clap binary (unstable-dynamic engine).
-pub fn clap<I, S>(command: I) -> Action
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    action_command(command, move |command| {
-        let command: Vec<String> = command.to_vec();
-        let command_name = command[0].clone();
-        Action::callback(move |c| {
-            let index = command.len() + c.args.len();
-            let mut args = vec![
-                "complete".to_owned(),
-                "--index".to_owned(),
-                index.to_string(),
-                "--type".to_owned(),
-                "9".to_owned(),
-                "--no-space".to_owned(),
-                "--ifs=\n".to_owned(),
-                "--".to_owned(),
-            ];
-            args.extend(command.iter().cloned());
-            args.extend(c.args.iter().cloned());
-            args.push(c.value.clone());
-            match c.execute(&command_name, &args) {
-                Ok(output) => {
-                    let text = String::from_utf8_lossy(&output);
-                    let lines: Vec<&str> = text.lines().collect();
-                    let mut action = Action::values(lines.iter().copied());
-                    for line in &lines {
-                        if !line.is_empty() {
-                            // everything but the last character (Go slices
-                            // bytes; here the boundary must stay a char
-                            // boundary or multi-byte output panics)
-                            let last = line.chars().last().map_or(0, char::len_utf8);
-                            if line[..line.len() - last].contains(['/', '=', '@', ':', '.', ',']) {
-                                action = action.nospace([]);
-                                break;
-                            }
-                        }
-                    }
-                    action
-                }
-                Err(error) => Action::message(error),
-            }
-        })
-    })
 }

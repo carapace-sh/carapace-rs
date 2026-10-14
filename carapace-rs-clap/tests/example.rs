@@ -937,7 +937,7 @@ mod action {
 
     #[test]
     fn completes_attached_values() {
-        let sandbox = Sandbox::new("example-action-attached");
+        let mut sandbox = Sandbox::new("example-action-attached");
         sandbox.files(FILES);
         sandbox.run(cmd::root_cmd, &["action", "--values="]).expect(
             Action::values(["first", "second", "third"])
@@ -1028,7 +1028,7 @@ mod action {
     #[cfg(unix)]
     #[test]
     fn completes_symlinks() {
-        let sandbox = Sandbox::new("example-action-symlink");
+        let mut sandbox = Sandbox::new("example-action-symlink");
         sandbox.files(FILES);
         let dir = sandbox.work_dir();
         std::os::unix::fs::symlink(dir.join("dirA"), dir.join("symA")).unwrap();
@@ -1205,7 +1205,7 @@ mod modifier {
     fn chdir_completes_relative() {
         // Go TestChdir: a standalone action completing relative to the
         // chdir'ed directory
-        let sandbox = Sandbox::new("example-modifier-chdir");
+        let mut sandbox = Sandbox::new("example-modifier-chdir");
         sandbox.files([("subdir/file1.txt", "")]);
         sandbox
             .run(
@@ -1720,7 +1720,7 @@ mod multiparts {
 
     #[test]
     fn completes_positional_entries() {
-        let sandbox = Sandbox::new("example-multiparts");
+        let mut sandbox = Sandbox::new("example-multiparts");
         sandbox.files(FILES);
 
         sandbox.run(cmd::root_cmd, &["multiparts", ""]).expect(
@@ -1892,7 +1892,7 @@ mod multiparts {
 
 #[test]
 fn pre_invoke_chdirs_all_actions() {
-    let sandbox = Sandbox::new("example-preinvoke");
+    let mut sandbox = Sandbox::new("example-preinvoke");
     sandbox.files([("dirB/file4.md", ""), ("dirB/dirC/file3.go", "")]);
 
     // the root's `--chdir` value redirects every action of the tree

@@ -29,7 +29,7 @@ where
                 "Get-Content \"{}\" | Out-String | Invoke-Expression; [System.Management.Automation.CommandCompletion]::CompleteInput(\"{}\", {}, $null).CompletionMatches | ConvertTo-Json ",
                 profile_path.to_string_lossy(),
                 line,
-                line.len(),
+                line.chars().count(),
             );
 
             match c.execute("pwsh", ["-Command", &snippet]) {

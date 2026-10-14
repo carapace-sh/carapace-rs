@@ -98,9 +98,17 @@ pub(crate) enum RuneClass {
 }
 
 /// Classifies runes for a format.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub(crate) struct RuneClassifier {
-    classes: std::collections::HashMap<char, RuneClass>,
+    classes: [RuneClass; 128],
+}
+
+impl Default for RuneClassifier {
+    fn default() -> Self {
+        Self {
+            classes: [RuneClass::Unknown; 128],
+        }
+    }
 }
 
 impl RuneClassifier {
@@ -118,7 +126,9 @@ impl RuneClassifier {
 
     pub(crate) fn add_class(&mut self, runes: &str, class: RuneClass) {
         for r in runes.chars() {
-            self.classes.insert(r, class);
+            if (r as usize) < 128 {
+                self.classes[r as usize] = class;
+            }
         }
     }
 
@@ -132,6 +142,11 @@ impl RuneClassifier {
     }
 
     pub(crate) fn classify(&self, r: char) -> RuneClass {
-        self.classes.get(&r).copied().unwrap_or_default()
+        let idx = r as usize;
+        if idx < 128 {
+            self.classes[idx]
+        } else {
+            RuneClass::Unknown
+        }
     }
 }

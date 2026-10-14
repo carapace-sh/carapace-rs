@@ -53,12 +53,15 @@ fn convert_command(
     model.positionals = {
         let mut positionals: Vec<Positional> =
             cmd.get_positionals().map(convert_positional).collect();
-        positionals.sort_by_key(|positional| {
-            cmd.get_positionals()
-                .find(|arg| arg.get_id().as_str() == positional.name)
-                .and_then(|arg| arg.get_index())
-                .unwrap_or(usize::MAX)
-        });
+        let index_map: std::collections::HashMap<String, usize> = cmd
+            .get_positionals()
+            .filter_map(|arg| {
+                arg.get_index()
+                    .map(|idx| (arg.get_id().as_str().to_owned(), idx))
+            })
+            .collect();
+        positionals
+            .sort_by_key(|positional| *index_map.get(&positional.name).unwrap_or(&usize::MAX));
         positionals
     };
     // the flag map fills flags without their own completion slot; entries
@@ -231,10 +234,18 @@ fn init_help_completion(model: &mut Command) {
     if !has_help {
         return;
     }
-    let mut root = model.clone();
-    root.subcommands.retain(|c| c.name != "help");
-    let commands = carapace_rs::traverse::action_commands(&root, std::slice::from_ref(&root.name));
-    if let Some(help) = model.subcommands.iter_mut().find(|c| c.name == "help") {
+    // temporarily remove the help subcommand so it does not appear as a
+    // completion candidate of itself (Go's `initHelpCompletion` rebuilds
+    // from a clone; we swap to avoid the full model clone)
+    let mut subcommands = std::mem::take(&mut model.subcommands);
+    let mut help = subcommands
+        .iter()
+        .position(|c| c.name == "help")
+        .map(|i| subcommands.remove(i))
+        .unwrap();
+    model.subcommands = subcommands;
+    let commands = carapace_rs::traverse::action_commands(model, std::slice::from_ref(&model.name));
+    {
         // cobra's help command declares `Use: "help [command]"`; the
         // use line doubles as the completion's fallback usage
         help.use_line = Some("help [command]".to_owned());
@@ -246,6 +257,7 @@ fn init_help_completion(model: &mut Command) {
         // traverse's positional/commands merge
         help.subcommands.clear();
     }
+    model.subcommands.push(help);
 }
 
 fn convert_flag(arg: &clap::Arg) -> Flag {

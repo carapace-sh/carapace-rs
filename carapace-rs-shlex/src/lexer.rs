@@ -731,7 +731,11 @@ impl Tokenizer {
                         return Some(token);
                     }
                 }
-                LexerState::StopParsing => unreachable!("handled by scan_stop_parsing"),
+                LexerState::StopParsing => {
+                    // Should have been handled by scan_stop_parsing in
+                    // next(); return gracefully if somehow reached.
+                    return None;
+                }
             }
         }
     }

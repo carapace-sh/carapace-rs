@@ -12,6 +12,7 @@ use std::path::PathBuf;
 ///
 /// The mock travels on the completion [`Context`](carapace_rs::Context),
 /// so sandboxes carry no process-global state and tests may run in parallel.
+#[derive(Debug)]
 pub struct Sandbox {
     dir: PathBuf,
     env: HashMap<String, String>,
@@ -43,9 +44,9 @@ impl Sandbox {
     }
 
     /// Create files (path, content) relative to the work directory.
-    pub fn files<const N: usize>(&self, entries: [(&str, &str); N]) -> &Self {
+    pub fn files<const N: usize>(&mut self, entries: [(&str, &str); N]) -> &mut Self {
         for (path, content) in entries {
-            if path.starts_with('/') || path.contains("..") {
+            if path.starts_with('/') || path.split(['/', '\\']).any(|c| c == "..") {
                 panic!("sandbox file path must be relative: {path}");
             }
             let target = self.dir.join("work").join(path);
@@ -117,13 +118,8 @@ impl Sandbox {
             &carapace_rs::shell::bash::Context::default(),
             &completion.context.config,
         );
-        let export = carapace_rs::export::Export::from_json(&json).unwrap_or_else(|| {
-            carapace_rs::export::Export {
-                version: String::new(),
-                meta: Default::default(),
-                values: Vec::new(),
-            }
-        });
+        let export = carapace_rs::export::Export::from_json(&json)
+            .unwrap_or_else(|| panic!("failed to parse export JSON from shell dispatch: {json}"));
 
         Run {
             export,
@@ -141,6 +137,7 @@ impl Drop for Sandbox {
 }
 
 /// Builder for a mocked command reply.
+#[derive(Debug)]
 pub struct Reply<'s> {
     sandbox: &'s mut Sandbox,
     key: String,
@@ -154,6 +151,8 @@ impl<'s> Reply<'s> {
 }
 
 /// A completion run awaiting assertions.
+#[derive(Debug)]
+#[must_use]
 pub struct Run {
     export: carapace_rs::export::Export,
     args: Vec<String>,
@@ -184,9 +183,11 @@ impl Run {
     pub fn expect(&self, action: Action) {
         let invoked = action.invoke(&self.context);
         let expected = invoked.to_export();
+        let actual = self.normalized_export();
+        let expected = normalized(expected, &self.value);
         assert_eq!(
-            serde_json::to_string(&self.normalized_export()).unwrap(),
-            serde_json::to_string(&normalized(expected, &self.value)).unwrap(),
+            serde_json::to_string_pretty(&actual).unwrap(),
+            serde_json::to_string_pretty(&expected).unwrap(),
             "completion mismatch for run {:?}",
             self.args
         );
@@ -208,8 +209,8 @@ impl Run {
         let invoked = action.invoke(&self.context);
         let expected = invoked.to_export();
         assert_ne!(
-            serde_json::to_string(&self.normalized_export()).unwrap(),
-            serde_json::to_string(&normalized(expected, &self.value)).unwrap(),
+            serde_json::to_string_pretty(&self.normalized_export()).unwrap(),
+            serde_json::to_string_pretty(&normalized(expected, &self.value)).unwrap(),
             "completion unexpectedly matched for run {:?}",
             self.args
         );

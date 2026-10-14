@@ -9,7 +9,7 @@ where
     super::action_command(command, move |command| {
         let command: Vec<String> = command.to_vec();
         Action::callback(move |c| {
-            if super::look_path(&command[0]).is_none() {
+            if super::look_path(c, &command[0]).is_none() {
                 return Action::message(format!("command not found: {}", command[0]));
             }
 
@@ -161,7 +161,7 @@ where
         .map(|arg| arg.as_ref().to_owned())
         .collect();
     Action::callback(move |c| {
-        if super::look_path(&command[0]).is_none() {
+        if super::look_path(c, &command[0]).is_none() {
             return Action::message(format!("command not found: {}", command[0]));
         }
 

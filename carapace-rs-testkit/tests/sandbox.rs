@@ -30,7 +30,7 @@ fn sandbox_expect_not() {
 
 #[test]
 fn sandbox_files_visible_to_actions() {
-    let sandbox = Sandbox::new("files");
+    let mut sandbox = Sandbox::new("files");
     sandbox.files([("data", "content"), ("notes.txt", "content")]);
 
     let run = sandbox.run(

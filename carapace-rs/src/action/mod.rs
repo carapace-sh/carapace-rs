@@ -572,6 +572,49 @@ mod tests {
 
         std::fs::remove_dir_all(base).unwrap();
     }
+
+    #[test]
+    fn multipartsp_completes_placeholder_segments() {
+        // the placeholder callback resolves static segments that match the
+        // pattern; with an empty value, the first segment of each value is
+        // a placeholder, so the callback must return candidates for it
+        let action = Action::values(["keys/key1/val1", "keys/key1/val2", "keys/key2/val3"])
+            .multipartsp("/", r"keys", |segment, _entered| {
+                Action::values([segment.to_owned()])
+            });
+        let invoked = action.invoke(&Context::default().value(""));
+        // "keys" matches the pattern and is the first segment; the callback
+        // echoes it back, and the divider suffix marks it as non-terminal
+        assert_eq!(values(invoked), vec!["keys/"]);
+    }
+
+    #[test]
+    fn multipartsp_descends_into_matched_segments() {
+        // after "keys/" is entered, the next placeholder segments ("key1",
+        // "key2") are resolved by the callback; the callback receives the
+        // segment text and its values get the divider suffix + prefix
+        let action = Action::values(["keys/key1/val1", "keys/key1/val2", "keys/key2/val3"])
+            .multipartsp("/", r"\w+", |segment, _entered| {
+                Action::values([segment.to_owned()])
+            });
+        let invoked = action.invoke(&Context::default().value("keys/"));
+        assert_eq!(values(invoked), vec!["keys/key1/", "keys/key2/"]);
+    }
+
+    #[test]
+    fn multipartsp_nospace_includes_divider_last_char() {
+        let action = Action::values(["a/b"]).multipartsp("/", r"\w+", |_, _| Action::default());
+        let invoked = action.invoke(&Context::default().value(""));
+        assert!(invoked.meta.nospace.contains(&'/'));
+    }
+
+    #[test]
+    fn multipartsp_invalid_pattern_degrades_to_message() {
+        let action = Action::values(["a/b"]).multipartsp("/", "[", |_, _| Action::default());
+        let invoked = action.invoke(&Context::default());
+        assert!(!invoked.meta.messages.is_empty());
+        assert!(invoked.values.is_empty());
+    }
 }
 
 #[cfg(test)]

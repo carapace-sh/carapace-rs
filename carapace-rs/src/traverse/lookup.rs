@@ -140,5 +140,5 @@ fn lookup_shorthand_series(cmd: &Command, arg: &str, prefix: char) -> Option<Mat
         }
         return None;
     }
-    unreachable!("loop returns for every position")
+    None
 }

@@ -80,7 +80,7 @@ fn carapace_rs_bridge_completes_git() {
             r#"{"version":"v0.7.0","messages":[],"noprefix":"","nospace":"","usage":"","values":[{"value":"commit","display":"commit","description":"record changes"}]}"#,
         );
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::carapace(["git"])),
+        || cli().positional_any_completion(bridge::carapace::action(["git"])),
         &[""],
     );
     let values = run.values();
@@ -154,7 +154,7 @@ fn clap_bridge_parses_lines_and_nospace() {
         sandbox.run(
             || {
                 let script = script.clone();
-                cli().positional_any_completion(bridge::clap([script.as_str()]))
+                cli().positional_any_completion(bridge::clap::action([script.as_str()]))
             },
             &[""],
         )
@@ -184,7 +184,7 @@ fn clap_bridge_parses_lines_and_nospace() {
         path.to_string_lossy().into_owned()
     };
     let run = sandbox.run(
-        || cli().positional_any_completion(bridge::clap([script2.as_str()])),
+        || cli().positional_any_completion(bridge::clap::action([script2.as_str()])),
         &[""],
     );
     std::fs::remove_file(&script2).ok();
@@ -522,7 +522,8 @@ fn carapace_bin_bridge_imports_export_json() {
                 .to_owned(),
         )]),
     };
-    let invoked = bridge::carapace_bin(["git"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let invoked =
+        bridge::carapace_bin::action(["git"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
     let values: Vec<String> = invoked
         .to_export()
         .values
@@ -549,7 +550,8 @@ fn carapace_bin_bridge_falls_back_to_files_on_empty_output() {
             String::new(),
         )]),
     };
-    let invoked = bridge::carapace_bin(["git"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
+    let invoked =
+        bridge::carapace_bin::action(["git"]).invoke(&carapace_rs::Context::new([""]).mock(mock));
     // the fallback completes real files
     assert!(
         !invoked.to_export().values.is_empty()
@@ -971,4 +973,36 @@ fn gcloud_bridge_expands_dash_and_sets_update_check_env() {
         .collect();
     // the v1 protocol keeps the output verbatim (no space stripping)
     assert_eq!(values, vec!["components ".to_owned()]);
+}
+
+#[test]
+fn powershell_bridge_parses_json_output() {
+    let (path_dir, _guard) = fake_on_path("pwsh");
+    // fake pwsh outputs a JSON array of completion matches
+    std::fs::write(
+        path_dir.join(if cfg!(windows) { "pwsh.exe" } else { "pwsh" }),
+        "#!/bin/sh\nprintf '%s' '[{\"CompletionText\":\"start\",\"ToolTip\":\"start server\"},{\"CompletionText\":\"stop \",\"ToolTip\":\"stop server\"}]'\n",
+    )
+    .unwrap();
+
+    let dir = std::env::temp_dir().join(format!("carapace-pwsh-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("carapace/bridge/powershell")).unwrap();
+    std::fs::write(
+        dir.join("carapace/bridge/powershell/Microsoft.PowerShell_profile.ps1"),
+        "",
+    )
+    .unwrap();
+
+    let mut sandbox = Sandbox::new("bridge-powershell");
+    sandbox.env("XDG_CONFIG_HOME", dir.to_string_lossy().as_ref());
+    let run = sandbox.run(
+        || cli().positional_any_completion(bridge::powershell::action(["myapp"])),
+        &[""],
+    );
+    std::fs::remove_dir_all(&dir).ok();
+
+    let values = run.values();
+    assert_eq!(values, vec!["start", "stop"]);
+    assert!(run.output().contains("start server"));
+    assert!(run.output().contains("stop server"));
 }

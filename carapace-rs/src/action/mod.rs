@@ -824,6 +824,37 @@ mod import_tests {
     }
 
     #[test]
+    fn query_adds_c_value_and_skips_empty_opts() {
+        let opts: Vec<(&'static str, String)> = vec![
+            ("KEY", "forced".to_owned()),
+            ("EMPTY", String::new()),
+            ("ZKEY", "z".to_owned()),
+        ];
+        let invoked = Action::values(["a"])
+            .query("git", "tag", "", opts)
+            .invoke(&Context::default().value("main"));
+        let queries = &invoked.meta.queries;
+        assert_eq!(queries.len(), 1);
+        let query = &queries[0];
+        assert_eq!(query.scheme, "git");
+        assert_eq!(query.host, "tag");
+
+        // the current value rides as C_VALUE; the empty opts are skipped
+        assert!(
+            query.opts.contains(&"C_VALUE".to_owned()) && query.opts.contains(&"main".to_owned()),
+            "the current word rides the query: {:?}",
+            query.opts
+        );
+        assert!(!query.opts.contains(&String::new()));
+
+        // pairs sort by key (Go url.Values.Encode), C_VALUE sorted in
+        let keys: Vec<&String> = query.opts.iter().step_by(2).collect();
+        let mut sorted = keys.clone();
+        sorted.sort();
+        assert_eq!(keys, sorted, "pairs sort by key: {:?}", query.opts);
+    }
+
+    #[test]
     fn import_parses_go_carapace_export() {
         // shape emitted by Go carapace: flattened meta, matcher strings,
         // lowercase value keys

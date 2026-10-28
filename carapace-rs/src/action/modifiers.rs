@@ -581,7 +581,12 @@ impl Action {
         })
     }
 
-    /// Add query metadata via alternating key-value opts (experimental).
+    /// Add query metadata via a static annotation (experimental, Go
+    /// `Action.Query`): a `scheme://host/path?opts` URL naming what the
+    /// completion is asking for, so the values can be re-invoked per
+    /// value later (tabdance). The current value rides the query as a
+    /// `C_VALUE` opt when the action carries opts, and empty opt values
+    /// are skipped; pairs are sorted by key like Go `url.Values.Encode`.
     pub fn query(
         self,
         scheme: &str,
@@ -589,17 +594,35 @@ impl Action {
         path: &str,
         opts: Vec<(&'static str, String)>,
     ) -> Self {
-        self.with_meta(
-            Meta::default().query(crate::meta::Query {
-                scheme: scheme.to_owned(),
-                host: host.to_owned(),
-                path: path.to_owned(),
-                opts: opts
+        let scheme = scheme.to_owned();
+        let host = host.to_owned();
+        let path = path.to_owned();
+        let action = std::sync::Arc::new(self.clone());
+        Self::callback(move |c| {
+            let mut pairs: Vec<(&'static str, String)> = opts
+                .iter()
+                .filter(|(_, value)| !value.is_empty())
+                .map(|(key, value)| (*key, value.clone()))
+                .collect();
+            if !pairs.is_empty() && !c.value.is_empty() {
+                pairs.push(("C_VALUE", c.value.clone()));
+            }
+            pairs.sort_by_key(|(key, _)| *key);
+            let query = crate::meta::Query {
+                scheme: scheme.clone(),
+                host: host.clone(),
+                path: path.clone(),
+                opts: pairs
                     .iter()
-                    .flat_map(|(key, value)| [key.to_string(), value.clone()])
+                    .flat_map(|(key, value)| [(*key).to_owned(), value.clone()])
                     .collect(),
-            }),
-        )
+            };
+            (*action)
+                .clone()
+                .with_meta(Meta::default().query(query))
+                .invoke(c)
+                .to_action()
+        })
     }
 
     /// Add query metadata via a function (experimental, Go

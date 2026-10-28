@@ -59,6 +59,8 @@ action.style_r(Arc<RwLock<String>>)      // shared mutable style
 action.tag_f(|value| tag)
 action.usage("usage text")
 action.unless(cond).unless_f(|ctx| cond)
+action.uid("git", "local-branch", opts)   // per-value uid URL (experimental, tabdance)
+action.query("git", "local-branch", "", opts) // query annotation: C_VALUE rides the current word, empty opts skipped, pairs sorted by key (Go Action.Query)
 action.shift(1)                          // drop N leading args before delegating
 action.chdir(dir).chdir_f(|ctx| dir)
 action.suppress(["regex…"])              // regex-filtered messages

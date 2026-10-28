@@ -64,14 +64,14 @@ pub fn cmd(commands: Option<Action>) -> Command {
                     .filter(|line| !line.is_empty())
                     .map(String::from)
                     .collect();
-                Action::values(lines.iter().map(String::as_str))
+                Action::values(lines)
             }),
         ),
         (
             "execcommandE",
             Action::exec_command_e("false", [""; 0], |result| match result {
                 Err(_) => Action::message("failed with exit status 1"),
-                Ok(_) => Action::values([]),
+                Ok(_) => Action::default(),
             }),
         ),
         ("executables", Action::executables()),
@@ -118,7 +118,7 @@ pub fn cmd(commands: Option<Action>) -> Command {
                     .suffix(":")
                     .to_action(),
                 1 => Action::values(["groupA", "groupB"]),
-                _ => Action::values([]),
+                _ => Action::default(),
             }),
         ),
         ("multiparts-nested", multiparts_nested()),
@@ -194,7 +194,7 @@ fn multiparts_nested() -> Action {
                     .collect();
                 Action::values(["FILE", "DIRECTORY", "VALUE"])
                     .invoke(c)
-                    .filter(keys.iter().map(String::as_str))
+                    .filter(keys)
                     .suffix("=")
                     .to_action()
             }
@@ -202,9 +202,9 @@ fn multiparts_nested() -> Action {
                 "FILE" => Action::files([]).nospace([]),
                 "DIRECTORY" => Action::directories().nospace([]),
                 "VALUE" => Action::values(["one", "two", "three"]).nospace([]),
-                _ => Action::values([]),
+                _ => Action::default(),
             },
-            _ => Action::values([]),
+            _ => Action::default(),
         })
     })
 }
@@ -215,7 +215,7 @@ fn multipartsn() -> Action {
         1 => Action::multiparts("=", |c| match c.parts.len() {
             0 => Action::values(["three", "four"]).suffix("="),
             1 => Action::values(["five", "six"]),
-            _ => Action::values([]),
+            _ => Action::default(),
         }),
         _ => Action::message("should never happen"),
     })

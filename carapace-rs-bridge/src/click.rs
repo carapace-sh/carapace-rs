@@ -37,7 +37,7 @@ where
                 .env
                 .insert("COMP_CWORD".to_owned(), (args.len() + 1).to_string());
 
-            match context.execute(&command[0], []) {
+            match context.execute(&command[0], [""; 0]) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     // Go splits on "\n" and keeps the trailing empty

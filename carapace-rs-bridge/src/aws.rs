@@ -25,7 +25,7 @@ where
                 .env
                 .insert("COMP_LINE".to_owned(), format!("aws {}", words.join(" ")));
 
-            match context.execute("aws_completer", []) {
+            match context.execute("aws_completer", [""; 0]) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.split('\n').collect();
@@ -39,7 +39,7 @@ where
                         .collect();
                     // the final empty split is dropped (Go `len-1`)
                     let candidates = &lines[..lines.len().saturating_sub(1)];
-                    let mut action = Action::values(candidates.iter().map(String::as_str));
+                    let mut action = Action::values(candidates.iter().cloned());
                     let file_scheme = ["file://", "fileb://"]
                         .iter()
                         .find(|scheme| c.value.starts_with(**scheme))

@@ -72,7 +72,7 @@ fn sandbox_replies_mock_commands() {
                             .filter(|line| !line.is_empty())
                             .map(String::from)
                             .collect();
-                        Action::values(branches.iter().map(String::as_str))
+                        Action::values(branches)
                     },
                 )])
             },
@@ -91,8 +91,7 @@ fn sandbox_env_reaches_actions() {
             || {
                 let cmd = Command::new("myapp").arg(Arg::new("value").index(1));
                 cmd.positional_completion([Action::callback(|context| {
-                    let value = context.get_env("SANDBOX_ENV_TEST");
-                    Action::values([value.as_str()])
+                    Action::values([context.get_env("SANDBOX_ENV_TEST")])
                 })])
             },
             &[""],

@@ -86,15 +86,15 @@ impl InvokedAction {
     }
 
     /// Remove given values (Go `InvokedAction.Filter(values ...string)`).
-    pub fn filter<'a>(mut self, values: impl IntoIterator<Item = &'a str>) -> Self {
-        let values: Vec<String> = values.into_iter().map(str::to_owned).collect();
+    pub fn filter(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let values: Vec<String> = values.into_iter().map(Into::into).collect();
         self.values.retain(|v| !values.contains(&v.value));
         self
     }
 
     /// Keep only given values (Go `InvokedAction.Retain(values ...string)`).
-    pub fn retain<'a>(mut self, values: impl IntoIterator<Item = &'a str>) -> Self {
-        let values: Vec<String> = values.into_iter().map(str::to_owned).collect();
+    pub fn retain(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let values: Vec<String> = values.into_iter().map(Into::into).collect();
         self.values.retain(|v| values.contains(&v.value));
         self
     }

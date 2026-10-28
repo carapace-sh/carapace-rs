@@ -17,7 +17,7 @@ where
             let mut args = args.clone();
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            match c.execute(&command_name, args.iter().map(String::as_str)) {
+            match c.execute(&command_name, &args) {
                 Ok(output) if output.is_empty() => Action::default(),
                 Ok(output) => Action::import(&String::from_utf8_lossy(&output)),
                 Err(error) => Action::message(error),

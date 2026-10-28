@@ -68,7 +68,7 @@ impl Action {
     /// Create an action producing the given raw values (Go
     /// `ActionRaw(values ...RawValue)`).
     ///
-    /// The item type is concrete, so an empty list needs no annotation.
+    /// The item type is concrete, so `Action::raw([])` needs no annotation.
     pub fn raw(values: impl IntoIterator<Item = RawValue>) -> Self {
         Self {
             kind: ActionKind::Raw(values.into_iter().collect()),
@@ -260,7 +260,7 @@ mod tests {
 
     #[test]
     fn shift() {
-        let action = Action::callback(|c| Action::values(c.args.iter().map(String::as_str)));
+        let action = Action::callback(|c| Action::values(c.args.clone()));
         let context = Context::default().args(["one", "two", "three"]);
         let invoked = action.shift(1).invoke(&context);
         assert_eq!(values(invoked), vec!["two", "three"]);
@@ -372,10 +372,7 @@ mod tests {
         let base = std::env::temp_dir().join(format!("carapace-chdir-abs-{}", std::process::id()));
         std::fs::create_dir_all(base.join("subdir")).unwrap();
 
-        let action = Action::callback(|c| {
-            let dir = c.dir.display().to_string();
-            Action::values([dir.as_str()])
-        });
+        let action = Action::callback(|c| Action::values([c.dir.display().to_string()]));
         let context = Context::default().dir(base.clone());
         let invoked = action.chdir("subdir").invoke(&context);
         assert_eq!(
@@ -441,7 +438,7 @@ mod tests {
             (0, "") => Action::values(["keys"]),
             (1, "") => Action::values(["key1", "key2"]),
             (2, "") => Action::values(["val1", "val2"]),
-            _ => Action::values([]),
+            _ => Action::default(),
         });
         let invoked = action.invoke(&Context::default().value("keys/key1/"));
         assert_eq!(values(invoked), vec!["keys/key1/val1", "keys/key1/val2"]);
@@ -452,10 +449,10 @@ mod tests {
         // Go TestSkipCache: a merged message survives no-op modifiers and
         // conversion back into a lazy action
         let action = Action::callback(|c| {
-            Action::values([])
+            Action::default()
                 .invoke(c)
                 .merge([Action::message("skipcache").invoke(c)])
-                .filter([])
+                .filter(std::iter::empty::<String>())
                 .prefix("")
                 .suffix("")
                 .to_action()
@@ -583,7 +580,9 @@ mod tests {
         // pattern; with an empty value, the first segment of each value is
         // a placeholder, so the callback must return candidates for it
         let action = Action::values(["keys/key1/val1", "keys/key1/val2", "keys/key2/val3"])
-            .multipartsp("/", r"keys", |segment, _entered| Action::values([segment]));
+            .multipartsp("/", r"keys", |segment, _entered| {
+                Action::values([segment.to_owned()])
+            });
         let invoked = action.invoke(&Context::default().value(""));
         // "keys" matches the pattern and is the first segment; the callback
         // echoes it back, and the divider suffix marks it as non-terminal
@@ -596,7 +595,9 @@ mod tests {
         // "key2") are resolved by the callback; the callback receives the
         // segment text and its values get the divider suffix + prefix
         let action = Action::values(["keys/key1/val1", "keys/key1/val2", "keys/key2/val3"])
-            .multipartsp("/", r"\w+", |segment, _entered| Action::values([segment]));
+            .multipartsp("/", r"\w+", |segment, _entered| {
+                Action::values([segment.to_owned()])
+            });
         let invoked = action.invoke(&Context::default().value("keys/"));
         assert_eq!(values(invoked), vec!["keys/key1/", "keys/key2/"]);
     }

@@ -196,14 +196,19 @@ These are settled; don't relitigate without cause, and preserve them when refact
 
 ## Action surface notes
 
-- List-taking constructors and modifiers keep Go's one-name-per-function shape
-  (`ActionValues`, `ActionFiles`, `ActionFilter`, … map to a single Rust
-  function each) and take `impl IntoIterator<Item = &str>` — a *concrete* item
-  type. That is what makes `Action::values([])`, `Action::files([])` and
-  `Context::new([])` infer without annotations. Do not change the item type back
-  to `impl Into<String>` (nested `impl Trait` leaves the item unconstrained, so
-  every empty list needs `Vec::<String>::new()`), and do not add `*_with` twin
-  functions: runtime lists pass `iter().map(String::as_str)` to the same name.
+- List parameters keep Go's one-name-per-function shape and split by what the
+  list means. **Candidate/data lists** (`values`, `values_described`,
+  `styled_values`, `styled_values_described`, `filter`, `retain`, `suppress`,
+  `Context::new`/`args`, `execute`/`execute_stdin`) take
+  `impl IntoIterator<Item = impl Into<String>>` (or `AsRef<str>`), so parsed
+  `Vec<String>` output passes straight in; their empty form is meaningless
+  candidates and is spelled `Action::default()` (`execute(prog, [""; 0])` for no
+  arguments). **Option/filter lists** (`files` suffixes, `styles`, `executables_in`,
+  `style::of`, `batch`, `Action::raw`, `flag_completion`) take a concrete item
+  type, because the empty list is a real value there: `Action::files([])`
+  completes every file and needs no annotation. Do not add `*_with` twins — one
+  function per Go function — and do not make a filter list generic: an empty
+  collection would then need a turbofish.
 - `Action::split(format)` completes a value that is itself a shell-parsed
   command line: the value is re-lexed, the inner action runs with the
   preceding words as args, and candidates are requoted (open quotes closed

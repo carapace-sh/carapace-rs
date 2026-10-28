@@ -44,7 +44,7 @@ pub fn resolve(entry: &str) -> Action {
             ];
             remote_args.extend(c.args.iter().cloned());
             remote_args.push(c.value.clone());
-            match c.execute(&binary, remote_args.iter().map(String::as_str)) {
+            match c.execute(&binary, &remote_args) {
                 Ok(output) => Action::import(&String::from_utf8_lossy(&output)),
                 Err(error) => Action::message(error),
             }
@@ -77,7 +77,7 @@ pub fn resolve(entry: &str) -> Action {
         // bare usage completes nothing instead of erroring; the real
         // modifier forms are applied through `modifier`/batch handling
         "chdir" | "list" | "multiparts" | "nospace" | "noprefix" | "uniquelist" => {
-            Action::values([])
+            Action::default()
         }
         other => Action::message(format!("unsupported macro: {other}")),
     }
@@ -121,7 +121,7 @@ fn shell_macro(shell: &str, command: &str) -> Action {
             Ok(args) => args,
             Err(error) => return Action::message(error),
         };
-        match c.execute(&shell, args.iter().map(String::as_str)) {
+        match c.execute(&shell, &args) {
             Ok(output) => {
                 let text = String::from_utf8_lossy(&output);
                 let values: Vec<RawValue> = text
@@ -223,7 +223,7 @@ pub fn modifier(entry: &str) -> Option<Box<dyn Fn(Action) -> Action + Send + Syn
         "filter" => {
             let values = parse_args(args);
             Some(Box::new(move |action| {
-                action.filter(values.iter().map(String::as_str))
+                action.filter(values.iter().cloned())
             }))
         }
         "filterargs" => Some(Box::new(move |action| action.filter_args())),
@@ -262,7 +262,7 @@ pub fn modifier(entry: &str) -> Option<Box<dyn Fn(Action) -> Action + Send + Syn
         "retain" => {
             let values = parse_args(args);
             Some(Box::new(move |action| {
-                action.retain(values.iter().map(String::as_str))
+                action.retain(values.iter().cloned())
             }))
         }
         "shift" => {
@@ -290,7 +290,7 @@ pub fn modifier(entry: &str) -> Option<Box<dyn Fn(Action) -> Action + Send + Syn
         "suppress" => {
             let exprs = parse_args(args);
             Some(Box::new(move |action| {
-                action.suppress(exprs.iter().map(String::as_str))
+                action.suppress(exprs.iter().cloned())
             }))
         }
         "style" => {

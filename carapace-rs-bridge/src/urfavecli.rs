@@ -28,7 +28,7 @@ where
 
             let mut context = c.clone();
             context.env.insert("SHELL".to_owned(), "zsh".to_owned());
-            match context.execute(&command[0], args.iter().map(String::as_str)) {
+            match context.execute(&command[0], &args) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.split('\n').collect();
@@ -68,14 +68,14 @@ where
             args.push(c.value.clone());
             args.push("--generate-bash-completion".to_owned());
 
-            match c.execute(&command[0], args.iter().map(String::as_str)) {
+            match c.execute(&command[0], &args) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.split('\n').collect();
                     if lines.len() <= 1 {
                         return Action::files([]);
                     }
-                    Action::values(lines[..lines.len() - 1].iter().copied())
+                    Action::values(lines[..lines.len() - 1].iter().map(|l| l.to_string()))
                         .nospace(['/', '=', '@', ':', '.', ','])
                 }
                 Err(error) => Action::message(error),

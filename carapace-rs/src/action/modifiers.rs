@@ -10,27 +10,25 @@ use carapace_rs_shlex::TokenSliceExt;
 
 impl Action {
     /// Remove given values (Go `Action.Filter(values ...string)`).
-    pub fn filter<'a>(self, values: impl IntoIterator<Item = &'a str>) -> Self {
-        let values: Vec<String> = values.into_iter().map(str::to_owned).collect();
-        self.map_invoked(move |_, invoked| invoked.filter(values.iter().map(String::as_str)))
+    pub fn filter(self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let values: Vec<String> = values.into_iter().map(Into::into).collect();
+        self.map_invoked(move |_, invoked| invoked.filter(values.iter().cloned()))
     }
 
     /// Filter values that appear in the context arguments.
     pub fn filter_args(self) -> Self {
-        self.map_invoked(|context, invoked| invoked.filter(context.args.iter().map(String::as_str)))
+        self.map_invoked(|context, invoked| invoked.filter(context.args.iter().cloned()))
     }
 
     /// Filter values that appear in the context parts.
     pub fn filter_parts(self) -> Self {
-        self.map_invoked(|context, invoked| {
-            invoked.filter(context.parts.iter().map(String::as_str))
-        })
+        self.map_invoked(|context, invoked| invoked.filter(context.parts.iter().cloned()))
     }
 
     /// Keep only given values (Go `Action.Retain(values ...string)`).
-    pub fn retain<'a>(self, values: impl IntoIterator<Item = &'a str>) -> Self {
-        let values: Vec<String> = values.into_iter().map(str::to_owned).collect();
-        self.map_invoked(move |_, invoked| invoked.retain(values.iter().map(String::as_str)))
+    pub fn retain(self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let values: Vec<String> = values.into_iter().map(Into::into).collect();
+        self.map_invoked(move |_, invoked| invoked.retain(values.iter().cloned()))
     }
 
     /// Deduplicate values by `(value, uid)` key.
@@ -340,7 +338,7 @@ impl Action {
             let parts: Vec<String> = c.parts.iter().map(|p| f(p.clone())).collect();
             inner
                 .clone()
-                .filter(parts.iter().map(String::as_str))
+                .filter(parts)
                 .invoke(c)
                 .to_action()
                 .nospace([])
@@ -408,8 +406,8 @@ impl Action {
     /// Suppress error messages matching the given regular expressions
     /// (port of Go `Action.Suppress(exprs ...string)`). An invalid
     /// expression surfaces as a message instead.
-    pub fn suppress<'a>(self, exprs: impl IntoIterator<Item = &'a str>) -> Self {
-        let exprs: Vec<String> = exprs.into_iter().map(str::to_owned).collect();
+    pub fn suppress(self, exprs: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let exprs: Vec<String> = exprs.into_iter().map(Into::into).collect();
         Self::callback(move |c| {
             let invoked = self.invoke(c);
             let mut messages = invoked.meta.messages.clone();

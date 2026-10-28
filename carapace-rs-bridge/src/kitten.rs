@@ -100,9 +100,7 @@ where
                                     .iter()
                                     .map(|m| m.word.replace('\\', "/"))
                                     .collect();
-                                batch.push(
-                                    Action::files([]).retain(retain.iter().map(String::as_str)),
-                                );
+                                batch.push(Action::files([]).retain(retain.iter().cloned()));
                             } else {
                                 batch.push(
                                     matches_action(group.matches.clone())
@@ -149,14 +147,11 @@ struct Match {
 
 /// The matches of a group as a described-values action.
 fn matches_action(matches: Vec<Match>) -> Action {
-    let matches: Vec<(String, String)> = matches
-        .into_iter()
-        .map(|m| (m.word, m.description))
-        .collect();
     Action::values_described(
         matches
-            .iter()
-            .map(|(word, description)| (word.as_str(), description.as_str())),
+            .into_iter()
+            .map(|m| (m.word, m.description))
+            .collect::<Vec<(String, String)>>(),
     )
 }
 

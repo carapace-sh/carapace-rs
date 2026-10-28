@@ -429,13 +429,7 @@ fn possible_values_action(arg: &clap::Arg) -> Option<Action> {
             )
         })
         .collect();
-    (!values.is_empty()).then(|| {
-        Action::values_described(
-            values
-                .iter()
-                .map(|(value, description)| (value.as_str(), description.as_str())),
-        )
-    })
+    (!values.is_empty()).then(|| Action::values_described(values))
 }
 
 fn value_hint_action(arg: &clap::Arg) -> Option<Action> {

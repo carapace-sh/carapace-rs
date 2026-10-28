@@ -22,7 +22,10 @@ where
             args.extend(command[1..].iter().cloned());
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            match c.execute(&command_name, args.iter().map(String::as_str)) {
+            match c.execute(
+                &command_name,
+                args.iter().map(String::as_str).collect::<Vec<_>>(),
+            ) {
                 Ok(output) => parse_output(&String::from_utf8_lossy(&output), &c.value),
                 Err(error) => Action::message(error),
             }
@@ -41,7 +44,7 @@ fn parse_output(output: &str, value: &str) -> Action {
         .and_then(|line| line.strip_prefix(':'))
         .and_then(|directive| directive.parse::<i32>().ok())
     else {
-        return Action::values([]);
+        return Action::default();
     };
 
     let mut action = if directive & DIRECTIVE_FILTER_DIRS != 0 {
@@ -56,7 +59,7 @@ fn parse_output(output: &str, value: &str) -> Action {
         action = Action::files([]);
     }
     if directive & DIRECTIVE_ERROR != 0 {
-        action = Action::values([]);
+        action = Action::default();
     }
     if directive & DIRECTIVE_NO_SPACE != 0 {
         action = action.nospace([]);
@@ -80,11 +83,7 @@ fn action_values(lines: &[&str]) -> Action {
             None => values.push(((*line).to_owned(), String::new())),
         }
     }
-    Action::values_described(
-        values
-            .iter()
-            .map(|(value, description)| (value.as_str(), description.as_str())),
-    )
+    Action::values_described(values)
 }
 
 fn action_files(lines: &[&str]) -> Action {

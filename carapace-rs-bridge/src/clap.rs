@@ -26,7 +26,7 @@ where
             args.extend(command.iter().cloned());
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            match c.execute(&command_name, args.iter().map(String::as_str)) {
+            match c.execute(&command_name, &args) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.lines().collect();

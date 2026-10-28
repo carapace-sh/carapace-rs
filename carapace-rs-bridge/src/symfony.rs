@@ -47,7 +47,7 @@ where
                 .env
                 .insert("SHELL_VERBOSITY".to_owned(), "0".to_owned());
 
-            match context.execute(&command[0], args.iter().map(String::as_str)) {
+            match context.execute(&command[0], &args) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let mut values = Vec::new();

@@ -108,7 +108,7 @@ fn complete_bash(
 ) -> (carapace_rs::Completion, bash::Context) {
     match bash::patch(words.to_vec()) {
         bash::Patch::Redirect => {
-            let context = carapace_rs::Context::default().args(words.iter().map(String::as_str));
+            let context = carapace_rs::Context::default().args(words.to_vec());
             (
                 carapace_rs::Completion {
                     action: carapace_rs::Action::files([]),
@@ -193,7 +193,7 @@ fn macro_subcommand(args: &[String]) -> String {
             let (value, words) = args[1..].split_last().expect("len >= 2");
             match carapace_rs_spec::invoke_macro(&args[0], words, value) {
                 Some(action) => {
-                    let context = carapace_rs::Context::new(args[1..].iter().map(String::as_str));
+                    let context = carapace_rs::Context::new(args[1..].to_vec());
                     let invoked = action.invoke(&context);
                     invoked.to_export().to_json()
                 }

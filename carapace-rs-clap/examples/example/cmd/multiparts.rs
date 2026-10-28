@@ -156,7 +156,7 @@ fn multiparts_test(divider: &'static str) -> Action {
         0 => test_values().suffix(divider),
         1 => test_values().filter_parts().suffix(divider),
         2 => test_values().filter_parts(),
-        _ => Action::values([]),
+        _ => Action::default(),
     })
 }
 
@@ -179,16 +179,16 @@ fn multiparts_positional() -> Action {
                     .map(|entry| entry.split('=').next().unwrap_or_default().to_owned())
                     .collect();
                 Action::values(["FILE", "DIRECTORY", "VALUE"])
-                    .filter(keys.iter().map(String::as_str))
+                    .filter(keys)
                     .suffix("=")
             }
             1 => match c.parts[0].as_str() {
                 "FILE" => Action::files([]),
                 "DIRECTORY" => Action::directories(),
                 "VALUE" => Action::values(["one", "two", "three"]),
-                _ => Action::values([]),
+                _ => Action::default(),
             },
-            _ => Action::values([]),
+            _ => Action::default(),
         })
     })
 }

@@ -36,8 +36,7 @@ fn batch_runs_callbacks_concurrently() {
                     Action::callback(move |_| {
                         counter.fetch_add(1, Ordering::SeqCst);
                         gate.wait(); // blocks unless all three run concurrently
-                        let value = format!("x{index}");
-                        Action::values([value.as_str()])
+                        Action::values([format!("x{index}")])
                     })
                 })
                 .collect();
@@ -80,7 +79,7 @@ fn batch_single() {
 
 #[test]
 fn batch_none() {
-    let invoked = batch(Vec::<Action>::new()).invoke(&Context::default());
+    let invoked = batch([]).invoke(&Context::default());
     assert!(invoked.to_export().values.is_empty());
     assert!(invoked.to_export().meta.messages.is_empty());
 }

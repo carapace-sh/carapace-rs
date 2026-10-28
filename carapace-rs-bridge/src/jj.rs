@@ -20,7 +20,7 @@ where
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
 
-            match context.execute(&command[0], args.iter().map(String::as_str)) {
+            match context.execute(&command[0], &args) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let mut lines: Vec<&str> = text.split('\n').collect();

@@ -38,10 +38,11 @@ Action::execute(Arc::new(model_command))     // complete an embedded command tre
 
 The two-phase split: `Action::invoke(&Context) -> InvokedAction` materializes candidates; lazy `Action` composes via `map_invoked`. Failures degrade to `Action::message` — never `Result`.
 
-List arguments take `impl IntoIterator<Item = &str>` (Go's variadic parameter shape, one
-function per Go function). The concrete item type is what lets an empty list be written
-without an annotation (`Action::values([])`); runtime-built lists pass the borrowed strings:
-`Action::values(lines.iter().map(String::as_str))`.
+One function per Go function, no `*_with` twins. Candidate lists (`values`, `values_described`,
+`styled_values`, `filter`, `retain`, `suppress`) accept owned and borrowed strings, so parsed
+output passes straight in; "no candidates" is `Action::default()`. Option/filter lists (`files`
+suffixes, `styles`, `executables_in`, `style::of`, batch/raw/flag maps) take `&str` items, which
+is what lets the meaningful empty form be written as `Action::files([])` without an annotation.
 
 ## Modifiers
 

@@ -115,7 +115,7 @@ fn hidden_modes() {
 fn exec_command_completes_from_stdout() {
     let action = Action::exec_command("echo", ["hello"], |stdout| {
         let word = String::from_utf8_lossy(stdout).trim().to_owned();
-        Action::values_with([word])
+        Action::values([word.as_str()])
     });
     let invoked = action.invoke(&Context::default());
     assert_eq!(invoked.to_export().values[0].value, "hello");
@@ -141,7 +141,8 @@ fn exec_command_e_exposes_error() {
 #[test]
 fn exec_respects_context_dir_and_env() {
     let action = Action::exec_command("pwd", [""; 0], |stdout| {
-        Action::values_with([value_of(&String::from_utf8_lossy(stdout))])
+        let value = value_of(&String::from_utf8_lossy(stdout));
+        Action::values([value.as_str()])
     });
     let invoked = action.invoke(&Context::default().dir("/tmp"));
     assert_eq!(invoked.to_export().values[0].value, "/tmp");
@@ -267,7 +268,8 @@ fn messages_dedup_on_merge() {
 fn exec_passes_context_env_not_process_env() {
     // Go TestActionExecCommandEnv: context-set variables reach the child
     let action = Action::exec_command("sh", ["-c", "echo $carapace_exec_env_test"], |stdout| {
-        Action::values_with([value_of(&String::from_utf8_lossy(stdout))])
+        let value = value_of(&String::from_utf8_lossy(stdout));
+        Action::values([value.as_str()])
     });
     let invoked = action.invoke(&Context::default().env("carapace_exec_env_test", "test"));
     assert_eq!(invoked.to_export().values[0].value, "test");

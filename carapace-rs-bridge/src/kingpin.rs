@@ -17,7 +17,7 @@ where
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
 
-            match c.execute(&command[0], &args) {
+            match c.execute(&command[0], args.iter().map(String::as_str)) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.split('\n').collect();
@@ -28,7 +28,7 @@ where
                         return Action::files([]);
                     }
 
-                    let mut action = Action::values_with(lines.iter().map(|l| l.to_string()));
+                    let mut action = Action::values(lines.iter().copied());
                     let any_nospace = lines
                         .iter()
                         .any(|line| line.chars().rev().skip(1).any(|c| "/=@:.,".contains(c)));

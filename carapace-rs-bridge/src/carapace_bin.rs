@@ -17,7 +17,7 @@ where
             let mut args = prefix.clone();
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            match c.execute(&bin, &args) {
+            match c.execute(&bin, args.iter().map(String::as_str)) {
                 Ok(output) if output.is_empty() => Action::files([]),
                 Ok(output) => Action::import(&String::from_utf8_lossy(&output)),
                 Err(error) => Action::message(error),

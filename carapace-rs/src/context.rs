@@ -33,8 +33,17 @@ pub struct Context {
 
 impl Context {
     /// Create a context from a word list: the last word is the value being completed.
-    pub fn new(args: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        let args: Vec<String> = args.into_iter().map(Into::into).collect();
+    ///
+    /// The item type is concrete, so an empty word list needs no annotation:
+    ///
+    /// ```
+    /// # use carapace_rs::Context;
+    /// let words = Context::new(["build", "--profile"]);
+    /// let empty = Context::new([]);
+    /// # let _ = (words, empty);
+    /// ```
+    pub fn new<'a>(args: impl IntoIterator<Item = &'a str>) -> Self {
+        let args: Vec<String> = args.into_iter().map(str::to_owned).collect();
         let (value, args) = match args.split_last() {
             Some((value, args)) => (value.clone(), args.to_vec()),
             None => (String::new(), Vec::new()),
@@ -56,8 +65,12 @@ impl Context {
         self
     }
 
-    pub fn args(mut self, args: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        self.args = args.into_iter().map(Into::into).collect();
+    /// Set the positional arguments (excluding the value being completed).
+    ///
+    /// The item type is concrete, so an empty argument list needs no
+    /// annotation.
+    pub fn args<'a>(mut self, args: impl IntoIterator<Item = &'a str>) -> Self {
+        self.args = args.into_iter().map(str::to_owned).collect();
         self
     }
 
@@ -202,15 +215,14 @@ impl Context {
     ///
     /// When a sandbox mock is attached to the context and a reply is
     /// registered for the command, the mocked output is returned instead.
-    pub fn execute<I, S>(&self, program: &str, args: I) -> Result<Vec<u8>, String>
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-    {
-        let args: Vec<String> = args
-            .into_iter()
-            .map(|arg| arg.as_ref().to_owned())
-            .collect();
+    /// The item type is concrete, so an empty argument list needs no
+    /// annotation (`context.execute("git", [])`).
+    pub fn execute<'a>(
+        &self,
+        program: &str,
+        args: impl IntoIterator<Item = &'a str>,
+    ) -> Result<Vec<u8>, String> {
+        let args: Vec<String> = args.into_iter().map(str::to_owned).collect();
         if let Some(reply) = self
             .mock
             .as_ref()
@@ -235,21 +247,14 @@ impl Context {
     /// feeding `stdin` to the child process.
     ///
     /// Mock replies ignore the stdin content (they answer by command).
-    pub fn execute_stdin<I, S>(
+    pub fn execute_stdin<'a>(
         &self,
         program: &str,
-        args: I,
+        args: impl IntoIterator<Item = &'a str>,
         stdin: &[u8],
-    ) -> Result<Vec<u8>, String>
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-    {
+    ) -> Result<Vec<u8>, String> {
         use std::io::Write;
-        let args: Vec<String> = args
-            .into_iter()
-            .map(|arg| arg.as_ref().to_owned())
-            .collect();
+        let args: Vec<String> = args.into_iter().map(str::to_owned).collect();
         if let Some(reply) = self
             .mock
             .as_ref()

@@ -86,7 +86,7 @@ impl Sandbox {
     {
         let mut cmd = factory();
         let model = carapace_rs_clap::to_model(&mut cmd);
-        let mut context = carapace_rs::Context::new(args.iter().map(|s| s.to_string()));
+        let mut context = carapace_rs::Context::new(args.iter().copied());
         context.dir = self.dir.join("work");
         for (key, value) in &self.env {
             context.env.insert(key.clone(), value.clone());

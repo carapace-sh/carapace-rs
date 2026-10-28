@@ -27,7 +27,7 @@ where
             // an empty value is the sentinel for "completing after a space"
             args.push(c.value.clone());
 
-            match c.execute(&command[0], &args) {
+            match c.execute(&command[0], args.iter().map(String::as_str)) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let mut lines: Vec<&str> = text.split('\n').collect();

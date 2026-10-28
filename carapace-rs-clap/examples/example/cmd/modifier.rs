@@ -108,11 +108,11 @@ pub fn batch() -> Action {
 }
 
 pub fn cache() -> Action {
-    Action::callback(|_| Action::values_with([current_time()])).cache(
-        "example/cmd/modifier.go:cache",
-        5,
-        Vec::new(),
-    )
+    Action::callback(|_| {
+        let now = current_time();
+        Action::values([now.as_str()])
+    })
+    .cache("example/cmd/modifier.go:cache", 5, Vec::new())
 }
 
 pub fn cache_key() -> Action {
@@ -120,7 +120,11 @@ pub fn cache_key() -> Action {
         0 => Action::values(["one", "two"]).suffix("/"),
         1 => {
             let part = c.parts[0].clone();
-            Action::callback(move |_| Action::values_with([current_time()])).cache(
+            Action::callback(move |_| {
+                let now = current_time();
+                Action::values([now.as_str()])
+            })
+            .cache(
                 "example/cmd/modifier.go:cache-key",
                 10,
                 vec![format!("String({part})")],

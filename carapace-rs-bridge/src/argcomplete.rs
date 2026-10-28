@@ -58,7 +58,7 @@ where
                 temp_path.to_string_lossy().into_owned(),
             );
 
-            let result = context.execute(&command[0], Vec::<String>::new());
+            let result = context.execute(&command[0], []);
             let output = std::fs::read_to_string(temp_path.as_path());
             std::fs::remove_file(&temp_path).ok();
 
@@ -199,7 +199,7 @@ where
         }
 
         let script = format!("{} 8>&1 9>&2 1>/dev/null 2>/dev/null", command[0]);
-        match context.execute("sh", ["-c", &script]) {
+        match context.execute("sh", ["-c", script.as_str()]) {
             Err(error) => Action::message(error),
             Ok(output) => {
                 let text = String::from_utf8_lossy(&output);

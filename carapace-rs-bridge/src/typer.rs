@@ -49,7 +49,7 @@ where
                 .env
                 .insert("_TYPER_COMPLETE_ARGS".to_owned(), comp_line);
 
-            match context.execute(&command[0], Vec::<String>::new()) {
+            match context.execute(&command[0], []) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let mut values = Vec::new();

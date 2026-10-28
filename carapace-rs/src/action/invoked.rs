@@ -71,7 +71,7 @@ impl InvokedAction {
                 }
             }
 
-            let mut action = super::Action::raw(unique.into_values().collect());
+            let mut action = super::Action::raw(unique.into_values());
             for divider in &dividers {
                 match divider.chars().last() {
                     None => {
@@ -85,32 +85,16 @@ impl InvokedAction {
         })
     }
 
-    /// Remove given values.
-    ///
-    /// Use [`filter_with`](Self::filter_with) when the values are only known
-    /// at runtime.
-    pub fn filter<const N: usize>(self, values: [&str; N]) -> Self {
-        self.filter_with(values)
-    }
-
-    /// Remove a value list built at runtime.
-    pub fn filter_with(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        let values: Vec<String> = values.into_iter().map(Into::into).collect();
+    /// Remove given values (Go `InvokedAction.Filter(values ...string)`).
+    pub fn filter<'a>(mut self, values: impl IntoIterator<Item = &'a str>) -> Self {
+        let values: Vec<String> = values.into_iter().map(str::to_owned).collect();
         self.values.retain(|v| !values.contains(&v.value));
         self
     }
 
-    /// Keep only given values.
-    ///
-    /// Use [`retain_with`](Self::retain_with) when the values are only known
-    /// at runtime.
-    pub fn retain<const N: usize>(self, values: [&str; N]) -> Self {
-        self.retain_with(values)
-    }
-
-    /// Keep only a value list built at runtime.
-    pub fn retain_with(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        let values: Vec<String> = values.into_iter().map(Into::into).collect();
+    /// Keep only given values (Go `InvokedAction.Retain(values ...string)`).
+    pub fn retain<'a>(mut self, values: impl IntoIterator<Item = &'a str>) -> Self {
+        let values: Vec<String> = values.into_iter().map(str::to_owned).collect();
         self.values.retain(|v| values.contains(&v.value));
         self
     }

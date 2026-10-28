@@ -47,9 +47,9 @@ macro_rules! command_completer {
 /// Define completion for flags by name (port of Go `FlagCompletion` with
 /// its `ActionMap`): keys are flag long names, aliases or shorthands.
 /// Later calls merge per key (a repeated key replaces that flag's action).
-pub fn flag_completion<K: Into<String>>(
+pub fn flag_completion<'a>(
     cmd: &mut clap::Command,
-    actions: impl IntoIterator<Item = (K, carapace_rs::Action)>,
+    actions: impl IntoIterator<Item = (&'a str, carapace_rs::Action)>,
 ) {
     let mut entries = cmd
         .get::<FlagCompleter>()
@@ -58,7 +58,7 @@ pub fn flag_completion<K: Into<String>>(
     entries.extend(
         actions
             .into_iter()
-            .map(|(key, action)| (key.into(), action)),
+            .map(|(key, action)| (key.to_owned(), action)),
     );
     *cmd = std::mem::take(cmd).add(FlagCompleter(entries));
 }

@@ -85,11 +85,23 @@ fn parse_output(output: &str, value: &str) -> Action {
     }
 
     let mut action = carapace_rs::batch(vec![
-        Action::values_described_with(vals),
-        Action::values_described_with(flags).tag("flags"),
-        Action::values_described_with(files)
-            .tag("files")
-            .style_f(|context, value| carapace_rs::style::for_path_ext(context, &value.value)),
+        Action::values_described(
+            vals.iter()
+                .map(|(value, description)| (value.as_str(), description.as_str())),
+        ),
+        Action::values_described(
+            flags
+                .iter()
+                .map(|(value, description)| (value.as_str(), description.as_str())),
+        )
+        .tag("flags"),
+        Action::values_described(
+            files
+                .iter()
+                .map(|(value, description)| (value.as_str(), description.as_str())),
+        )
+        .tag("files")
+        .style_f(|context, value| carapace_rs::style::for_path_ext(context, &value.value)),
     ]);
     if flag_value {
         let prefix = value

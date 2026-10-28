@@ -33,7 +33,7 @@ where
                 "CARAPACE_BRIDGE_CONFIG_HOME".to_owned(),
                 config_dir.to_string_lossy().into_owned(),
             );
-            match context.execute("zsh", &args) {
+            match context.execute("zsh", args.iter().copied()) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let mut lines: Vec<&str> = text.split("\r\n").collect();

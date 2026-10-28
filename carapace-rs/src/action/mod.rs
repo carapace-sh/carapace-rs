@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use crate::context::Context;
 use crate::meta::Meta;
-use crate::value::RawValues;
+use crate::value::{RawValue, RawValues};
 
 pub use batch::batch;
 pub use invoked::{InvokedAction, merge_all};
@@ -65,10 +65,13 @@ impl Action {
         }
     }
 
-    /// Create an action producing static values.
-    pub fn raw(values: RawValues) -> Self {
+    /// Create an action producing the given raw values (Go
+    /// `ActionRaw(values ...RawValue)`).
+    ///
+    /// The item type is concrete, so an empty list needs no annotation.
+    pub fn raw(values: impl IntoIterator<Item = RawValue>) -> Self {
         Self {
-            kind: ActionKind::Raw(values),
+            kind: ActionKind::Raw(values.into_iter().collect()),
             ..Default::default()
         }
     }
@@ -257,7 +260,7 @@ mod tests {
 
     #[test]
     fn shift() {
-        let action = Action::callback(|c| Action::values_with(c.args.clone()));
+        let action = Action::callback(|c| Action::values(c.args.iter().map(String::as_str)));
         let context = Context::default().args(["one", "two", "three"]);
         let invoked = action.shift(1).invoke(&context);
         assert_eq!(values(invoked), vec!["two", "three"]);
@@ -283,7 +286,7 @@ mod tests {
                 "a/" => &["x", "y"],
                 _ => &["end"],
             };
-            Action::values_with(values.iter().copied())
+            Action::values(values.iter().copied())
         });
         let invoked = action.invoke(&Context::default().value("a/"));
         assert_eq!(values(invoked), vec!["a/a", "a/b"]);
@@ -369,7 +372,10 @@ mod tests {
         let base = std::env::temp_dir().join(format!("carapace-chdir-abs-{}", std::process::id()));
         std::fs::create_dir_all(base.join("subdir")).unwrap();
 
-        let action = Action::callback(|c| Action::values_with([c.dir.display().to_string()]));
+        let action = Action::callback(|c| {
+            let dir = c.dir.display().to_string();
+            Action::values([dir.as_str()])
+        });
         let context = Context::default().dir(base.clone());
         let invoked = action.chdir("subdir").invoke(&context);
         assert_eq!(
@@ -449,7 +455,7 @@ mod tests {
             Action::values([])
                 .invoke(c)
                 .merge([Action::message("skipcache").invoke(c)])
-                .filter_with(std::iter::empty::<String>())
+                .filter([])
                 .prefix("")
                 .suffix("")
                 .to_action()
@@ -577,9 +583,7 @@ mod tests {
         // pattern; with an empty value, the first segment of each value is
         // a placeholder, so the callback must return candidates for it
         let action = Action::values(["keys/key1/val1", "keys/key1/val2", "keys/key2/val3"])
-            .multipartsp("/", r"keys", |segment, _entered| {
-                Action::values_with([segment.to_owned()])
-            });
+            .multipartsp("/", r"keys", |segment, _entered| Action::values([segment]));
         let invoked = action.invoke(&Context::default().value(""));
         // "keys" matches the pattern and is the first segment; the callback
         // echoes it back, and the divider suffix marks it as non-terminal
@@ -592,9 +596,7 @@ mod tests {
         // "key2") are resolved by the callback; the callback receives the
         // segment text and its values get the divider suffix + prefix
         let action = Action::values(["keys/key1/val1", "keys/key1/val2", "keys/key2/val3"])
-            .multipartsp("/", r"\w+", |segment, _entered| {
-                Action::values_with([segment.to_owned()])
-            });
+            .multipartsp("/", r"\w+", |segment, _entered| Action::values([segment]));
         let invoked = action.invoke(&Context::default().value("keys/"));
         assert_eq!(values(invoked), vec!["keys/key1/", "keys/key2/"]);
     }

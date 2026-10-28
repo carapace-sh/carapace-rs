@@ -51,11 +51,12 @@ pub const UNDERLINED: &str = "underlined";
 pub const BLINK: &str = "blink";
 pub const INVERSE: &str = "inverse";
 
-/// Combine different styles (Go `style.Of`).
-pub fn of(styles: impl IntoIterator<Item = impl Into<String>>) -> String {
+/// Combine different styles (Go `style.Of(styles ...Style)`).
+///
+/// The item type is concrete, so `of([])` needs no annotation.
+pub fn of<'a>(styles: impl IntoIterator<Item = &'a str>) -> String {
     styles
         .into_iter()
-        .map(Into::into)
         .collect::<Vec<_>>()
         .join(" ")
         .trim()
@@ -392,7 +393,7 @@ fn from_sgr(sgr: &str) -> String {
     if style.inverse {
         result.push(INVERSE.to_owned());
     }
-    of(result)
+    of(result.iter().map(String::as_str))
 }
 
 /// The style for a known keyword (Go `style.ForKeyword`): dash and

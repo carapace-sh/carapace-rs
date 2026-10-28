@@ -26,11 +26,11 @@ where
             args.extend(command.iter().cloned());
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            match c.execute(&command_name, &args) {
+            match c.execute(&command_name, args.iter().map(String::as_str)) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.lines().collect();
-                    let mut action = Action::values_with(lines.iter().copied());
+                    let mut action = Action::values(lines.iter().copied());
                     for line in &lines {
                         if !line.is_empty() {
                             // everything but the last character (Go slices

@@ -20,10 +20,7 @@ use carapace_rs::Action;
 pub trait Carapace {
     /// Complete the value(s) of the named flags: keys are flag long names,
     /// aliases or shorthands (Go's `FlagCompletion` ActionMap).
-    fn flag_completion<K: Into<String>>(
-        self,
-        actions: impl IntoIterator<Item = (K, Action)>,
-    ) -> Self;
+    fn flag_completion<'a>(self, actions: impl IntoIterator<Item = (&'a str, Action)>) -> Self;
     /// Complete the defined positionals, in order: the Nth action completes
     /// the Nth positional (unless it has its own completion slot).
     fn positional_completion(self, actions: impl IntoIterator<Item = Action>) -> Self;
@@ -52,10 +49,7 @@ pub trait Carapace {
 }
 
 impl Carapace for clap::Command {
-    fn flag_completion<K: Into<String>>(
-        mut self,
-        actions: impl IntoIterator<Item = (K, Action)>,
-    ) -> Self {
+    fn flag_completion<'a>(mut self, actions: impl IntoIterator<Item = (&'a str, Action)>) -> Self {
         self.build();
         crate::flag_completion(&mut self, actions);
         self

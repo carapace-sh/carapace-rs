@@ -22,10 +22,7 @@ where
             args.extend(command[1..].iter().cloned());
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
-            match c.execute(
-                &command_name,
-                args.iter().map(String::as_str).collect::<Vec<_>>(),
-            ) {
+            match c.execute(&command_name, args.iter().map(String::as_str)) {
                 Ok(output) => parse_output(&String::from_utf8_lossy(&output), &c.value),
                 Err(error) => Action::message(error),
             }
@@ -83,7 +80,11 @@ fn action_values(lines: &[&str]) -> Action {
             None => values.push(((*line).to_owned(), String::new())),
         }
     }
-    Action::values_described_with(values)
+    Action::values_described(
+        values
+            .iter()
+            .map(|(value, description)| (value.as_str(), description.as_str())),
+    )
 }
 
 fn action_files(lines: &[&str]) -> Action {
@@ -91,7 +92,7 @@ fn action_files(lines: &[&str]) -> Action {
         .iter()
         .map(|line| format!(".{line}"))
         .collect();
-    Action::files_with_suffixes(extensions)
+    Action::files(extensions.iter().map(String::as_str))
 }
 
 fn action_directories(lines: &[&str]) -> Action {

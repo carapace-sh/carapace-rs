@@ -179,7 +179,7 @@ fn multiparts_positional() -> Action {
                     .map(|entry| entry.split('=').next().unwrap_or_default().to_owned())
                     .collect();
                 Action::values(["FILE", "DIRECTORY", "VALUE"])
-                    .filter_with(keys)
+                    .filter(keys.iter().map(String::as_str))
                     .suffix("=")
             }
             1 => match c.parts[0].as_str() {

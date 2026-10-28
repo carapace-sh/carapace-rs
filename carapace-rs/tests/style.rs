@@ -18,7 +18,7 @@ fn constants_match_go_names() {
 fn of_combines_styles() {
     assert_eq!(style::of([style::BOLD, style::BLUE]), "bold blue");
     assert_eq!(style::of(["", style::RED, ""]), "red");
-    assert_eq!(style::of(Vec::<String>::new()), "");
+    assert_eq!(style::of([]), "");
 }
 
 #[test]

@@ -64,7 +64,7 @@ pub fn cmd(commands: Option<Action>) -> Command {
                     .filter(|line| !line.is_empty())
                     .map(String::from)
                     .collect();
-                Action::values_with(lines)
+                Action::values(lines.iter().map(String::as_str))
             }),
         ),
         (
@@ -194,7 +194,7 @@ fn multiparts_nested() -> Action {
                     .collect();
                 Action::values(["FILE", "DIRECTORY", "VALUE"])
                     .invoke(c)
-                    .filter_with(keys)
+                    .filter(keys.iter().map(String::as_str))
                     .suffix("=")
                     .to_action()
             }

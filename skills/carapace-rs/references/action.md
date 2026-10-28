@@ -25,7 +25,7 @@ Action::styled_values([("true", "green"), ("false", "red")])
 Action::styled_values_described([("val", "description", "blue")])
 Action::directories()
 Action::files([])                            // no suffixes = all files
-Action::files([".md", ".go", ".mod"])      // suffix filter
+Action::files([".md", ".go", ".mod"])        // suffix filter
 Action::executables()                        // $PATH lookup
 Action::executables_in(["/usr/bin", "dir"])  // also completes dirs
 Action::message("no such thing")             // visible failure (completion is best-effort)
@@ -38,10 +38,10 @@ Action::execute(Arc::new(model_command))     // complete an embedded command tre
 
 The two-phase split: `Action::invoke(&Context) -> InvokedAction` materializes candidates; lazy `Action` composes via `map_invoked`. Failures degrade to `Action::message` — never `Result`.
 
-Fixed lists are array literals, so an empty list needs no type annotation (`Action::values([])`).
-Lists built at runtime use the `*_with` variant instead: `values_with`, `values_described_with`,
-`styled_values_with`, `styles_with`, `files_with_suffixes`, `executables_in_with`, `filter_with`,
-`retain_with`, `suppress_with`.
+List arguments take `impl IntoIterator<Item = &str>` (Go's variadic parameter shape, one
+function per Go function). The concrete item type is what lets an empty list be written
+without an annotation (`Action::values([])`); runtime-built lists pass the borrowed strings:
+`Action::values(lines.iter().map(String::as_str))`.
 
 ## Modifiers
 

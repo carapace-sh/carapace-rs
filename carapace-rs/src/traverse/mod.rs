@@ -48,7 +48,7 @@ fn traverse_command(
         cmd.name
     ));
     let mut context = {
-        let mut context = Context::new(args.clone());
+        let mut context = Context::new(args.iter().map(String::as_str));
         // the template's environment overrides the process environment
         // entry by entry (the sandbox analog is the mock's env)
         for (key, value) in &template.env {
@@ -577,7 +577,12 @@ pub fn action_commands(cmd: &Command, path: &[String]) -> Action {
                 )
             })
             .collect();
-        let action = Action::values_described_with(values).tag("commands");
+        let action = Action::values_described(
+            values
+                .iter()
+                .map(|(name, description)| (name.as_str(), description.as_str())),
+        )
+        .tag("commands");
 
         // aliases resolve to the actual command name in the uid path (Go's
         // `cmd.Find` in the UidF closure)

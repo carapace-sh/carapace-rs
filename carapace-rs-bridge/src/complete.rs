@@ -19,7 +19,7 @@ where
             let mut context = c.clone();
             context.env.insert("COMP_LINE".to_owned(), comp_line);
 
-            match context.execute(&command[0], Vec::<String>::new()) {
+            match context.execute(&command[0], []) {
                 Ok(output) => {
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.lines().collect();
@@ -29,7 +29,7 @@ where
                     } else {
                         &lines[..]
                     };
-                    let mut action = Action::values_with(candidates.iter().map(|l| l.to_string()));
+                    let mut action = Action::values(candidates.iter().copied());
                     // a nospace character within any candidate (excluding
                     // its last character) suppresses the trailing space
                     if candidates

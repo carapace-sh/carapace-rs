@@ -44,7 +44,7 @@ fn parse_output(output: &str, value: &str) -> Action {
         .and_then(|line| line.strip_prefix(':'))
         .and_then(|directive| directive.parse::<i32>().ok())
     else {
-        return Action::values(Vec::<String>::new());
+        return Action::values([]);
     };
 
     let mut action = if directive & DIRECTIVE_FILTER_DIRS != 0 {
@@ -59,7 +59,7 @@ fn parse_output(output: &str, value: &str) -> Action {
         action = Action::files([]);
     }
     if directive & DIRECTIVE_ERROR != 0 {
-        action = Action::values(Vec::<String>::new());
+        action = Action::values([]);
     }
     if directive & DIRECTIVE_NO_SPACE != 0 {
         action = action.nospace([]);
@@ -83,7 +83,7 @@ fn action_values(lines: &[&str]) -> Action {
             None => values.push(((*line).to_owned(), String::new())),
         }
     }
-    Action::values_described(values)
+    Action::values_described_with(values)
 }
 
 fn action_files(lines: &[&str]) -> Action {

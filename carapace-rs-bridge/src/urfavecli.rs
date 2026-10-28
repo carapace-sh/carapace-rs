@@ -75,7 +75,7 @@ where
                     if lines.len() <= 1 {
                         return Action::files([]);
                     }
-                    Action::values(lines[..lines.len() - 1].iter().map(|l| l.to_string()))
+                    Action::values_with(lines[..lines.len() - 1].iter().map(|l| l.to_string()))
                         .nospace(['/', '=', '@', ':', '.', ','])
                 }
                 Err(error) => Action::message(error),

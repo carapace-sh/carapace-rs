@@ -337,7 +337,7 @@ fn multiparts_nospace_through_dispatch() {
         } else {
             &["x"]
         };
-        Action::values(values.iter().copied())
+        Action::values_with(values.iter().copied())
     });
     let invoked = action.invoke(&Context::default().value(""));
     let export = invoked.to_export();

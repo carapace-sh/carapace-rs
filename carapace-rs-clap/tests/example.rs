@@ -381,7 +381,7 @@ mod flag_disabled {
             .expect(Action::values(["p2", "--positional2"]));
         sandbox
             .run(cmd::root_cmd, &["flag", "disabled", "-p1", "p2", ""])
-            .expect(Action::values(Vec::<String>::new()));
+            .expect(Action::values([]));
     }
 }
 
@@ -410,16 +410,16 @@ mod interspersed {
             .expect(Action::values(["p1", "positional1"]));
         sandbox
             .run(cmd::root_cmd, &["interspersed", "--bool", "p1", "-"])
-            .expect(Action::values(Vec::<String>::new()));
+            .expect(Action::values([]));
         sandbox
             .run(cmd::root_cmd, &["interspersed", "--bool", "p1", "--", ""])
-            .expect(Action::values(Vec::<String>::new()));
+            .expect(Action::values([]));
         sandbox
             .run(
                 cmd::root_cmd,
                 &["interspersed", "--bool", "p1", "--", "", ""],
             )
-            .expect(Action::values(Vec::<String>::new()));
+            .expect(Action::values([]));
     }
 }
 
@@ -442,7 +442,7 @@ mod special {
         );
         sandbox
             .run(cmd::root_cmd, &["special", "--exclusive", "--e"])
-            .expect(Action::values(Vec::<String>::new()).nospace(['.']));
+            .expect(Action::values([]).nospace(['.']));
         sandbox
             .run(cmd::root_cmd, &["special", "--exclusiveRepeatable", "--e"])
             .expect(
@@ -1198,7 +1198,7 @@ mod modifier {
         let sandbox = Sandbox::new("example-modifier-usage");
         sandbox
             .run(cmd::root_cmd, &["modifier", "--usage", ""])
-            .expect(Action::values(Vec::<String>::new()).usage("explicit usage"));
+            .expect(Action::values([]).usage("explicit usage"));
     }
 
     #[test]
@@ -1637,13 +1637,13 @@ mod modifier {
             .expect(Action::values(["two", "three"]).usage("UnlessF()"));
         sandbox
             .run(cmd::root_cmd, &["modifier", "--unlessf", "."])
-            .expect(Action::values(Vec::<String>::new()).usage("UnlessF()"));
+            .expect(Action::values([]).usage("UnlessF()"));
         sandbox
             .run(cmd::root_cmd, &["modifier", "--unlessf", "~"])
-            .expect(Action::values(Vec::<String>::new()).usage("UnlessF()"));
+            .expect(Action::values([]).usage("UnlessF()"));
         sandbox
             .run(cmd::root_cmd, &["modifier", "--unlessf", "/"])
-            .expect(Action::values(Vec::<String>::new()).usage("UnlessF()"));
+            .expect(Action::values([]).usage("UnlessF()"));
     }
 
     #[test]

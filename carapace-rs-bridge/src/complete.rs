@@ -29,7 +29,7 @@ where
                     } else {
                         &lines[..]
                     };
-                    let mut action = Action::values(candidates.iter().map(|l| l.to_string()));
+                    let mut action = Action::values_with(candidates.iter().map(|l| l.to_string()));
                     // a nospace character within any candidate (excluding
                     // its last character) suppresses the trailing space
                     if candidates

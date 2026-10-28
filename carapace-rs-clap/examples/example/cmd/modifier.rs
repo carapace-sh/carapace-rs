@@ -93,9 +93,7 @@ pub fn cmd() -> Command {
         ("unlessf", unlessf()),
         ("usage", usage_action()),
     ])
-    .positional_completion([
-        Action::values(Vec::<String>::new()).usage("explicit positional usage")
-    ])
+    .positional_completion([Action::values([]).usage("explicit positional usage")])
 }
 
 pub fn batch() -> Action {
@@ -110,7 +108,7 @@ pub fn batch() -> Action {
 }
 
 pub fn cache() -> Action {
-    Action::callback(|_| Action::values([current_time()])).cache(
+    Action::callback(|_| Action::values_with([current_time()])).cache(
         "example/cmd/modifier.go:cache",
         5,
         Vec::new(),
@@ -122,13 +120,13 @@ pub fn cache_key() -> Action {
         0 => Action::values(["one", "two"]).suffix("/"),
         1 => {
             let part = c.parts[0].clone();
-            Action::callback(move |_| Action::values([current_time()])).cache(
+            Action::callback(move |_| Action::values_with([current_time()])).cache(
                 "example/cmd/modifier.go:cache-key",
                 10,
                 vec![format!("String({part})")],
             )
         }
-        _ => Action::values(Vec::<String>::new()),
+        _ => Action::values([]),
     })
 }
 
@@ -166,7 +164,7 @@ pub fn invoke() -> Action {
         } else if c.value.starts_with("file") && c.value.contains("://") {
             context.value = String::new();
         } else {
-            return Action::values(Vec::<String>::new());
+            return Action::values([]);
         }
         Action::files([])
             .invoke(&context)
@@ -206,13 +204,13 @@ pub fn multipartsp() -> Action {
     ])
     .multipartsp("/", "<.*>", |placeholder, matches| match placeholder {
         "<key>" => Action::values(["key1", "key2"]),
-        "<style>" => Action::styles(Vec::<String>::new()),
+        "<style>" => Action::styles([]),
         "<value>" => match matches.get("<key>").map(String::as_str) {
             Some("key1") => Action::values(["val1", "val2"]),
             Some("key2") => Action::values(["val3", "val4"]),
-            _ => Action::values(Vec::<String>::new()),
+            _ => Action::values([]),
         },
-        _ => Action::values(Vec::<String>::new()),
+        _ => Action::values([]),
     })
 }
 
@@ -367,7 +365,7 @@ pub fn unlessf() -> Action {
 }
 
 pub fn usage_action() -> Action {
-    Action::values(Vec::<String>::new()).usage("explicit usage")
+    Action::values([]).usage("explicit usage")
 }
 
 fn current_time() -> String {

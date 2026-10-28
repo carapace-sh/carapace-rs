@@ -577,7 +577,7 @@ pub fn action_commands(cmd: &Command, path: &[String]) -> Action {
                 )
             })
             .collect();
-        let action = Action::values_described(values).tag("commands");
+        let action = Action::values_described_with(values).tag("commands");
 
         // aliases resolve to the actual command name in the uid path (Go's
         // `cmd.Find` in the UidF closure)

@@ -10,25 +10,41 @@ use carapace_rs_shlex::TokenSliceExt;
 
 impl Action {
     /// Remove given values.
-    pub fn filter(self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    ///
+    /// Use [`filter_with`](Self::filter_with) when the values are only known
+    /// at runtime.
+    pub fn filter<const N: usize>(self, values: [&str; N]) -> Self {
+        self.filter_with(values)
+    }
+
+    /// Remove a value list built at runtime.
+    pub fn filter_with(self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let values: Vec<String> = values.into_iter().map(Into::into).collect();
-        self.map_invoked(move |_, invoked| invoked.filter(values.iter().cloned()))
+        self.map_invoked(move |_, invoked| invoked.filter_with(values.iter().cloned()))
     }
 
     /// Filter values that appear in the context arguments.
     pub fn filter_args(self) -> Self {
-        self.map_invoked(|context, invoked| invoked.filter(context.args.iter().cloned()))
+        self.map_invoked(|context, invoked| invoked.filter_with(context.args.iter().cloned()))
     }
 
     /// Filter values that appear in the context parts.
     pub fn filter_parts(self) -> Self {
-        self.map_invoked(|context, invoked| invoked.filter(context.parts.iter().cloned()))
+        self.map_invoked(|context, invoked| invoked.filter_with(context.parts.iter().cloned()))
     }
 
     /// Keep only given values.
-    pub fn retain(self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    ///
+    /// Use [`retain_with`](Self::retain_with) when the values are only known
+    /// at runtime.
+    pub fn retain<const N: usize>(self, values: [&str; N]) -> Self {
+        self.retain_with(values)
+    }
+
+    /// Keep only a value list built at runtime.
+    pub fn retain_with(self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let values: Vec<String> = values.into_iter().map(Into::into).collect();
-        self.map_invoked(move |_, invoked| invoked.retain(values.iter().cloned()))
+        self.map_invoked(move |_, invoked| invoked.retain_with(values.iter().cloned()))
     }
 
     /// Deduplicate values by `(value, uid)` key.
@@ -338,7 +354,7 @@ impl Action {
             let parts: Vec<String> = c.parts.iter().map(|p| f(p.clone())).collect();
             inner
                 .clone()
-                .filter(parts)
+                .filter_with(parts)
                 .invoke(c)
                 .to_action()
                 .nospace([])
@@ -406,7 +422,15 @@ impl Action {
     /// Suppress error messages matching the given regular expressions
     /// (port of Go `Action.Suppress`). An invalid expression surfaces as
     /// a message instead.
-    pub fn suppress(self, exprs: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    ///
+    /// Use [`suppress_with`](Self::suppress_with) when the expressions are
+    /// only known at runtime.
+    pub fn suppress<const N: usize>(self, exprs: [&str; N]) -> Self {
+        self.suppress_with(exprs)
+    }
+
+    /// Suppress messages matching a regular expression list built at runtime.
+    pub fn suppress_with(self, exprs: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let exprs: Vec<String> = exprs.into_iter().map(Into::into).collect();
         Self::callback(move |c| {
             let invoked = self.invoke(c);

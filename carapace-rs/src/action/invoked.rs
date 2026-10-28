@@ -86,14 +86,30 @@ impl InvokedAction {
     }
 
     /// Remove given values.
-    pub fn filter(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    ///
+    /// Use [`filter_with`](Self::filter_with) when the values are only known
+    /// at runtime.
+    pub fn filter<const N: usize>(self, values: [&str; N]) -> Self {
+        self.filter_with(values)
+    }
+
+    /// Remove a value list built at runtime.
+    pub fn filter_with(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let values: Vec<String> = values.into_iter().map(Into::into).collect();
         self.values.retain(|v| !values.contains(&v.value));
         self
     }
 
     /// Keep only given values.
-    pub fn retain(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    ///
+    /// Use [`retain_with`](Self::retain_with) when the values are only known
+    /// at runtime.
+    pub fn retain<const N: usize>(self, values: [&str; N]) -> Self {
+        self.retain_with(values)
+    }
+
+    /// Keep only a value list built at runtime.
+    pub fn retain_with(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let values: Vec<String> = values.into_iter().map(Into::into).collect();
         self.values.retain(|v| values.contains(&v.value));
         self

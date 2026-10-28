@@ -39,7 +39,7 @@ where
                         .collect();
                     // the final empty split is dropped (Go `len-1`)
                     let candidates = &lines[..lines.len().saturating_sub(1)];
-                    let mut action = Action::values(candidates.iter().cloned());
+                    let mut action = Action::values_with(candidates.iter().cloned());
                     let file_scheme = ["file://", "fileb://"]
                         .iter()
                         .find(|scheme| c.value.starts_with(**scheme))

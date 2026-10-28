@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn shift() {
-        let action = Action::callback(|c| Action::values(c.args.clone()));
+        let action = Action::callback(|c| Action::values_with(c.args.clone()));
         let context = Context::default().args(["one", "two", "three"]);
         let invoked = action.shift(1).invoke(&context);
         assert_eq!(values(invoked), vec!["two", "three"]);
@@ -283,7 +283,7 @@ mod tests {
                 "a/" => &["x", "y"],
                 _ => &["end"],
             };
-            Action::values(values.iter().copied())
+            Action::values_with(values.iter().copied())
         });
         let invoked = action.invoke(&Context::default().value("a/"));
         assert_eq!(values(invoked), vec!["a/a", "a/b"]);
@@ -369,7 +369,7 @@ mod tests {
         let base = std::env::temp_dir().join(format!("carapace-chdir-abs-{}", std::process::id()));
         std::fs::create_dir_all(base.join("subdir")).unwrap();
 
-        let action = Action::callback(|c| Action::values([c.dir.display().to_string()]));
+        let action = Action::callback(|c| Action::values_with([c.dir.display().to_string()]));
         let context = Context::default().dir(base.clone());
         let invoked = action.chdir("subdir").invoke(&context);
         assert_eq!(
@@ -435,7 +435,7 @@ mod tests {
             (0, "") => Action::values(["keys"]),
             (1, "") => Action::values(["key1", "key2"]),
             (2, "") => Action::values(["val1", "val2"]),
-            _ => Action::values(Vec::<String>::new()),
+            _ => Action::values([]),
         });
         let invoked = action.invoke(&Context::default().value("keys/key1/"));
         assert_eq!(values(invoked), vec!["keys/key1/val1", "keys/key1/val2"]);
@@ -446,10 +446,10 @@ mod tests {
         // Go TestSkipCache: a merged message survives no-op modifiers and
         // conversion back into a lazy action
         let action = Action::callback(|c| {
-            Action::values(Vec::<String>::new())
+            Action::values([])
                 .invoke(c)
                 .merge([Action::message("skipcache").invoke(c)])
-                .filter(std::iter::empty::<String>())
+                .filter_with(std::iter::empty::<String>())
                 .prefix("")
                 .suffix("")
                 .to_action()
@@ -578,7 +578,7 @@ mod tests {
         // a placeholder, so the callback must return candidates for it
         let action = Action::values(["keys/key1/val1", "keys/key1/val2", "keys/key2/val3"])
             .multipartsp("/", r"keys", |segment, _entered| {
-                Action::values([segment.to_owned()])
+                Action::values_with([segment.to_owned()])
             });
         let invoked = action.invoke(&Context::default().value(""));
         // "keys" matches the pattern and is the first segment; the callback
@@ -593,7 +593,7 @@ mod tests {
         // segment text and its values get the divider suffix + prefix
         let action = Action::values(["keys/key1/val1", "keys/key1/val2", "keys/key2/val3"])
             .multipartsp("/", r"\w+", |segment, _entered| {
-                Action::values([segment.to_owned()])
+                Action::values_with([segment.to_owned()])
             });
         let invoked = action.invoke(&Context::default().value("keys/"));
         assert_eq!(values(invoked), vec!["keys/key1/", "keys/key2/"]);

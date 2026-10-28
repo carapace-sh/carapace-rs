@@ -36,7 +36,7 @@ fn batch_runs_callbacks_concurrently() {
                     Action::callback(move |_| {
                         counter.fetch_add(1, Ordering::SeqCst);
                         gate.wait(); // blocks unless all three run concurrently
-                        Action::values([format!("x{index}")])
+                        Action::values_with([format!("x{index}")])
                     })
                 })
                 .collect();

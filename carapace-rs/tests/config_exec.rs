@@ -115,7 +115,7 @@ fn hidden_modes() {
 fn exec_command_completes_from_stdout() {
     let action = Action::exec_command("echo", ["hello"], |stdout| {
         let word = String::from_utf8_lossy(stdout).trim().to_owned();
-        Action::values([word])
+        Action::values_with([word])
     });
     let invoked = action.invoke(&Context::default());
     assert_eq!(invoked.to_export().values[0].value, "hello");
@@ -141,7 +141,7 @@ fn exec_command_e_exposes_error() {
 #[test]
 fn exec_respects_context_dir_and_env() {
     let action = Action::exec_command("pwd", [""; 0], |stdout| {
-        Action::values([value_of(&String::from_utf8_lossy(stdout))])
+        Action::values_with([value_of(&String::from_utf8_lossy(stdout))])
     });
     let invoked = action.invoke(&Context::default().dir("/tmp"));
     assert_eq!(invoked.to_export().values[0].value, "/tmp");
@@ -157,7 +157,7 @@ fn style_config_lists_configs() {
 
 #[test]
 fn styles_action_lists_known_names() {
-    let invoked = Action::styles(Vec::<String>::new()).invoke(&Context::default());
+    let invoked = Action::styles([]).invoke(&Context::default());
     assert!(invoked.to_export().values.iter().any(|v| v.value == "blue"));
     assert!(
         invoked
@@ -192,7 +192,7 @@ fn styles_action_lists_known_names() {
 
 #[test]
 fn styles_action_expands_256_colors_contextually() {
-    let invoked = Action::styles(Vec::<String>::new()).invoke(&Context::default().value("color1"));
+    let invoked = Action::styles([]).invoke(&Context::default().value("color1"));
     let values: Vec<String> = invoked
         .to_export()
         .values
@@ -267,7 +267,7 @@ fn messages_dedup_on_merge() {
 fn exec_passes_context_env_not_process_env() {
     // Go TestActionExecCommandEnv: context-set variables reach the child
     let action = Action::exec_command("sh", ["-c", "echo $carapace_exec_env_test"], |stdout| {
-        Action::values([value_of(&String::from_utf8_lossy(stdout))])
+        Action::values_with([value_of(&String::from_utf8_lossy(stdout))])
     });
     let invoked = action.invoke(&Context::default().env("carapace_exec_env_test", "test"));
     assert_eq!(invoked.to_export().values[0].value, "test");

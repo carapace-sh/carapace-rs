@@ -196,6 +196,14 @@ These are settled; don't relitigate without cause, and preserve them when refact
 
 ## Action surface notes
 
+- Constructor and modifier lists take `[&str; N]` arrays, mirroring Go's variadic
+  parameters, so `Action::values([])` and `Action::files([".md"])` need no type
+  annotations. Lists built at runtime go through the `*_with` variant
+  (`values_with`, `values_described_with`, `styled_values_with`, `styles_with`,
+  `files_with_suffixes`, `executables_in_with`, `filter_with`, `retain_with`,
+  `suppress_with`). Do not revert these to bare
+  `impl IntoIterator<Item = impl Into<String>>` parameters — an empty collection
+  then needs a turbofish at every call site.
 - `Action::split(format)` completes a value that is itself a shell-parsed
   command line: the value is re-lexed, the inner action runs with the
   preceding words as args, and candidates are requoted (open quotes closed

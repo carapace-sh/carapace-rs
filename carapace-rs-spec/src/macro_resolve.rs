@@ -74,7 +74,7 @@ pub fn resolve(entry: &str) -> Action {
         // bare usage completes nothing instead of erroring; the real
         // modifier forms are applied through `modifier`/batch handling
         "chdir" | "list" | "multiparts" | "nospace" | "noprefix" | "uniquelist" => {
-            Action::values(Vec::<String>::new())
+            Action::values([])
         }
         other => Action::message(format!("unsupported macro: {other}")),
     }
@@ -220,7 +220,7 @@ pub fn modifier(entry: &str) -> Option<Box<dyn Fn(Action) -> Action + Send + Syn
         "filter" => {
             let values = parse_args(args);
             Some(Box::new(move |action| {
-                action.filter(values.iter().cloned())
+                action.filter_with(values.iter().cloned())
             }))
         }
         "filterargs" => Some(Box::new(move |action| action.filter_args())),
@@ -259,7 +259,7 @@ pub fn modifier(entry: &str) -> Option<Box<dyn Fn(Action) -> Action + Send + Syn
         "retain" => {
             let values = parse_args(args);
             Some(Box::new(move |action| {
-                action.retain(values.iter().cloned())
+                action.retain_with(values.iter().cloned())
             }))
         }
         "shift" => {
@@ -287,7 +287,7 @@ pub fn modifier(entry: &str) -> Option<Box<dyn Fn(Action) -> Action + Send + Syn
         "suppress" => {
             let exprs = parse_args(args);
             Some(Box::new(move |action| {
-                action.suppress(exprs.iter().cloned())
+                action.suppress_with(exprs.iter().cloned())
             }))
         }
         "style" => {

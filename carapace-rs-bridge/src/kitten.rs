@@ -70,7 +70,8 @@ where
                             let dir = directory_of(&c.value);
                             batch.push(Action::directories());
                             batch.push(
-                                Action::executables_in([dir.clone()]).prefix(format!("{dir}/")),
+                                Action::executables_in_with([dir.clone()])
+                                    .prefix(format!("{dir}/")),
                             );
                         }
                         "Executables in PATH" => batch.push(Action::executables()),
@@ -100,7 +101,7 @@ where
                                     .iter()
                                     .map(|m| m.word.replace('\\', "/"))
                                     .collect();
-                                batch.push(Action::files([]).retain(retain.iter().cloned()));
+                                batch.push(Action::files([]).retain_with(retain.iter().cloned()));
                             } else {
                                 batch.push(
                                     matches_action(group.matches.clone())
@@ -147,7 +148,7 @@ struct Match {
 
 /// The matches of a group as a described-values action.
 fn matches_action(matches: Vec<Match>) -> Action {
-    Action::values_described(
+    Action::values_described_with(
         matches
             .into_iter()
             .map(|m| (m.word, m.description))

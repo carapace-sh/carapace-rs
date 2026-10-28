@@ -28,7 +28,7 @@ where
                         return Action::files([]);
                     }
 
-                    let mut action = Action::values(lines.iter().map(|l| l.to_string()));
+                    let mut action = Action::values_with(lines.iter().map(|l| l.to_string()));
                     let any_nospace = lines
                         .iter()
                         .any(|line| line.chars().rev().skip(1).any(|c| "/=@:.,".contains(c)));

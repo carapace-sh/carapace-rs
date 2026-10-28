@@ -8,11 +8,25 @@ use crate::value::RawValue;
 
 impl Action {
     /// Complete static values.
-    pub fn values<I, V>(values: I) -> Self
-    where
-        I: IntoIterator<Item = V>,
-        V: Into<String>,
-    {
+    ///
+    /// ```
+    /// # use carapace_rs::Action;
+    /// let fixed = Action::values(["one", "two"]);
+    /// let none = Action::values([]);
+    /// # let _ = (fixed, none);
+    /// ```
+    ///
+    /// Use [`values_with`](Self::values_with) when the values are only known
+    /// at runtime.
+    pub fn values<const N: usize>(values: [&str; N]) -> Self {
+        Self::values_with(values)
+    }
+
+    /// Complete static values from a list built at runtime.
+    ///
+    /// [`values`](Self::values) is the same action for a fixed list; this form
+    /// exists for callers whose values come from a spec or a bridge.
+    pub fn values_with(values: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self::raw(
             values
                 .into_iter()
@@ -24,12 +38,17 @@ impl Action {
     }
 
     /// Complete static values with descriptions (pairs: value, description).
-    pub fn values_described<I, V, D>(values: I) -> Self
-    where
-        I: IntoIterator<Item = (V, D)>,
-        V: Into<String>,
-        D: Into<String>,
-    {
+    ///
+    /// Use [`values_described_with`](Self::values_described_with) when the
+    /// pairs are only known at runtime.
+    pub fn values_described<const N: usize>(values: [(&str, &str); N]) -> Self {
+        Self::values_described_with(values)
+    }
+
+    /// Complete static values with descriptions from a list built at runtime.
+    pub fn values_described_with(
+        values: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> Self {
         Self::raw(
             values
                 .into_iter()
@@ -39,12 +58,17 @@ impl Action {
     }
 
     /// Complete static values with styles (pairs: value, style).
-    pub fn styled_values<I, V, S>(values: I) -> Self
-    where
-        I: IntoIterator<Item = (V, S)>,
-        V: Into<String>,
-        S: Into<String>,
-    {
+    ///
+    /// Use [`styled_values_with`](Self::styled_values_with) when the pairs are
+    /// only known at runtime.
+    pub fn styled_values<const N: usize>(values: [(&str, &str); N]) -> Self {
+        Self::styled_values_with(values)
+    }
+
+    /// Complete static values with styles from a list built at runtime.
+    pub fn styled_values_with(
+        values: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> Self {
         Self::raw(
             values
                 .into_iter()
@@ -54,13 +78,18 @@ impl Action {
     }
 
     /// Complete static values with descriptions and styles (triples).
-    pub fn styled_values_described<I, V, D, S>(values: I) -> Self
-    where
-        I: IntoIterator<Item = (V, D, S)>,
-        V: Into<String>,
-        D: Into<String>,
-        S: Into<String>,
-    {
+    ///
+    /// Use [`styled_values_described_with`](Self::styled_values_described_with)
+    /// when the triples are only known at runtime.
+    pub fn styled_values_described<const N: usize>(values: [(&str, &str, &str); N]) -> Self {
+        Self::styled_values_described_with(values)
+    }
+
+    /// Complete static values with descriptions and styles from a list built
+    /// at runtime.
+    pub fn styled_values_described_with(
+        values: impl IntoIterator<Item = (impl Into<String>, impl Into<String>, impl Into<String>)>,
+    ) -> Self {
         Self::raw(
             values
                 .into_iter()
@@ -222,7 +251,15 @@ impl Action {
     /// The already-present styles are combined into each candidate and
     /// suppress the foreground or background half of the catalog once
     /// taken; the 256-color ranges expand contextually.
-    pub fn styles(existing: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    ///
+    /// Use [`styles_with`](Self::styles_with) when the existing styles are
+    /// only known at runtime.
+    pub fn styles<const N: usize>(existing: [&str; N]) -> Self {
+        Self::styles_with(existing)
+    }
+
+    /// Complete style values, combining a style list built at runtime.
+    pub fn styles_with(existing: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let existing: Vec<String> = existing.into_iter().map(Into::into).collect();
         Self::callback(move |c| {
             let fg = existing.iter().any(|s| is_foreground_color(s));
@@ -279,7 +316,7 @@ impl Action {
             0 => Self::multiparts(".", |c| match c.parts.len() {
                 0 => {
                     let keys = crate::config::styles().keys();
-                    Self::values(keys).suffix(".")
+                    Self::values_with(keys).suffix(".")
                 }
                 1 => {
                     let name = c.parts[0].clone();
@@ -288,7 +325,7 @@ impl Action {
                             fields
                                 .iter()
                                 .map(|field| {
-                                    Self::styled_values_described([(
+                                    Self::styled_values_described_with([(
                                         field.name.clone(),
                                         field.description.clone(),
                                         field.style.clone(),
@@ -301,14 +338,14 @@ impl Action {
                         None => Self::message(format!("unknown config: '{name}'")),
                     }
                 }
-                _ => Self::values(Vec::<String>::new()),
+                _ => Self::values([]),
             }),
             1 => Self::multiparts(",", |c| {
-                Self::styles(c.parts.iter().cloned())
+                Self::styles_with(c.parts.iter().cloned())
                     .filter_parts()
                     .nospace([])
             }),
-            _ => Self::values(Vec::<String>::new()),
+            _ => Self::values([]),
         })
     }
 }
@@ -327,7 +364,15 @@ impl Action {
 
     /// Completes executables in the given directories (Go
     /// `ActionExecutables(dirs...)`).
-    pub fn executables_in(dirs: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    ///
+    /// Use [`executables_in_with`](Self::executables_in_with) when the
+    /// directories are only known at runtime.
+    pub fn executables_in<const N: usize>(dirs: [&str; N]) -> Self {
+        Self::executables_in_with(dirs)
+    }
+
+    /// Completes executables in a directory list built at runtime.
+    pub fn executables_in_with(dirs: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let dirs: Vec<String> = dirs.into_iter().map(Into::into).collect();
         Self::callback(move |_| executables_in_dirs(dirs.clone()))
     }

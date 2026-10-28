@@ -117,6 +117,7 @@ Test such wiring by driving the traversal (`complete_output` with a trailing emp
 
 ## Gotchas
 
+- `Context.parsed_flags` keys are flag **ids**, not long flag names: clap argument ids (`work_tree` for `--work-tree`), YAML spec key names as written, without normalization (`--work-tree=:` ids as `work-tree`; Go spec parity), and the shorthand string for shorthand-only flags. Registration (`flag_completion`, slots) accepts either spelling.
 - Flag-value completers return **bare values** (`"dev"`); the attached form (`--profile=dev`) is reconstructed by the traversal — do not pre-attach the prefix.
 - `complete()` takes a *factory* (`Fn() -> clap::Command`), not a `Command` value; the tree is rebuilt per request.
 - The `_carapace` subcommand visible in the tree is carapace's own hidden entry point; completion of it is gated behind `CARAPACE_HIDDEN=2`.

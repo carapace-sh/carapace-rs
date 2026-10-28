@@ -19,6 +19,15 @@ pub struct Context {
     /// Flags with values seen during traversal (Go's pflag `Changed`
     /// state plus the consumed values); used for repeatable/conflict
     /// filtering and callback actions.
+    ///
+    /// The keys are flag *ids* ([`crate::Flag::id`]), each backend's
+    /// canonical identity: for YAML spec flags the id is the flag key's
+    /// bare name as written, without spelling normalization (Go specs
+    /// have a single flag name space), for clap flags it is the clap
+    /// argument id, with the shorthand string for shorthand-only flags.
+    /// The user-facing long name (`--work-tree`) never appears here;
+    /// registration instead matches on either spelling (long names,
+    /// aliases, shorthands).
     pub parsed_flags: Vec<(String, Vec<String>)>,
     /// Environment available to the action.
     pub env: HashMap<String, String>,

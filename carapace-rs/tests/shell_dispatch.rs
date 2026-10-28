@@ -754,7 +754,7 @@ fn files_carry_ls_colors_styles() {
     std::fs::create_dir_all(base.join("subdir")).unwrap();
     std::fs::write(base.join("readme.md"), "").unwrap();
 
-    let action = Action::files(Vec::<String>::new());
+    let action = Action::files([]);
     let context = Context::default()
         .dir(base.clone())
         .env("LS_COLORS", "di=01;35:*.md=01;32");

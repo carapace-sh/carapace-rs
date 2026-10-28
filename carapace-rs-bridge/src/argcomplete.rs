@@ -78,10 +78,10 @@ where
                         let inner = if values.is_empty() {
                             Action::callback(move |context: &carapace_rs::Context| {
                                 match &optarg_value {
-                                    Some(value) => Action::files(Vec::<String>::new())
+                                    Some(value) => Action::files([])
                                         .invoke(&context.clone().value(value.clone()))
                                         .to_action(),
-                                    None => Action::files(Vec::<String>::new()),
+                                    None => Action::files([]),
                                 }
                             })
                         } else {
@@ -208,10 +208,10 @@ where
                 let optarg_value = c.value.split_once('=').map(|(_, value)| value.to_owned());
                 let inner = if values.is_empty() {
                     Action::callback(move |context: &carapace_rs::Context| match &optarg_value {
-                        Some(value) => Action::files(Vec::<String>::new())
+                        Some(value) => Action::files([])
                             .invoke(&context.clone().value(value.clone()))
                             .to_action(),
-                        None => Action::files(Vec::<String>::new()),
+                        None => Action::files([]),
                     })
                 } else {
                     Action::raw(values)

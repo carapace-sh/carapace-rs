@@ -56,7 +56,7 @@ fn parse_output(output: &str, value: &str) -> Action {
     };
 
     if lines.len() < 3 && directive & DIRECTIVE_NO_FILE_COMP == 0 {
-        action = Action::files(Vec::<String>::new());
+        action = Action::files([]);
     }
     if directive & DIRECTIVE_ERROR != 0 {
         action = Action::values(Vec::<String>::new());
@@ -91,7 +91,7 @@ fn action_files(lines: &[&str]) -> Action {
         .iter()
         .map(|line| format!(".{line}"))
         .collect();
-    Action::files(extensions)
+    Action::files_with_suffixes(extensions)
 }
 
 fn action_directories(lines: &[&str]) -> Action {

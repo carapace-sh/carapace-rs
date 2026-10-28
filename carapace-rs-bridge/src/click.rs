@@ -49,7 +49,7 @@ where
                         match lines[index] {
                             // type
                             "dir" => return Action::directories(),
-                            "file" => return Action::files(Vec::<String>::new()),
+                            "file" => return Action::files([]),
                             "plain" => {
                                 let description = match lines[index + 2] {
                                     "_" => String::new(),

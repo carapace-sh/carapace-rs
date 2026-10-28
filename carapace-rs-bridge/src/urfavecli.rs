@@ -33,7 +33,7 @@ where
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.split('\n').collect();
                     if lines.len() <= 1 {
-                        return Action::files(Vec::<String>::new());
+                        return Action::files([]);
                     }
                     let mut values = Vec::new();
                     for line in lines {
@@ -73,7 +73,7 @@ where
                     let text = String::from_utf8_lossy(&output);
                     let lines: Vec<&str> = text.split('\n').collect();
                     if lines.len() <= 1 {
-                        return Action::files(Vec::<String>::new());
+                        return Action::files([]);
                     }
                     Action::values(lines[..lines.len() - 1].iter().map(|l| l.to_string()))
                         .nospace(['/', '=', '@', ':', '.', ','])

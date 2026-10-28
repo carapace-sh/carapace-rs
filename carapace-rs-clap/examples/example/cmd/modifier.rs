@@ -133,11 +133,11 @@ pub fn cache_key() -> Action {
 }
 
 pub fn chdir() -> Action {
-    Action::files(Vec::<String>::new()).chdir(std::env::temp_dir().to_string_lossy().into_owned())
+    Action::files([]).chdir(std::env::temp_dir().to_string_lossy().into_owned())
 }
 
 pub fn chdirf() -> Action {
-    Action::files(Vec::<String>::new())
+    Action::files([])
         .chdir_f(|c| carapace_rs::traverse::git::git_work_tree(c).unwrap_or_else(|error| error))
 }
 
@@ -168,7 +168,7 @@ pub fn invoke() -> Action {
         } else {
             return Action::values(Vec::<String>::new());
         }
-        Action::files(Vec::<String>::new())
+        Action::files([])
             .invoke(&context)
             .prefix("file://")
             .to_action()
@@ -225,7 +225,7 @@ pub fn noprefix() -> Action {
 }
 
 pub fn prefix() -> Action {
-    Action::files(Vec::<String>::new()).prefix("file://")
+    Action::files([]).prefix("file://")
 }
 
 pub fn retain() -> Action {
@@ -262,10 +262,7 @@ fn split_cmd() -> Command {
                 .help("string flag"),
         )
         .flag_completion([("string", Action::values(["one", "two", "three with space"]))])
-        .positional_completion([
-            Action::values(["pos1", "positional1"]),
-            Action::files(Vec::<String>::new()),
-        ])
+        .positional_completion([Action::values(["pos1", "positional1"]), Action::files([])])
 }
 
 pub fn style() -> Action {

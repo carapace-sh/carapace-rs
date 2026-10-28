@@ -110,7 +110,7 @@ fn parse_bash_output(text: &str) -> Action {
         }
     }
     let action = if values.is_empty() {
-        Action::files(Vec::<String>::new())
+        Action::files([])
     } else {
         Action::raw(values)
             .style_f(|context, value| carapace_rs::style::for_path(context, &value.value))

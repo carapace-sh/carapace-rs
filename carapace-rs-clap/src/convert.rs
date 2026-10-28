@@ -436,7 +436,7 @@ fn value_hint_action(arg: &clap::Arg) -> Option<Action> {
     use clap::builder::ValueHint;
     match arg.get_value_hint() {
         ValueHint::DirPath => Some(Action::directories()),
-        ValueHint::AnyPath | ValueHint::FilePath => Some(Action::files(Vec::<String>::new())),
+        ValueHint::AnyPath | ValueHint::FilePath => Some(Action::files([])),
         // command hints complete executables on PATH (Go has no dedicated
         // engine action; `pkg/actions/tools` provides richer ones)
         ValueHint::CommandName | ValueHint::CommandString | ValueHint::CommandWithArguments => {

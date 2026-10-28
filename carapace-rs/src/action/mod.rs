@@ -387,15 +387,13 @@ mod tests {
         std::fs::create_dir_all(base.join("subdir")).unwrap();
         std::fs::write(base.join("subdir/file1.txt"), "").unwrap();
 
-        let action = Action::files(Vec::<String>::new()).chdir("subdir");
+        let action = Action::files([]).chdir("subdir");
         let context = Context::default().dir(base.clone());
         assert_eq!(values(action.invoke(&context)), vec!["file1.txt"]);
 
         // a non-directory target degrades to a message
         std::fs::write(base.join("notadir"), "").unwrap();
-        let invoked = Action::files(Vec::<String>::new())
-            .chdir("notadir")
-            .invoke(&context);
+        let invoked = Action::files([]).chdir("notadir").invoke(&context);
         assert!(invoked.values.is_empty());
         assert!(!invoked.meta.messages.is_empty());
 
@@ -412,7 +410,7 @@ mod tests {
         std::fs::write(base.join("file1.txt"), "").unwrap();
 
         let context = Context::default().dir(base.clone()).value("");
-        let invoked = Action::files(Vec::<String>::new()).invoke(&context);
+        let invoked = Action::files([]).invoke(&context);
         assert!(invoked.meta.nospace.contains(&'/'));
         let dir = invoked
             .values
@@ -476,7 +474,7 @@ mod tests {
         std::fs::write(base.join("file1.txt"), "").unwrap();
 
         let context = Context::default().dir(base.clone()).value("f");
-        let invoked = Action::files(Vec::<String>::new()).invoke(&context);
+        let invoked = Action::files([]).invoke(&context);
         let value = invoked
             .values
             .iter()
@@ -542,13 +540,13 @@ mod tests {
         // POSIX-shaped (drive-relative roots on Windows complete through a
         // different path), so it only runs where the root is unambiguous.
         let context = Context::default().value("/tmp");
-        let invoked = Action::files(Vec::<String>::new()).invoke(&context);
+        let invoked = Action::files([]).invoke(&context);
         let values: Vec<String> = invoked.values.iter().map(|v| v.value.clone()).collect();
         assert!(values.iter().any(|v| v.starts_with("/tmp/")), "{values:?}");
 
         // the candidates keep the root as their typed directory part
         let context = Context::default().value("/t");
-        let invoked = Action::files(Vec::<String>::new()).invoke(&context);
+        let invoked = Action::files([]).invoke(&context);
         assert!(
             invoked.values.iter().any(|v| v.value == "/tmp/"),
             "{:?}",
@@ -639,7 +637,7 @@ mod split_tests {
         });
         cmd.positionals.push(Positional {
             name: "rest".into(),
-            completion: Some(Action::files(Vec::<String>::new())),
+            completion: Some(Action::files([])),
             ..Default::default()
         });
         Action::execute(Arc::new(cmd))

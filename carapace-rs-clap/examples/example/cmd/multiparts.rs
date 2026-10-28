@@ -183,7 +183,7 @@ fn multiparts_positional() -> Action {
                     .suffix("=")
             }
             1 => match c.parts[0].as_str() {
-                "FILE" => Action::files(Vec::<String>::new()),
+                "FILE" => Action::files([]),
                 "DIRECTORY" => Action::directories(),
                 "VALUE" => Action::values(["one", "two", "three"]),
                 _ => Action::values(Vec::<String>::new()),

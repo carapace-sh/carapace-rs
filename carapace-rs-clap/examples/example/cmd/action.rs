@@ -75,7 +75,7 @@ pub fn cmd(commands: Option<Action>) -> Command {
             }),
         ),
         ("executables", Action::executables()),
-        ("files", Action::files(Vec::<String>::new())),
+        ("files", Action::files([])),
         ("files-filtered", Action::files([".md", "go.mod", "go.sum"])),
         (
             "import",
@@ -199,7 +199,7 @@ fn multiparts_nested() -> Action {
                     .to_action()
             }
             1 => match c.parts[0].as_str() {
-                "FILE" => Action::files(Vec::<String>::new()).nospace([]),
+                "FILE" => Action::files([]).nospace([]),
                 "DIRECTORY" => Action::directories().nospace([]),
                 "VALUE" => Action::values(["one", "two", "three"]).nospace([]),
                 _ => Action::values(Vec::<String>::new()),

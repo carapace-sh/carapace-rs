@@ -1211,9 +1211,8 @@ mod modifier {
             .run(
                 || {
                     use carapace_rs_clap::Carapace;
-                    clap::Command::new("chdirapp").positional_any_completion(
-                        Action::files(Vec::<String>::new()).chdir("subdir"),
-                    )
+                    clap::Command::new("chdirapp")
+                        .positional_any_completion(Action::files([]).chdir("subdir"))
                 },
                 &[""],
             )

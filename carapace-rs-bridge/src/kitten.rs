@@ -100,10 +100,7 @@ where
                                     .iter()
                                     .map(|m| m.word.replace('\\', "/"))
                                     .collect();
-                                batch.push(
-                                    Action::files(Vec::<String>::new())
-                                        .retain(retain.iter().cloned()),
-                                );
+                                batch.push(Action::files([]).retain(retain.iter().cloned()));
                             } else {
                                 batch.push(
                                     matches_action(group.matches.clone())

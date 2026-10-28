@@ -47,7 +47,7 @@ where
                     }
 
                     if values.is_empty() {
-                        return Action::files(Vec::<String>::new());
+                        return Action::files([]);
                     }
 
                     let mut action = Action::raw(values);

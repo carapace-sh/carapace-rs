@@ -287,7 +287,7 @@ impl Action {
             // the completion's current word (as in Go)
             let action = if pipelines && completion.is_redirect {
                 context.value = completion.current_word.clone();
-                Self::files(Vec::<String>::new())
+                Self::files([])
             } else {
                 inner.clone()
             };

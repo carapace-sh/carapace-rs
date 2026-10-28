@@ -111,7 +111,7 @@ fn complete_bash(
             let context = carapace_rs::Context::default().args(words.to_vec());
             (
                 carapace_rs::Completion {
-                    action: carapace_rs::Action::files(Vec::<String>::new()),
+                    action: carapace_rs::Action::files([]),
                     context,
                 },
                 bash::Context::default(),

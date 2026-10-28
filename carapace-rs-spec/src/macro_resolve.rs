@@ -54,7 +54,7 @@ pub fn resolve(entry: &str) -> Action {
     // internal macros accept the `_.` namespace prefix (Go `macros.Lookup`)
     let name = name.strip_prefix("_.").unwrap_or(name);
     match name {
-        "files" => Action::files(parse_args(args)),
+        "files" => Action::files_with_suffixes(parse_args(args)),
         "directories" => Action::directories(),
         "executables" => Action::executables(),
         "message" => Action::message(full_arg(args)),

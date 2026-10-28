@@ -90,7 +90,27 @@ impl Action {
     }
 
     /// Complete files, optionally filtered by suffix.
-    pub fn files(suffixes: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    ///
+    /// Passing no suffixes completes every file:
+    ///
+    /// ```
+    /// # use carapace_rs::Action;
+    /// let everything = Action::files([]);
+    /// let markdown = Action::files([".md"]);
+    /// # let _ = (everything, markdown);
+    /// ```
+    ///
+    /// Use [`files_with_suffixes`](Self::files_with_suffixes) when the suffix
+    /// list is only known at runtime.
+    pub fn files<const N: usize>(suffixes: [&str; N]) -> Self {
+        Self::files_with_suffixes(suffixes)
+    }
+
+    /// Complete files filtered by a suffix list built at runtime.
+    ///
+    /// [`files`](Self::files) is the same action for a fixed list; this form
+    /// exists for callers whose suffixes come from a spec or a bridge.
+    pub fn files_with_suffixes(suffixes: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let suffixes: Vec<String> = suffixes.into_iter().map(Into::into).collect();
         Self::callback(move |c| {
             let filter = |path: &std::path::Path| {

@@ -26,7 +26,7 @@ fn cli() -> clap::Command {
     Command::new("myapp")
         .flag_completion([("profile", Action::values(["dev", "prod"]))])
         .positional_completion([Action::values(["x86", "arm"])])
-        .positional_any_completion(Action::files(Vec::<String>::new()))
+        .positional_any_completion(Action::files([]))
 }
 ```
 

@@ -25,7 +25,7 @@ where
                     // fewer than two lines without a flag word means the
                     // completer had nothing: fall back to files
                     if lines.len() < 2 && !c.value.starts_with('-') {
-                        return Action::files(Vec::<String>::new());
+                        return Action::files([]);
                     }
 
                     let mut action = Action::values(lines.iter().map(|l| l.to_string()));

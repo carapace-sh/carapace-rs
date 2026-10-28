@@ -18,7 +18,7 @@ where
             args.extend(c.args.iter().cloned());
             args.push(c.value.clone());
             match c.execute(&bin, &args) {
-                Ok(output) if output.is_empty() => Action::files(Vec::<String>::new()),
+                Ok(output) if output.is_empty() => Action::files([]),
                 Ok(output) => Action::import(&String::from_utf8_lossy(&output)),
                 Err(error) => Action::message(error),
             }

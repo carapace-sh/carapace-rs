@@ -135,7 +135,7 @@ where
         };
         positional.completion = Some(carapace_rs::batch(vec![
             Action::executables(),
-            Action::files(Vec::<String>::new()),
+            Action::files([]),
         ]));
         positional
     });

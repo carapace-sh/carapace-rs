@@ -64,7 +64,7 @@ where
                         values.push(carapace_rs::RawValue::described(value, description));
                     }
                     if values.is_empty() {
-                        return Action::files(Vec::<String>::new());
+                        return Action::files([]);
                     }
                     Action::raw(values)
                 }

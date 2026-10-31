@@ -398,7 +398,7 @@ fn from_sgr(sgr: &str) -> String {
 
 /// The style for a known keyword (Go `style.ForKeyword`): dash and
 /// underscore are ignored and matching is case-insensitive.
-pub fn keyword_style(value: &str) -> String {
+pub fn for_keyword(value: &str) -> String {
     let normalized: String = value
         .to_lowercase()
         .chars()

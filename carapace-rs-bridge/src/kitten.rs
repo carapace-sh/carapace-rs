@@ -86,7 +86,7 @@ where
                         "Keywords" => batch.push(
                             matches_action(group.matches.clone())
                                 .tag("keywords")
-                                .style_f(|_, value| crate_keyword_style(&value.value)),
+                                .style_f(|_, value| carapace_rs::style::for_keyword(&value.value)),
                         ),
                         "Sub-commands" => {
                             batch.push(matches_action(group.matches.clone()).tag("commands"))
@@ -163,9 +163,4 @@ fn directory_of(word: &str) -> String {
         Some(index) => slashed[..index].to_owned(),
         None => ".".to_owned(),
     }
-}
-
-/// The keyword style from the style configuration (Go `style.ForKeyword`).
-fn crate_keyword_style(word: &str) -> String {
-    carapace_rs::style::keyword_style(word)
 }

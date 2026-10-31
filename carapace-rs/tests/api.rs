@@ -61,3 +61,43 @@ fn traverses_the_public_model() {
         .collect();
     assert_eq!(values, vec!["t1", "t2"]);
 }
+
+#[test]
+fn parsed_flag_keys_carry_flag_ids_not_names() {
+    use std::sync::{Arc, Mutex};
+
+    // an id and a name that differ, like clap's arg id vs `--work-tree`
+    let recorded = Arc::new(Mutex::new(Vec::<String>::new()));
+    let recorder = recorded.clone();
+    let model = Command::new("app")
+        .flag(Flag {
+            id: "work_tree".into(),
+            name: "work-tree".into(),
+            takes_value: true,
+            ..Default::default()
+        })
+        .positional(Positional {
+            name: "target".into(),
+            completion: Some(Action::callback(move |c| {
+                recorder
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .extend(c.parsed_flags.iter().map(|(key, _)| key.clone()));
+                Action::default()
+            })),
+            ..Default::default()
+        });
+
+    let completion = traverse(
+        &model,
+        vec!["--work-tree".into(), "x".into(), String::new()],
+    );
+    let _ = completion.action.invoke(&completion.context);
+
+    // the callback context keys on the flag id, never on the long name
+    let keys = recorded
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
+    assert_eq!(keys, vec!["work_tree".to_owned()]);
+}

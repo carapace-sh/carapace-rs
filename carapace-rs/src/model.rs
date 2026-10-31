@@ -66,7 +66,11 @@ impl Default for ArgumentStyle {
 /// A flag definition with completion metadata.
 #[derive(Clone, Debug, Default)]
 pub struct Flag {
-    /// Identifier matching the framework's arg id (e.g. clap arg id).
+    /// Identifier matching the framework's arg id (e.g. clap arg id); for
+    /// YAML spec flags the flag key exactly as written (Go spec parity) and
+    /// the shorthand string for shorthand-only flags. This is the canonical
+    /// identity: `Context::parsed_flags` is keyed on it, while the user-facing
+    /// spelling lives in [`Flag::name`].
     pub id: String,
     /// Long name (without prefix), e.g. `verbose`.
     pub name: String,

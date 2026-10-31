@@ -849,3 +849,21 @@ fn command_completer_macro_attaches_positional_any() {
         .invoke(&Context::default());
     assert_eq!(invoked.to_export().values[0].value, "via-macro");
 }
+
+#[test]
+fn converts_flag_ids_to_argument_ids() {
+    let mut cmd = Command::new("app").arg(
+        Arg::new("work_tree")
+            .long("work-tree")
+            .action(ArgAction::Set)
+            .help("work tree"),
+    );
+    let model = to_model(&mut cmd);
+
+    // the id is the clap argument id — the canonical key `Context`
+    // parsed-flag entries use — while `name` carries the user-facing
+    // long name; completion callbacks key on the id
+    let flag = model.lookup_id("work_tree").expect("arg id");
+    assert_eq!(flag.id, "work_tree");
+    assert_eq!(flag.name, "work-tree");
+}

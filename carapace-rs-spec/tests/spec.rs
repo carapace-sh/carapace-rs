@@ -803,3 +803,23 @@ fn yaml_dump_shorthand_only_flag() {
          name: cmd\nflags:\n  -t: ''\n"
     );
 }
+
+#[test]
+fn spec_flag_ids_match_the_yaml_key_without_normalization() {
+    let model = carapace_rs_spec::from_yaml(
+        "name: ids\nflags:\n  --work-tree=: work tree\n  -n: shorthand only\n",
+    )
+    .expect("spec");
+
+    // Go spec parity: a Go spec's flags have one name space, the YAML
+    // key's bare name; no spelling normalization may appear (e.g.
+    // kebab-to-snake) or callbacks keying on the spec spelling stop
+    // seeing the flag
+    let flag = model.lookup_long("work-tree").expect("long");
+    assert_eq!(flag.id, "work-tree");
+    assert_eq!(flag.name, "work-tree");
+
+    // shorthand-only flags key on their shorthand string
+    assert_eq!(model.lookup_id("n").expect("shorthand id").id, "n");
+    assert!(model.lookup_long("n").is_none());
+}

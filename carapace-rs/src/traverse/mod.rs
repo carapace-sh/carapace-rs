@@ -285,7 +285,7 @@ fn traverse_command(
                         // Go styles bool values as keywords and surfaces
                         // the flag usage
                         action: Action::values(["true", "false"])
-                            .style_f(|_, value| crate::style::keyword_style(&value.value))
+                            .style_f(|_, value| crate::style::for_keyword(&value.value))
                             .usage(flag.flag.description.clone())
                             .prefix(&flag.arg_prefix),
                         context,

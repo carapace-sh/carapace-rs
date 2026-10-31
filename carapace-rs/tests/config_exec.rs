@@ -275,15 +275,15 @@ fn exec_passes_context_env_not_process_env() {
 
 #[test]
 fn keyword_styles_follow_go_table() {
-    use carapace_rs::style::keyword_style;
-    assert_eq!(keyword_style("true"), "green");
-    assert_eq!(keyword_style("FALSE"), "red");
-    assert_eq!(keyword_style("auto"), "yellow");
-    assert_eq!(keyword_style("unknown"), "dim white");
+    use carapace_rs::style::for_keyword;
+    assert_eq!(for_keyword("true"), "green");
+    assert_eq!(for_keyword("FALSE"), "red");
+    assert_eq!(for_keyword("auto"), "yellow");
+    assert_eq!(for_keyword("unknown"), "dim white");
     // dashes and underscores are ignored, matching is case-insensitive
-    assert_eq!(keyword_style("In-Progress"), "yellow");
-    assert_eq!(keyword_style("NOT_EXISTS"), "red");
-    assert_eq!(keyword_style("whatever"), "");
+    assert_eq!(for_keyword("In-Progress"), "yellow");
+    assert_eq!(for_keyword("NOT_EXISTS"), "red");
+    assert_eq!(for_keyword("whatever"), "");
 }
 
 #[test]

@@ -202,7 +202,7 @@ pub fn multipartsp() -> Action {
         ("styles", "list", "yellow"),
         ("styles/<style>", "details", ""),
     ])
-    .multipartsp("/", "<.*>", |placeholder, matches| match placeholder {
+    .multiparts_p("/", "<.*>", |placeholder, matches| match placeholder {
         "<key>" => Action::values(["key1", "key2"]),
         "<style>" => Action::styles([]),
         "<value>" => match matches.get("<key>").map(String::as_str) {

@@ -46,6 +46,21 @@ fn export_roundtrip() {
 }
 
 #[test]
+fn export_version_is_rs_prefixed() {
+    let version = Export::VERSION;
+    assert!(
+        version.starts_with("rs-"),
+        "export version lacks rs- prefix: {version}"
+    );
+    assert_eq!(json_version_body(), &version["rs-".len()..]);
+}
+
+fn json_version_body() -> &'static str {
+    let raw: &'static str = env!("CARGO_PKG_VERSION");
+    raw.trim_end_matches("-PLACEHOLDER")
+}
+
+#[test]
 fn shell_export_value_is_json() {
     let action = Action::values(["x"]);
     let invoked = action.invoke(&Context::default());

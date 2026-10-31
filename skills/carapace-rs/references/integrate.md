@@ -92,6 +92,29 @@ Note that clap derive infers `ValueHint::AnyPath` for `PathBuf`/`Path` args auto
 
 For `CommandWithArguments`, prefer explicit dynamic bridge wiring — see [bridges.md](bridges.md).
 
+## Cross-argument dependencies
+
+A per-arg completer is bound to one arg and has no identity of the command's other args: at invocation its action only sees `Context.args`, the positional words typed so far. When a positional completes from a previous one (`config <key> <value>`, `fetch <remote> <refspec>`), declare it at the command, next to the command definition — with clap derive, on the variant:
+
+```rust
+#[command(add = carapace_rs_clap::PositionalCompleter(vec![
+    ActionConfigKeys(),
+    Action::callback(|context| ActionConfigValues(&context.args[0])),
+]))]
+Config { key: Option<String>, value: Option<String> }
+```
+
+(or on the builder: `cmd.add(PositionalCompleter(vec![…]))`; the `Carapace` trait's `positional_completion` is the same slot). This is carapace-bin's own shape (`action.ActionConfigValues(c.Args/c.Parts[0])` inside the completer specs — see `qmk_completer/config.go`, `composer_completer`). Deliberately:
+
+- keep **one action per concept**: the parameterized action stays parameterized (`ActionConfigValues(key: &str)`), the callback beside the command is the adapter that defers it (the key exists at invocation time only, so *some* adapter is mandatory — this small callback is it);
+- a cross-positional action is only invoked at position ≥ 1, so `Context.args` is non-empty there — index directly, and do **not** write `match args.first() { None => … }` guards;
+- **never** build generic index-parameterized helpers (`action_from_arg(0, derive)`) or zero-arg wrapper actions whose only job is reading a previous positional;
+- **never** collect cross-positional wiring in one central place (`mut_subcommand` per command path) detached from the command definitions;
+- for several positions inside one token (`-c key=value`), use `Action::multiparts_n` with `context.parts` instead — no positional slot needed;
+- flag-dependent completions read `context.parsed_flags`, never `context.args`.
+
+Test such wiring by driving the traversal (`complete_output` with a trailing empty word), not by invoking internals.
+
 ## Gotchas
 
 - Flag-value completers return **bare values** (`"dev"`); the attached form (`--profile=dev`) is reconstructed by the traversal — do not pre-attach the prefix.

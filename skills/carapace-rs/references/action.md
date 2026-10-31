@@ -72,7 +72,7 @@ Multipart values (associated functions, not methods):
 ```rust
 Action::multiparts(":", |ctx| /* -> Action */)
 Action::multiparts_n(",", -1, |ctx| /* unlimited */)
-Action::multipartsp(":", pattern, |part, known| /* -> Action */)
+Action::multiparts_p(":", pattern, |part, known| /* -> Action */)
 ```
 
 Value-splitting for values that are themselves command lines:

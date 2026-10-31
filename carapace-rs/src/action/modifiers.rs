@@ -428,7 +428,7 @@ impl Action {
     /// `Action.MultiPartsP`). Static segments must match the entered parts;
     /// a placeholder segment (matching `pattern`) is completed by `f` with
     /// the data entered for all placeholders seen so far.
-    pub fn multipartsp<F>(self, divider: &str, pattern: &str, f: F) -> Self
+    pub fn multiparts_p<F>(self, divider: &str, pattern: &str, f: F) -> Self
     where
         F: Fn(&str, &std::collections::HashMap<String, String>) -> Self + Send + Sync + 'static,
     {

@@ -43,12 +43,16 @@ fn main() {
 }
 ```
 
-With clap derive, `carapace_rs_clap::completer!` attaches completers inline:
+With clap derive, the `completer!` macro attaches completers inline (imported for the shortest form):
 
-```rust,ignore
+```rust
+use carapace_rs::Action;
+use carapace_rs_clap::completer;
+use clap::Parser;
+
 #[derive(Parser)]
 struct Cli {
-    #[arg(long, add = carapace_rs_clap::completer!(Action::values(["dev", "prod"])))]
+    #[arg(long, add = completer!(Action::values(["dev", "prod"])))]
     profile: Option<String>,
 }
 ```

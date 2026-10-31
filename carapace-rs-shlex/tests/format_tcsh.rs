@@ -179,6 +179,8 @@ fn line_continuation_outside_quotes() {
 
 #[test]
 fn line_continuation_in_double_quotes() {
+    // tcsh preserves backslash-newline inside "..." unlike bash: the escape
+    // is consumed and the newline kept (verified against a real tcsh).
     let words = split_words("echo \"line1\\\nline2\"", Format::Tcsh);
-    assert_eq!(words, vec!["echo".to_owned(), "line1line2".to_owned()]);
+    assert_eq!(words, vec!["echo".to_owned(), "line1\nline2".to_owned()]);
 }

@@ -35,7 +35,7 @@ pub const BASH_WORDBREAKS: &str = " \t\r\n\"'@><=;|&():";
 /// of one of the supported shells. The lexing behavior per name lives in
 /// the format implementations; unknown names are rejected by [`split`],
 /// yield an empty context in [`complete`], and fall back to the default
-/// format in [`join`].
+/// format in [`join`], [`escape`], [`is_bare_word`], and [`quote_word`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Format {
     /// The empty format name, resolving to Bash. Spec macros and callers
@@ -47,6 +47,7 @@ pub enum Format {
     Elvish,
     Fish,
     Hilbish,
+    Lua,
     Nushell,
     Oil,
     Powershell,
@@ -65,6 +66,7 @@ impl Format {
             Self::Elvish => "elvish",
             Self::Fish => "fish",
             Self::Hilbish => "hilbish",
+            Self::Lua => "lua",
             Self::Nushell => "nushell",
             Self::Oil => "oil",
             Self::Powershell => "powershell",
@@ -84,6 +86,7 @@ impl Format {
             "elvish" => Some(Self::Elvish),
             "fish" => Some(Self::Fish),
             "hilbish" => Some(Self::Hilbish),
+            "lua" => Some(Self::Lua),
             "nushell" => Some(Self::Nushell),
             "oil" => Some(Self::Oil),
             "powershell" => Some(Self::Powershell),
@@ -120,11 +123,58 @@ pub fn join(s: &[String], format: Format) -> String {
         .join(" ")
 }
 
-/// Quote a single word using the format's quoting rules.
+/// Quote a single word using the format's quoting rules. Unknown format
+/// names fall back to the default format.
 pub fn quote_word(s: &str, format: Format) -> String {
     match format::format_impl_for(format) {
         Some(impl_) => impl_.quote_word(s),
         None => quote_word(s, Format::Default),
+    }
+}
+
+/// Escape the word's content for embedding inside string literals whose
+/// surrounding quote characters the caller supplies, e.g. when a generated
+/// template already carries the quotes: the interior variant of
+/// [`quote_word`]. Unknown format names fall back to the default format.
+/// Formats without a dedicated string-interior rule (cmd, nushell, tcsh,
+/// and others) also fall back; the result may not be valid inside those
+/// formats' own string literals (e.g. a quote close/reopen sequence is a
+/// syntax error in tcsh). The bash/zsh/oil result is meant to be embedded
+/// in double quotes by the caller: newlines are represented by a quote
+/// close/reopen sequence instead of backslash-newline.
+pub fn escape(word: &str, format: Format) -> String {
+    use crate::quote::{
+        bash_string_escape, elvish_string_escape, fish_string_escape, lua_string_escape,
+        posix_string_escape, powershell_string_escape, xonsh_string_escape,
+    };
+    match format {
+        Format::Default | Format::Bash | Format::Zsh | Format::Oil => bash_string_escape(word),
+        Format::Fish => fish_string_escape(word),
+        Format::Elvish => elvish_string_escape(word),
+        Format::Powershell => powershell_string_escape(word),
+        Format::Xonsh => xonsh_string_escape(word),
+        Format::Lua => lua_string_escape(word),
+        _ => posix_string_escape(word),
+    }
+}
+
+/// Whether the word is a bareword for the format: it stands as a single
+/// inert token in unquoted position, with no wordbreak, escaping,
+/// expansion, or history rules triggered, including ones that act above
+/// the lexer (tcsh `=word`, `!word`). Anything that breaks out of that
+/// single-token context (quotes, escapes, separators, redirects,
+/// pipe/wordbreak symbols, whitespace) or any non-ASCII character is
+/// rejected. Useful wherever words are interpolated unquoted into shell
+/// text (templates, config, snippets) or screened before registration
+/// (e.g. completer names in carapace). Identifier validity is not implied
+/// (`toit.lsp`, `git-rebase` are accepted); the screen is conservative:
+/// true barewords may be refused (non-ASCII letters, mid-word `#`). Empty
+/// words are not barewords. Unknown format names fall back to the default
+/// format.
+pub fn is_bare_word(word: &str, format: Format) -> bool {
+    match format::format_impl_for(format) {
+        Some(impl_) => impl_.is_bare_word(word),
+        None => is_bare_word(word, Format::Default),
     }
 }
 

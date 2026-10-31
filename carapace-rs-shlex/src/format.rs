@@ -1,5 +1,6 @@
 //! The format trait: a shell's lexical rules (port of `format.go`).
 
+use super::quote::is_shared_bareword;
 use super::token::{LexerState, RuneClassifier, Token};
 use super::wordbreak::WordbreakType;
 
@@ -96,10 +97,29 @@ pub(crate) trait FormatImpl: Sync {
     }
 
     /// The escape character followed by this rune acts as a line
-    /// continuation (consumed, discarded): bash/zsh/tcsh/fish/xonsh/hilbish
-    /// (backslash+newline), PowerShell (backtick+newline), cmd (caret+newline).
+    /// continuation (consumed, discarded): bash/zsh/fish/xonsh/hilbish
+    /// (backslash+newline), PowerShell (backtick+newline), cmd
+    /// (caret+newline). tcsh does it only outside quotes; see
+    /// [`FormatImpl::is_line_continuation_inside_quotes`].
     fn is_line_continuation(&self, _r: char) -> bool {
         false
+    }
+
+    /// Whether escape+newline is a line continuation inside double quotes
+    /// too; the default is true. tcsh opts out: it preserves
+    /// backslash-newline inside double quotes, unlike bash.
+    fn is_line_continuation_inside_quotes(&self) -> bool {
+        true
+    }
+
+    /// Whether the word stands as a single inert token in unquoted
+    /// position: no wordbreak, escaping, expansion or history rules
+    /// trigger, including ones acting above the lexer (tcsh `=word`).
+    /// Identifier validity is not implied, and the shared screen
+    /// conservatively refuses some true barewords (non-ASCII, mid-word
+    /// `#`); formats with identifier restrictions sharpen it, e.g. Lua.
+    fn is_bare_word(&self, s: &str) -> bool {
+        is_shared_bareword(s)
     }
 
     /// This rune followed by a newline acts as whitespace (elvish `^`).
@@ -144,6 +164,7 @@ pub(crate) fn format_impl_for(name: super::Format) -> Option<&'static dyn Format
         super::Format::Elvish => Some(&ElvishFormat),
         super::Format::Fish => Some(&FishFormat),
         super::Format::Hilbish => Some(&HilbishFormat),
+        super::Format::Lua => Some(&LuaFormat),
         super::Format::Nushell => Some(&NushellFormat),
         super::Format::Powershell => Some(&PowershellFormat),
         super::Format::Tcsh => Some(&TcshFormat),

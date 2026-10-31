@@ -199,7 +199,9 @@ fn bash_comment() {
 
 #[test]
 fn bash_quote_word() {
-    // lib/sh/shquote.c sh_backslash_quote
+    // lib/sh/shquote.c sh_backslash_quote: double-quote wrapping with \\
+    // escaping for the CBSDQUOTE chars minus \n; shlex's bash_quote_word
+    // matches this behavior (newlines use quote close/reopen instead)
     let tests = [
         ("hello", "hello"),
         ("abc123", "abc123"),
@@ -208,11 +210,11 @@ fn bash_quote_word() {
         (r"with\backslash", "\"with\\\\backslash\""),
         (r"with$dollar", "\"with\\$dollar\""),
         ("with`backtick", "\"with\\`backtick\""),
-        ("with\nnewline", "\"with\\\nnewline\""),
+        ("with\nnewline", "\"with\"'\n'\"newline\""),
         ("", "\"\""),
     ];
     for (input, want) in tests {
-        assert_eq!(super::quote::posix_quote_word(input), want, "{input:?}");
+        assert_eq!(super::quote::bash_quote_word(input), want, "{input:?}");
     }
 }
 
@@ -560,6 +562,25 @@ fn fish_comment() {
     assert_eq!(words, vec!["echo".to_owned(), "hello".to_owned()]);
 }
 
+// --- lua (format_lua_edge_test.go) ---
+
+#[test]
+fn lua_identifier_chars() {
+    // literals.lua scans all 256 byte values for identifier membership:
+    // isLuaBareword follows lctype.h's fixed ASCII tables (lislalpha);
+    // ASCII letters and underscore, digits cannot lead a name; control
+    // chars and >0x7F bytes get quoted.
+    for i in 0..256 {
+        let c = i as u8 as char;
+        let expected = c == '_' || c.is_ascii_lowercase() || c.is_ascii_uppercase();
+        assert_eq!(
+            super::quote::is_lua_bareword(&c.to_string()),
+            expected,
+            "{c}"
+        );
+    }
+}
+
 // --- zsh (verify_zsh_test.go) ---
 
 #[test]
@@ -805,7 +826,8 @@ fn zsh_fd_prefix_in_redirects() {
 
 #[test]
 fn zsh_quote_word() {
-    // zsh quotestring() with QT_DOUBLE style (posixQuoteWord)
+    // zsh quotestring() with QT_DOUBLE style (bashQuoteWord); newlines use
+    // quote close/reopen since zsh drops \n inside double quotes
     let tests = [
         ("hello", "hello"),
         ("abc123", "abc123"),
@@ -815,7 +837,7 @@ fn zsh_quote_word() {
         (r"with\backslash", "\"with\\\\backslash\""),
         (r"with$dollar", "\"with\\$dollar\""),
         ("with`backtick", "\"with\\`backtick\""),
-        ("with\nnewline", "\"with\\\nnewline\""),
+        ("with\nnewline", "\"with\"'\n'\"newline\""),
         ("", "\"\""),
     ];
     for (input, want) in tests {

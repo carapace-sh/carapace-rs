@@ -2,7 +2,8 @@
 
 use super::format::FormatImpl;
 use super::quote::{
-    cmd_quote_word, elvish_quote_word, fish_quote_word, hilbish_quote_word, nushell_quote_word,
+    bash_quote_word, cmd_quote_word, elvish_quote_word, fish_quote_word, hilbish_quote_word,
+    is_lua_bareword, is_shared_bareword, lua_escape_interior, lua_quote_word, nushell_quote_word,
     posix_quote_word, powershell_quote_word, xonsh_quote_word,
 };
 use super::token::{LexerState, RuneClassifier, Token};
@@ -206,7 +207,7 @@ impl FormatImpl for BashFormat {
     }
 
     fn quote_word(&self, s: &str) -> String {
-        posix_quote_word(s)
+        bash_quote_word(s) // newline close/reopen instead of backslash-newline
     }
 
     fn is_line_continuation(&self, r: char) -> bool {
@@ -253,7 +254,7 @@ impl FormatImpl for ZshFormat {
     }
 
     fn quote_word(&self, s: &str) -> String {
-        posix_quote_word(s)
+        bash_quote_word(s) // newline close/reopen instead of backslash-newline
     }
 
     fn is_line_continuation(&self, r: char) -> bool {
@@ -291,6 +292,11 @@ impl FormatImpl for TcshFormat {
 
     fn is_line_continuation(&self, r: char) -> bool {
         r == '\n' || r == '\r'
+    }
+
+    // tcsh preserves backslash-newline inside double quotes, unlike bash
+    fn is_line_continuation_inside_quotes(&self) -> bool {
+        false
     }
 
     fn post_process(&self, tokens: Vec<Token>) -> Vec<Token> {
@@ -742,6 +748,21 @@ impl FormatImpl for PowershellFormat {
         Some(("<#", "#>"))
     }
 
+    fn is_bare_word(&self, s: &str) -> bool {
+        if !is_shared_bareword(s) {
+            return false;
+        }
+        // digit-leading words with operator runes are arithmetic in
+        // PowerShell command position (2+2 computes 4), so they are not
+        // inert; numeric literals render differently than they are written
+        // and the literal check matches regardless of the leading digit
+        let first = s.chars().next().unwrap();
+        if first.is_ascii_digit() && s.contains(['+', '-', '*', '/', '%']) {
+            return false;
+        }
+        !is_powershell_numeric_literal(s)
+    }
+
     fn stop_parsing_word(&self) -> Option<&'static str> {
         Some("--%")
     }
@@ -1112,8 +1133,64 @@ impl FormatImpl for XonshFormat {
         r == '\n' || r == '\r'
     }
 
+    fn is_bare_word(&self, s: &str) -> bool {
+        if !is_shared_bareword(s) {
+            return false;
+        }
+        // digit-leading words with operator runes or numeric literal
+        // shape are valid Python expressions and evaluate in xonsh
+        // (e.g. 2+2 silently computes), so they are not inert
+        let first = s.chars().next().unwrap();
+        !(first.is_ascii_digit()
+            && (s.contains(['+', '-', '*', '/', '%']) || is_xonsh_numeric_literal(s)))
+    }
+
     fn post_process(&self, tokens: Vec<Token>) -> Vec<Token> {
         xonsh_post_process(tokens)
+    }
+}
+
+/// A digit-leading Python literal evaluated by xonsh (`0x1f`, `1_000`,
+/// `2.`, `2e3`, plain `42`); words failing to parse stay inert in
+/// subprocess mode.
+fn is_xonsh_numeric_literal(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    match (bytes.first().copied(), bytes.get(1).copied()) {
+        (Some(b'0'), Some(b'x' | b'X')) => {
+            let rest = &bytes[2..];
+            !rest.is_empty() && rest.iter().all(|b| b.is_ascii_hexdigit() || *b == b'_')
+        }
+        (Some(b'0'), Some(b'o' | b'O')) => {
+            let rest = &bytes[2..];
+            !rest.is_empty() && rest.iter().all(|b| (b'0'..=b'7').contains(b) || *b == b'_')
+        }
+        (Some(b'0'), Some(b'b' | b'B')) => {
+            let rest = &bytes[2..];
+            !rest.is_empty() && rest.iter().all(|b| *b == b'0' || *b == b'1' || *b == b'_')
+        }
+        _ => {
+            let mut pos = 0;
+            while pos < bytes.len() && (bytes[pos].is_ascii_digit() || bytes[pos] == b'_') {
+                pos += 1;
+            }
+            if pos < bytes.len() && bytes[pos] == b'.' {
+                pos += 1;
+            }
+            while pos < bytes.len() && (bytes[pos].is_ascii_digit() || bytes[pos] == b'_') {
+                pos += 1;
+            }
+            if pos < bytes.len() && (bytes[pos] == b'e' || bytes[pos] == b'E') {
+                pos += 1;
+                let start = pos;
+                while pos < bytes.len() && bytes[pos].is_ascii_digit() {
+                    pos += 1;
+                }
+                if pos == start {
+                    return false;
+                }
+            }
+            pos == bytes.len()
+        }
     }
 }
 
@@ -1228,4 +1305,137 @@ fn xonsh_post_process(tokens: Vec<Token>) -> Vec<Token> {
         final_tokens.push(token);
     }
     final_tokens
+}
+
+/// A digit-leading PowerShell literal that renders differently than it is
+/// written (`0x1f` -> 31, `2e3` -> 2000, `2kb` -> 2048, `2l` -> 2, `2us` ->
+/// 2, trailing `2.` -> 2); words rendering as their own value (42, 2.5) are
+/// not matched.
+fn is_powershell_numeric_literal(s: &str) -> bool {
+    let bytes = s.as_bytes();
+
+    if matches!(
+        (bytes.first().copied(), bytes.get(1).copied()),
+        (Some(b'0'), Some(b'x')) | (Some(b'0'), Some(b'X'))
+    ) {
+        let rest = &bytes[2..];
+        return !rest.is_empty() && rest.iter().all(|b| b.is_ascii_hexdigit() || *b == b'_');
+    }
+    if matches!(
+        (bytes.first().copied(), bytes.get(1).copied()),
+        (Some(b'0'), Some(b'b')) | (Some(b'0'), Some(b'B'))
+    ) {
+        let rest = &bytes[2..];
+        return !rest.is_empty() && rest.iter().all(|b| *b == b'0' || *b == b'1' || *b == b'_');
+    }
+
+    // [0-9][0-9_]*(\.[0-9_]*)?[eE][0-9]+$, unanchored at the start like the
+    // Go regexp alternative, so the form may begin anywhere
+    let exponent = (0..bytes.len()).any(|start| {
+        if !bytes[start].is_ascii_digit() {
+            return false;
+        }
+        let mut pos = start + digits_underscores(&bytes[start + 1..]) + 1;
+        if bytes.get(pos) == Some(&b'.') {
+            pos += 1;
+            pos += digits_underscores(&bytes[pos..]);
+        }
+        matches!(bytes.get(pos), Some(b'e') | Some(b'E'))
+            && !bytes[pos + 1..].is_empty()
+            && bytes[pos + 1..].iter().all(|b| b.is_ascii_digit())
+    });
+    let trailing_dot = {
+        let digits = digits_underscores(bytes);
+        bytes.get(digits) == Some(&b'.') && digits + 1 == bytes.len()
+    };
+    // (?i)[0-9][0-9_]*(\.[0-9_]*)?(l|u|ul|d|kb|mb|gb|tb|pb|us)$
+    let suffix = {
+        let digits = digits_underscores(bytes);
+        let mut pos = digits;
+        if bytes.get(pos) == Some(&b'.') {
+            pos += 1;
+            pos += digits_underscores(&bytes[pos..]);
+        }
+        matches!(
+            s[pos..].to_ascii_lowercase().as_str(),
+            "l" | "u" | "ul" | "d" | "kb" | "mb" | "gb" | "tb" | "pb" | "us"
+        )
+    };
+
+    exponent || trailing_dot || suffix
+}
+
+/// The length of the leading run of ASCII digits and underscores.
+fn digits_underscores(bytes: &[u8]) -> usize {
+    bytes
+        .iter()
+        .position(|b| !b.is_ascii_digit() && *b != b'_')
+        .unwrap_or(bytes.len())
+}
+
+/// Lua lexing (cmd-clink snippets are Lua): inside single quotes a doubled
+/// quote and `\'` are treated as an escaped quote (fish/zsh RC_QUOTES
+/// style); real Lua instead reads doubled-quote sequences as two adjacent
+/// string literals, but the doubling approximation lets words like
+/// `'don\'t'` survive lexing.
+pub(crate) struct LuaFormat;
+
+const LUA_WORDBREAKS: &str = ";(){},.=:";
+
+impl FormatImpl for LuaFormat {
+    fn name(&self) -> &'static str {
+        "lua"
+    }
+
+    fn classifier(&self) -> RuneClassifier {
+        let mut classifier = base_classifier();
+        // form feed and vertical tab are Lua lexical whitespace
+        classifier.add_class("\u{c}\u{b}", super::token::RuneClass::Space);
+        classifier.add_wordbreaks(LUA_WORDBREAKS);
+        classifier
+    }
+
+    fn classify_operator(&self, raw: &str) -> WordbreakType {
+        match raw {
+            ";" => WordbreakType::ListSequential,
+            "(" | ")" => WordbreakType::Bracket,
+            _ => WordbreakType::Unknown,
+        }
+    }
+
+    fn non_escaping_quote_escapes(&self) -> bool {
+        true // '' doubles a quote, \' escapes it
+    }
+
+    fn non_escaping_quote_backslash_escapes(&self) -> bool {
+        true
+    }
+
+    fn escaping_quote_escape_chars(&self) -> &'static [char] {
+        // nil in Go: inside a Lua string a backslash escapes the next
+        // character; hex, decimal, and \z escapes pass through as plain
+        // characters in the model
+        &[]
+    }
+
+    fn quote_word(&self, s: &str) -> String {
+        lua_quote_word(s)
+    }
+
+    fn quote_insertion_custom(&self, state: LexerState, value: &str) -> Option<String> {
+        // Raw newlines are invalid inside Lua short strings regardless of
+        // the quote style, and the escape-chars table is empty, so the
+        // default insertion would emit an unescaped newline; escape quote,
+        // backslash, and newline instead.
+        match state {
+            LexerState::Quoting => Some(format!("'{}'", lua_escape_interior(value, '\''))),
+            LexerState::QuotingEscaping => Some(format!("\"{}\"", lua_escape_interior(value, '"'))),
+            _ => None,
+        }
+    }
+
+    fn is_bare_word(&self, s: &str) -> bool {
+        // is_lua_bareword accepts the empty identifier
+        !s.is_empty() && is_lua_bareword(s)
+    }
 }

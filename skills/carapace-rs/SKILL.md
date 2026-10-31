@@ -50,6 +50,7 @@ Load the reference that matches your task. When in doubt, load multiple referenc
 - **How do I add carapace-rs to my clap CLI?** → [references/integrate.md](references/integrate.md)
 - **How do I create a custom completion action?** → [references/action.md](references/action.md)
 - **How do I attach a completer in clap derive?** → [references/integrate.md](references/integrate.md)
+- **How does a positional complete from a previous positional?** → [references/integrate.md](references/integrate.md), *Cross-argument dependencies*
 - **How do I write a YAML spec and use it with a clap app?** → [references/spec.md](references/spec.md)
 - **Which macros can a spec entry use?** → [references/macro.md](references/macro.md)
 - **How do I complete arguments of an external command?** → [references/bridges.md](references/bridges.md)

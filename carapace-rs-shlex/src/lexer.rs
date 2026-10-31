@@ -504,7 +504,12 @@ impl Tokenizer {
                     }
                     _ => {
                         if let Some(r) = next_rune {
-                            if self.format.is_line_continuation(r) {
+                            // tcsh only continues outside quotes (it
+                            // preserves backslash-newline inside "..."),
+                            // unlike bash, which drops it there
+                            if self.format.is_line_continuation(r)
+                                && self.format.is_line_continuation_inside_quotes()
+                            {
                                 if r == '\r' && self.peek() == Some('\n') {
                                     self.index += 1; // consume \n after \r
                                 }

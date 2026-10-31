@@ -26,7 +26,10 @@ fn posix() {
             vec!["echo", "with'singleQuote"],
         ),
         (r#"echo "with\$dollar""#, vec!["echo", "with$dollar"]),
-        ("echo \"with\\\nlinefeed\"", vec!["echo", "with\nlinefeed"]),
+        (
+            "echo \"with\"'\n'\"linefeed\"",
+            vec!["echo", "with\nlinefeed"],
+        ),
         (
             "echo \"with\rcarriageReturn\"",
             vec!["echo", "with\rcarriageReturn"],
@@ -49,6 +52,7 @@ fn fish() {
         (r#"echo "hello world""#, vec!["echo", "hello world"]),
         (r#"echo "say \"hello\"""#, vec!["echo", "say \"hello\""]),
         (r#"echo "cost \$5""#, vec!["echo", "cost $5"]),
+        ("echo \"a\nb\"", vec!["echo", "a\nb"]),
     ];
     for (expected, words) in tests {
         assert_eq!(j(&words, Format::Fish), expected, "Join(fish) {words:?}");
@@ -136,6 +140,7 @@ fn xonsh() {
         ("echo hello", vec!["echo", "hello"]),
         ("echo 'hello world'", vec!["echo", "hello world"]),
         (r"echo 'it\'s'", vec!["echo", "it's"]),
+        ("echo 'a\\nb'", vec!["echo", "a\nb"]),
     ];
     for (expected, words) in tests {
         assert_eq!(j(&words, Format::Xonsh), expected, "Join(xonsh) {words:?}");
@@ -159,6 +164,30 @@ fn backward_compat() {
             j(&words, Format::Default),
             expected,
             "Join(Default) {words:?}"
+        );
+    }
+}
+
+#[test]
+fn quote_word_joins_single_word() {
+    for format in [
+        Format::Bash,
+        Format::Zsh,
+        Format::Oil,
+        Format::Fish,
+        Format::Tcsh,
+        Format::Xonsh,
+        Format::Elvish,
+        Format::Powershell,
+        Format::Nushell,
+        Format::Cmd,
+        Format::Hilbish,
+        Format::Lua,
+        Format::Default,
+    ] {
+        assert_eq!(
+            carapace_rs_shlex::quote_word("a b", format),
+            j(&["a b"], format)
         );
     }
 }

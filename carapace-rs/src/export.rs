@@ -206,11 +206,11 @@ impl ExportMeta {
 /// workflow): reported as its version part on the export wire so
 /// development builds stay well-formed.
 const PLACEHOLDER: &[u8] = b"0.0.0-PLACEHOLDER";
-const PLACEHOLDER_VERSION: &str = "0.0.0";
+const RAW_VERSION: &str = env!("CARGO_PKG_VERSION");
+const PREFIXED_VERSION: &str = concat!("rs-", env!("CARGO_PKG_VERSION"));
 
 const fn crate_version() -> &'static str {
-    let version: &str = env!("CARGO_PKG_VERSION");
-    let bytes = version.as_bytes();
+    let bytes = RAW_VERSION.as_bytes();
     let mut is_placeholder = bytes.len() == PLACEHOLDER.len();
     let mut index = 0;
     while is_placeholder && index < PLACEHOLDER.len() {
@@ -220,8 +220,8 @@ const fn crate_version() -> &'static str {
         index += 1;
     }
     if is_placeholder {
-        PLACEHOLDER_VERSION
+        concat!("rs-", "0.0.0")
     } else {
-        version
+        PREFIXED_VERSION
     }
 }

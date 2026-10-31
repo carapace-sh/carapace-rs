@@ -1,4 +1,5 @@
 use carapace_rs::Action;
+use carapace_rs_clap::completer;
 use carapace_rs_testkit::Sandbox;
 use clap::{CommandFactory, Parser};
 
@@ -8,7 +9,7 @@ struct Cli {
     /// the deployment profile
     #[arg(
         long,
-        add = carapace_rs_clap::completer!(carapace_rs::Action::values(["dev", "prod"]))
+        add = completer!(Action::values(["dev", "prod"]))
     )]
     profile: Option<String>,
 }

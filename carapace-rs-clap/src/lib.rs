@@ -21,13 +21,17 @@ pub use integration::Carapace;
 /// `add = <expr>` escape hatch.
 ///
 /// ```
-/// # use clap::Parser;
+/// use clap::Parser;
+/// use carapace_rs::Action;
+/// use carapace_rs_clap::completer;
+///
 /// #[derive(Parser)]
 /// struct Cli {
-///     #[arg(long, add = carapace_rs_clap::completer!(carapace_rs::Action::values(["dev", "prod"])))]
+///     #[arg(long, add = completer!(Action::values(["dev", "prod"])))]
 ///     profile: Option<String>,
 /// }
 /// ```
+///
 #[macro_export]
 macro_rules! completer {
     ($action:expr) => {
